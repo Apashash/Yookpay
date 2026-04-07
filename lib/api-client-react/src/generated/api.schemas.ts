@@ -37,6 +37,8 @@ export interface User {
   email: string;
   name: string;
   phone?: string | null;
+  country?: string | null;
+  role: string;
   createdAt: string;
 }
 

@@ -7,6 +7,7 @@ import dashboardRouter from "./dashboard";
 import servicesRouter from "./services";
 import apiKeysRouter from "./apikeys";
 import kycRouter from "./kyc";
+import adminRouter from "./admin";
 
 const router: IRouter = Router();
 
@@ -18,5 +19,6 @@ router.use("/dashboard", dashboardRouter);
 router.use("/services", servicesRouter);
 router.use("/api-keys", apiKeysRouter);
 router.use("/kyc", kycRouter);
+router.use("/admin", adminRouter);
 
 export default router;

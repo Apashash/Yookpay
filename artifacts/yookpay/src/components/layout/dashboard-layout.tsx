@@ -14,6 +14,8 @@ import {
   Briefcase,
   KeyRound,
   ShieldCheck,
+  Users,
+  FileCheck,
 } from "lucide-react";
 import { YookPayLogo } from "@/components/yookpay-logo";
 import { Button } from "@/components/ui/button";
@@ -47,10 +49,16 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
     { href: "/withdraw",     label: "Retrait",        icon: ArrowUpFromLine },
     { href: "/transfer",     label: "Transfert",      icon: ArrowRightLeft },
     { href: "/transactions", label: "Transactions",   icon: ListOrdered },
-    { href: "/settings",     label: "Paramètres",     icon: Settings },
     { href: "/services",     label: "Mes Services",   icon: Briefcase },
     { href: "/api-keys",     label: "Clé API",        icon: KeyRound },
     { href: "/kyc",          label: "KYC / KYB",      icon: ShieldCheck },
+    { href: "/settings",     label: "Paramètres",     icon: Settings },
+  ];
+
+  const adminItems = [
+    { href: "/admin",         label: "Vue d'ensemble", icon: LayoutDashboard },
+    { href: "/admin/users",   label: "Utilisateurs",   icon: Users },
+    { href: "/admin/kyc",     label: "File KYC",        icon: FileCheck },
   ];
 
   const pageTitle = location.split("/")[1] || "Dashboard";
@@ -96,7 +104,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
         <nav className="flex-1 overflow-y-auto py-4 px-3 space-y-1">
           {navItems.map((item) => {
             const isActive =
-              location === item.href || location.startsWith(`${item.href}/`);
+              location === item.href || (item.href !== "/admin" && location.startsWith(`${item.href}/`));
             return (
               <Link key={item.href} href={item.href}>
                 <div
@@ -113,6 +121,32 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
               </Link>
             );
           })}
+
+          {/* Admin section — only visible to admins */}
+          {user?.role === "ADMIN" && (
+            <>
+              <div className="px-3 pt-4 pb-1">
+                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-widest">Administration</p>
+              </div>
+              {adminItems.map((item) => {
+                const isActive = location === item.href || (item.href !== "/admin" && location.startsWith(`${item.href}/`));
+                return (
+                  <Link key={item.href} href={item.href}>
+                    <div
+                      className={`flex items-center gap-3 px-3 py-3 rounded-md transition-colors cursor-pointer ${
+                        isActive
+                          ? "bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-400 font-medium"
+                          : "text-muted-foreground hover:bg-muted/50 hover:text-foreground"
+                      }`}
+                    >
+                      <item.icon className="h-5 w-5 flex-shrink-0" />
+                      <span>{item.label}</span>
+                    </div>
+                  </Link>
+                );
+              })}
+            </>
+          )}
         </nav>
 
         {/* User profile + logout */}

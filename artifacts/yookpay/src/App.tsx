@@ -16,6 +16,10 @@ import Settings from "@/pages/settings";
 import Services from "@/pages/services";
 import ApiKeys from "@/pages/api-keys";
 import Kyc from "@/pages/kyc";
+import AdminDashboard from "@/pages/admin/index";
+import AdminUsers from "@/pages/admin/users";
+import AdminUserDetail from "@/pages/admin/user-detail";
+import AdminKycQueue from "@/pages/admin/kyc-queue";
 import NotFound from "@/pages/not-found";
 
 const queryClient = new QueryClient();
@@ -30,6 +34,23 @@ function ProtectedRoute({ component: Component }: { component: React.ComponentTy
   if (!user) {
     return <Redirect to="/login" />;
   }
+  
+  return (
+    <DashboardLayout>
+      <Component />
+    </DashboardLayout>
+  );
+}
+
+function AdminRoute({ component: Component }: { component: React.ComponentType }) {
+  const { user, isLoading } = useAuth();
+  
+  if (isLoading) {
+    return <div className="min-h-screen bg-background flex items-center justify-center">Loading...</div>;
+  }
+  
+  if (!user) return <Redirect to="/login" />;
+  if (user.role !== "ADMIN") return <Redirect to="/dashboard" />;
   
   return (
     <DashboardLayout>
@@ -54,7 +75,13 @@ function Router() {
       <Route path="/settings"  component={() => <ProtectedRoute component={Settings} />} />
       <Route path="/services"  component={() => <ProtectedRoute component={Services} />} />
       <Route path="/api-keys"  component={() => <ProtectedRoute component={ApiKeys} />} />
-      <Route path="/kyc"       component={() => <ProtectedRoute component={Kyc} />} />
+      <Route path="/kyc"              component={() => <ProtectedRoute component={Kyc} />} />
+      
+      {/* Admin Routes */}
+      <Route path="/admin"            component={() => <AdminRoute component={AdminDashboard} />} />
+      <Route path="/admin/users"      component={() => <AdminRoute component={AdminUsers} />} />
+      <Route path="/admin/users/:id"  component={() => <AdminRoute component={AdminUserDetail} />} />
+      <Route path="/admin/kyc"        component={() => <AdminRoute component={AdminKycQueue} />} />
       
       <Route component={NotFound} />
     </Switch>

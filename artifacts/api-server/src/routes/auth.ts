@@ -61,6 +61,8 @@ router.post("/register", authRateLimit, async (req, res) => {
         email: user.email,
         name: user.name,
         phone: user.phone ?? null,
+        country: user.country ?? null,
+        role: user.role,
         createdAt: user.createdAt,
       },
     });
@@ -103,6 +105,8 @@ router.post("/login", authRateLimit, async (req, res) => {
         email: user.email,
         name: user.name,
         phone: user.phone ?? null,
+        country: user.country ?? null,
+        role: user.role,
         createdAt: user.createdAt,
       },
     });
@@ -131,6 +135,7 @@ router.get("/me", authMiddleware, async (req: AuthRequest, res) => {
       name: user.name,
       phone: user.phone ?? null,
       country: user.country ?? null,
+      role: user.role,
       createdAt: user.createdAt,
     });
   } catch (err) {
