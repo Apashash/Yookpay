@@ -118,6 +118,63 @@ export async function runStartupMigrations(): Promise<void> {
       END$$
     `);
 
+    // 6c. Ensure unique constraint name is consistent
+    await client.query(`
+      DO $$
+      BEGIN
+        IF NOT EXISTS (
+          SELECT 1 FROM information_schema.table_constraints
+          WHERE table_name = 'pixpay_services'
+            AND constraint_name = 'pixpay_services_uq'
+        ) THEN
+          ALTER TABLE pixpay_services DROP CONSTRAINT IF EXISTS pixpay_services_operator_currency_type_key;
+          ALTER TABLE pixpay_services DROP CONSTRAINT IF EXISTS pixpay_services_operator_country_currency_type_key;
+          ALTER TABLE pixpay_services ADD CONSTRAINT pixpay_services_uq UNIQUE(operator, country, currency, type);
+        END IF;
+      END$$
+    `);
+
+    // 6d. Seed all PixPay service IDs (ON CONFLICT DO NOTHING — preserves manual overrides)
+    await client.query(`
+      INSERT INTO pixpay_services (operator, country, currency, type, service_id, active, notes) VALUES
+        -- XOF — Côte d'Ivoire (CI)
+        ('ORANGE',   'CI', 'XOF', 'DEPOSIT',    2,   true, 'OM_CI CASH IN'),
+        ('ORANGE',   'CI', 'XOF', 'WITHDRAWAL', 1,   true, 'OM_CI CASH OUT'),
+        ('MOOV',     'CI', 'XOF', 'DEPOSIT',    4,   true, 'MOOV_CI CASH IN'),
+        ('MOOV',     'CI', 'XOF', 'WITHDRAWAL', 3,   true, 'MOOV_CI CASH OUT'),
+        ('MTN',      'CI', 'XOF', 'DEPOSIT',    6,   true, 'MTN_CI CASH IN'),
+        ('MTN',      'CI', 'XOF', 'WITHDRAWAL', 5,   true, 'MTN_CI CASH OUT'),
+        ('WAVE',     'CI', 'XOF', 'DEPOSIT',    8,   true, 'WAVE_CI CASH IN'),
+        ('WAVE',     'CI', 'XOF', 'WITHDRAWAL', 7,   true, 'WAVE_CI CASH OUT'),
+        -- XOF — Sénégal (SN)
+        ('WAVE',     'SN', 'XOF', 'DEPOSIT',    210, true, 'WAVE_SN CASH IN'),
+        ('WAVE',     'SN', 'XOF', 'WITHDRAWAL', 211, true, 'WAVE_SN CASH OUT'),
+        ('ORANGE',   'SN', 'XOF', 'DEPOSIT',    214, true, 'OM_SN CASH IN'),
+        ('ORANGE',   'SN', 'XOF', 'WITHDRAWAL', 213, true, 'OM_SN CASH OUT'),
+        ('FREE',     'SN', 'XOF', 'DEPOSIT',    340, true, 'MIX_SN CASH IN'),
+        ('FREE',     'SN', 'XOF', 'WITHDRAWAL', 341, true, 'MIX_SN CASH OUT'),
+        -- XOF — Burkina Faso (BF)
+        ('MOOV',     'BF', 'XOF', 'DEPOSIT',    238, true, 'MOOV_BF CASH IN'),
+        ('MOOV',     'BF', 'XOF', 'WITHDRAWAL', 239, true, 'MOOV_BF CASH OUT'),
+        ('ORANGE',   'BF', 'XOF', 'DEPOSIT',    240, true, 'ORANGE_BF CASH IN'),
+        ('ORANGE',   'BF', 'XOF', 'WITHDRAWAL', 241, true, 'ORANGE_BF CASH OUT'),
+        -- XAF — Cameroun (CM)
+        ('ORANGE',   'CM', 'XAF', 'DEPOSIT',    336, true, 'ORANGE_CM CASH IN'),
+        ('ORANGE',   'CM', 'XAF', 'WITHDRAWAL', 337, true, 'ORANGE_CM CASH OUT'),
+        ('MTN',      'CM', 'XAF', 'DEPOSIT',    338, true, 'MTN_CM CASH IN'),
+        ('MTN',      'CM', 'XAF', 'WITHDRAWAL', 339, true, 'MTN_CM CASH OUT'),
+        -- CDF — Congo RDC (CD)
+        ('VODACOM',  'CD', 'CDF', 'DEPOSIT',    342, true, 'MPESA_CD CASH IN'),
+        ('VODACOM',  'CD', 'CDF', 'WITHDRAWAL', 343, true, 'MPESA_CD CASH OUT'),
+        ('AIRTEL',   'CD', 'CDF', 'DEPOSIT',    344, true, 'AIRTEL_CD CASH IN'),
+        ('AIRTEL',   'CD', 'CDF', 'WITHDRAWAL', 345, true, 'AIRTEL_CD CASH OUT'),
+        ('ORANGE',   'CD', 'CDF', 'DEPOSIT',    346, true, 'ORANGE_CD CASH IN'),
+        ('ORANGE',   'CD', 'CDF', 'WITHDRAWAL', 347, true, 'ORANGE_CD CASH OUT'),
+        ('AFRICELL', 'CD', 'CDF', 'DEPOSIT',    348, true, 'AFRIMONEY_CD CASH IN'),
+        ('AFRICELL', 'CD', 'CDF', 'WITHDRAWAL', 349, true, 'AFRIMONEY_CD CASH OUT')
+      ON CONFLICT ON CONSTRAINT pixpay_services_uq DO NOTHING
+    `);
+
     // 7. Create platform_config table (key-value for Wave business_name_id, etc.)
     await client.query(`
       CREATE TABLE IF NOT EXISTS platform_config (
