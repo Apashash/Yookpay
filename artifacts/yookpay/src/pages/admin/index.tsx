@@ -1,15 +1,73 @@
 import { useQuery } from "@tanstack/react-query";
 import { customFetch } from "@workspace/api-client-react";
 import { Link } from "wouter";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Users, FileCheck, ArrowRightLeft, Star, ChevronRight, ShieldCheck } from "lucide-react";
+import {
+  Users, FileCheck, ArrowRightLeft, ShieldCheck,
+  ChevronRight, TrendingUp, BadgeDollarSign, CheckCircle2,
+} from "lucide-react";
 
 interface AdminStats {
   totalUsers: number;
   pendingKyc: number;
   totalTx: number;
   customFees: number;
+  successTx: number;
+  totalVolume: number;
+  totalMargin: number;
+  verifiedUsers: number;
+  byCurrency: Array<{ currency: string; volume: number; margin: number; count: number }>;
+}
+
+function fmtAmount(n: number) {
+  if (n >= 1_000_000) return (n / 1_000_000).toLocaleString("fr-FR", { maximumFractionDigits: 2 }) + " M";
+  if (n >= 1_000) return (n / 1_000).toLocaleString("fr-FR", { maximumFractionDigits: 1 }) + " K";
+  return n.toLocaleString("fr-FR", { maximumFractionDigits: 0 });
+}
+
+function StatCard({
+  label,
+  value,
+  sub,
+  icon: Icon,
+  colorClass,
+  isLoading,
+  href,
+}: {
+  label: string;
+  value: string | number | undefined;
+  sub?: string;
+  icon: React.ComponentType<{ className?: string }>;
+  colorClass: string;
+  isLoading: boolean;
+  href?: string;
+}) {
+  const inner = (
+    <div className={`relative bg-card border rounded-2xl p-5 ${href ? "hover:shadow-md hover:border-primary/30 transition-all cursor-pointer group" : ""}`}>
+      <div className="flex items-start justify-between">
+        <div className={`h-10 w-10 rounded-xl flex items-center justify-center ${colorClass}`}>
+          <Icon className="h-5 w-5" />
+        </div>
+        {href && <ChevronRight className="h-4 w-4 text-muted-foreground/40 group-hover:text-muted-foreground transition-colors mt-1" />}
+      </div>
+      <div className="mt-4">
+        {isLoading ? (
+          <>
+            <Skeleton className="h-8 w-28 mb-1" />
+            <Skeleton className="h-3 w-20" />
+          </>
+        ) : (
+          <>
+            <p className="text-2xl font-bold tracking-tight">{value ?? 0}</p>
+            <p className="text-sm text-muted-foreground mt-0.5">{label}</p>
+            {sub && <p className="text-xs text-muted-foreground/70 mt-0.5">{sub}</p>}
+          </>
+        )}
+      </div>
+    </div>
+  );
+
+  return href ? <Link href={href}>{inner}</Link> : inner;
 }
 
 export default function AdminDashboard() {
@@ -18,90 +76,142 @@ export default function AdminDashboard() {
     queryFn: () => customFetch<AdminStats>("/api/admin/stats"),
   });
 
-  const stats = [
-    { label: "Utilisateurs inscrits", value: data?.totalUsers, icon: Users, href: "/admin/users", color: "text-blue-600 bg-blue-100 dark:bg-blue-900/30" },
-    { label: "Documents KYC en attente", value: data?.pendingKyc, icon: FileCheck, href: "/admin/kyc", color: "text-amber-600 bg-amber-100 dark:bg-amber-900/30" },
-    { label: "Transactions totales", value: data?.totalTx, icon: ArrowRightLeft, href: null, color: "text-green-600 bg-green-100 dark:bg-green-900/30" },
-    { label: "Utilisateurs avec frais personnalisés", value: data?.customFees, icon: Star, href: "/admin/users", color: "text-purple-600 bg-purple-100 dark:bg-purple-900/30" },
-  ];
+  const marginRate = data && data.totalVolume > 0
+    ? ((data.totalMargin / data.totalVolume) * 100).toFixed(2)
+    : "—";
 
   return (
-    <div className="max-w-5xl mx-auto space-y-6">
+    <div className="max-w-5xl mx-auto space-y-7">
       {/* Header */}
       <div className="flex items-center gap-3">
         <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center">
           <ShieldCheck className="h-6 w-6 text-primary" />
         </div>
         <div>
-          <h1 className="text-2xl font-bold tracking-tight">Administration</h1>
-          <p className="text-muted-foreground text-sm">Vue d'ensemble de la plateforme YookPay</p>
+          <h1 className="text-2xl font-bold tracking-tight">Vue d'ensemble</h1>
+          <p className="text-muted-foreground text-sm">Tableau de bord YookPay</p>
         </div>
       </div>
 
-      {/* Stats grid */}
-      <div className="grid grid-cols-2 gap-4">
-        {stats.map((stat) => (
-          <Card key={stat.label} className={stat.href ? "cursor-pointer hover:shadow-md transition-shadow" : ""}>
-            {stat.href ? (
-              <Link href={stat.href}>
-                <CardContent className="pt-5 pb-5">
-                  <StatContent stat={stat} isLoading={isLoading} />
-                </CardContent>
-              </Link>
-            ) : (
-              <CardContent className="pt-5 pb-5">
-                <StatContent stat={stat} isLoading={isLoading} />
-              </CardContent>
-            )}
-          </Card>
-        ))}
+      {/* Section — Activité financière */}
+      <div>
+        <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground mb-3">Activité financière</p>
+        <div className="grid grid-cols-2 gap-3">
+          <StatCard
+            label="Volume traité"
+            value={data ? fmtAmount(data.totalVolume) + " F" : undefined}
+            sub={`${data?.successTx ?? 0} transaction${(data?.successTx ?? 0) > 1 ? "s" : ""} réussies`}
+            icon={TrendingUp}
+            colorClass="bg-green-50 text-green-600"
+            isLoading={isLoading}
+          />
+          <StatCard
+            label="Marge YookPay"
+            value={data ? fmtAmount(data.totalMargin) + " F" : undefined}
+            sub={`Taux moyen ${marginRate}%`}
+            icon={BadgeDollarSign}
+            colorClass="bg-emerald-50 text-emerald-600"
+            isLoading={isLoading}
+          />
+        </div>
+      </div>
+
+      {/* Détail par devise */}
+      {!isLoading && (data?.byCurrency?.length ?? 0) > 0 && (
+        <div className="bg-card border rounded-2xl overflow-hidden">
+          <div className="px-5 py-3 border-b bg-muted/30">
+            <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">Détail par devise</p>
+          </div>
+          <div className="divide-y">
+            {(data?.byCurrency ?? []).map((row) => (
+              <div key={row.currency} className="flex items-center gap-4 px-5 py-3.5">
+                <div className="h-8 w-8 rounded-lg bg-primary/10 flex items-center justify-center flex-shrink-0">
+                  <span className="text-xs font-bold text-primary">{row.currency}</span>
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-semibold">{row.currency}</p>
+                  <p className="text-xs text-muted-foreground">{row.count} tx réussie{row.count > 1 ? "s" : ""}</p>
+                </div>
+                <div className="text-right">
+                  <p className="text-sm font-bold tabular-nums">{fmtAmount(row.volume)} {row.currency}</p>
+                  <p className="text-xs text-emerald-600 font-medium tabular-nums">+{fmtAmount(row.margin)} {row.currency} marge</p>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Section — Utilisateurs */}
+      <div>
+        <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground mb-3">Utilisateurs</p>
+        <div className="grid grid-cols-2 gap-3">
+          <StatCard
+            label="Comptes inscrits"
+            value={data?.totalUsers}
+            sub={`dont ${data?.customFees ?? 0} avec frais perso`}
+            icon={Users}
+            colorClass="bg-blue-50 text-blue-600"
+            isLoading={isLoading}
+            href="/admin/users"
+          />
+          <StatCard
+            label="KYC/KYB vérifiés"
+            value={data?.verifiedUsers}
+            sub={`${data?.pendingKyc ?? 0} en attente de validation`}
+            icon={CheckCircle2}
+            colorClass="bg-violet-50 text-violet-600"
+            isLoading={isLoading}
+            href="/admin/kyc"
+          />
+        </div>
+      </div>
+
+      {/* Section — Transactions */}
+      <div>
+        <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground mb-3">Transactions</p>
+        <div className="grid grid-cols-2 gap-3">
+          <StatCard
+            label="Transactions totales"
+            value={data?.totalTx}
+            sub={`${data?.successTx ?? 0} réussies`}
+            icon={ArrowRightLeft}
+            colorClass="bg-sky-50 text-sky-600"
+            isLoading={isLoading}
+          />
+          <StatCard
+            label="Documents KYC en attente"
+            value={data?.pendingKyc}
+            icon={FileCheck}
+            colorClass="bg-amber-50 text-amber-600"
+            isLoading={isLoading}
+            href="/admin/kyc"
+          />
+        </div>
       </div>
 
       {/* Quick access */}
-      <div className="space-y-2">
-        <h2 className="text-sm font-medium text-muted-foreground uppercase tracking-wide">Accès rapide</h2>
-        <div className="grid grid-cols-1 gap-2">
+      <div>
+        <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground mb-3">Accès rapide</p>
+        <div className="bg-card border rounded-2xl overflow-hidden divide-y">
           {[
-            { href: "/admin/users", label: "Gérer les utilisateurs", desc: "Voir, modifier les frais et rôles", icon: Users },
-            { href: "/admin/kyc",   label: "File de vérification KYC", desc: "Valider ou rejeter les documents", icon: FileCheck },
+            { href: "/admin/users", label: "Gérer les utilisateurs", desc: "Voir, modifier les frais et les rôles", icon: Users },
+            { href: "/admin/kyc",   label: "File KYC / KYB",         desc: "Valider ou rejeter les documents soumis", icon: FileCheck },
           ].map((item) => (
             <Link key={item.href} href={item.href}>
-              <Card className="cursor-pointer hover:shadow-md transition-shadow hover:bg-muted/30">
-                <CardContent className="pt-4 pb-4">
-                  <div className="flex items-center gap-4">
-                    <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
-                      <item.icon className="h-5 w-5 text-primary" />
-                    </div>
-                    <div className="flex-1">
-                      <p className="font-semibold">{item.label}</p>
-                      <p className="text-sm text-muted-foreground">{item.desc}</p>
-                    </div>
-                    <ChevronRight className="h-5 w-5 text-muted-foreground" />
-                  </div>
-                </CardContent>
-              </Card>
+              <div className="flex items-center gap-4 px-5 py-4 hover:bg-muted/40 cursor-pointer transition-colors group">
+                <div className="h-9 w-9 rounded-xl bg-primary/10 flex items-center justify-center flex-shrink-0">
+                  <item.icon className="h-4 w-4 text-primary" />
+                </div>
+                <div className="flex-1">
+                  <p className="font-semibold text-sm">{item.label}</p>
+                  <p className="text-xs text-muted-foreground">{item.desc}</p>
+                </div>
+                <ChevronRight className="h-4 w-4 text-muted-foreground/40 group-hover:text-muted-foreground transition-colors" />
+              </div>
             </Link>
           ))}
         </div>
-      </div>
-    </div>
-  );
-}
-
-function StatContent({ stat, isLoading }: { stat: { label: string; value: number | undefined; icon: React.ComponentType<{ className?: string }>; color: string }; isLoading: boolean }) {
-  const Icon = stat.icon;
-  return (
-    <div className="flex items-center gap-4">
-      <div className={`h-11 w-11 rounded-full flex items-center justify-center flex-shrink-0 ${stat.color}`}>
-        <Icon className="h-5 w-5" />
-      </div>
-      <div>
-        {isLoading ? (
-          <Skeleton className="h-8 w-12 mb-1" />
-        ) : (
-          <p className="text-3xl font-bold">{stat.value ?? 0}</p>
-        )}
-        <p className="text-sm text-muted-foreground">{stat.label}</p>
       </div>
     </div>
   );

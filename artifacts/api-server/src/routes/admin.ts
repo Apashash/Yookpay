@@ -24,15 +24,49 @@ const GLOBAL_OPERATOR = "GLOBAL";
 // GET /admin/stats — dashboard stats
 router.get("/stats", async (req: AuthRequest, res) => {
   try {
-    const [{ totalUsers }] = await db.select({ totalUsers: sql<number>`count(*)::int` }).from(usersTable);
-    const [{ pendingKyc }] = await db
-      .select({ pendingKyc: sql<number>`count(*)::int` })
-      .from(kycDocumentsTable)
-      .where(eq(kycDocumentsTable.status, "PENDING"));
-    const [{ totalTx }] = await db.select({ totalTx: sql<number>`count(*)::int` }).from(transactionsTable);
-    const [{ customFees }] = await db.select({ customFees: sql<number>`count(distinct user_id)::int` }).from(userFeesTable);
+    const [
+      [{ totalUsers }],
+      [{ pendingKyc }],
+      [{ totalTx }],
+      [{ customFees }],
+      [{ totalVolume, totalMargin, successTx }],
+      [{ verifiedUsers }],
+      txByCurrency,
+    ] = await Promise.all([
+      db.select({ totalUsers: sql<number>`count(*)::int` }).from(usersTable),
+      db.select({ pendingKyc: sql<number>`count(*)::int` }).from(kycDocumentsTable).where(eq(kycDocumentsTable.status, "PENDING")),
+      db.select({ totalTx: sql<number>`count(*)::int` }).from(transactionsTable),
+      db.select({ customFees: sql<number>`count(distinct user_id)::int` }).from(userFeesTable),
+      db.select({
+        totalVolume: sql<string>`coalesce(sum(amount::numeric), 0)`,
+        totalMargin: sql<string>`coalesce(sum(fee::numeric), 0)`,
+        successTx:   sql<number>`count(*)::int`,
+      }).from(transactionsTable).where(eq(transactionsTable.status, "SUCCESS")),
+      db.select({ verifiedUsers: sql<number>`count(distinct user_id)::int` }).from(kycDocumentsTable).where(eq(kycDocumentsTable.status, "VERIFIED")),
+      db.select({
+        currency: transactionsTable.currency,
+        volume:   sql<string>`coalesce(sum(amount::numeric), 0)`,
+        margin:   sql<string>`coalesce(sum(fee::numeric), 0)`,
+        count:    sql<number>`count(*)::int`,
+      }).from(transactionsTable).where(eq(transactionsTable.status, "SUCCESS")).groupBy(transactionsTable.currency),
+    ]);
 
-    res.json({ totalUsers, pendingKyc, totalTx, customFees });
+    res.json({
+      totalUsers,
+      pendingKyc,
+      totalTx,
+      customFees,
+      successTx,
+      totalVolume: parseFloat(totalVolume),
+      totalMargin: parseFloat(totalMargin),
+      verifiedUsers,
+      byCurrency: txByCurrency.map((r) => ({
+        currency: r.currency,
+        volume: parseFloat(r.volume),
+        margin: parseFloat(r.margin),
+        count: r.count,
+      })),
+    });
   } catch (err) {
     req.log.error({ err }, "Admin stats error");
     res.status(500).json({ error: "InternalError", message: "Failed to fetch stats" });
