@@ -28,7 +28,7 @@ import { useToast } from "@/hooks/use-toast";
 import { COUNTRIES, OPERATOR_LABELS } from "@/lib/countries";
 import {
   ArrowLeft, CheckCircle2, XCircle, Clock, ShieldCheck,
-  Pencil, RotateCcw, Check, X, Star,
+  Pencil, RotateCcw, Check, X, Star, Ban, Unlock, Wallet,
 } from "lucide-react";
 
 interface RateCell {
@@ -58,8 +58,8 @@ interface EffectiveRate {
 }
 
 interface UserDetail {
-  user: { id: number; email: string; name: string; phone: string | null; country: string | null; role: string; createdAt: string };
-  wallets: Array<{ currency: string; balance: string }>;
+  user: { id: number; email: string; name: string; phone: string | null; country: string | null; role: string; status: string; createdAt: string };
+  wallets: Array<{ id: number; currency: string; balance: string }>;
   effectiveRates: EffectiveRate[];
   fullFeeTable: Record<string, CountryFeeTable>;
   fees: Array<{ id: number; country: string; operator: string; transactionType: string; rate: string; minFee: number; maxFee: number | null }>;
@@ -186,6 +186,76 @@ function EditableCell({
   );
 }
 
+function WalletBalanceEditor({
+  wallet,
+  userId,
+  onSaved,
+}: {
+  wallet: { id: number; currency: string; balance: string };
+  userId: number;
+  onSaved: () => void;
+}) {
+  const [editing, setEditing] = useState(false);
+  const [value, setValue] = useState(parseFloat(wallet.balance).toFixed(2));
+  const { toast } = useToast();
+
+  const mutation = useMutation({
+    mutationFn: () =>
+      customFetch(`/api/admin/users/${userId}/wallets/${wallet.currency}`, {
+        method: "PUT",
+        body: JSON.stringify({ balance: parseFloat(value), reason: "Ajustement admin" }),
+      }),
+    onSuccess: () => {
+      toast({ title: `Solde ${wallet.currency} mis à jour` });
+      setEditing(false);
+      onSaved();
+    },
+    onError: () => toast({ title: "Erreur de mise à jour", variant: "destructive" }),
+  });
+
+  if (editing) {
+    return (
+      <div className="flex items-center gap-1.5">
+        <div className="relative">
+          <Input
+            type="number"
+            min="0"
+            step="1"
+            value={value}
+            onChange={(e) => setValue(e.target.value)}
+            className="w-28 pr-8 text-sm h-8 font-mono"
+            autoFocus
+            onKeyDown={(e) => {
+              if (e.key === "Enter") mutation.mutate();
+              if (e.key === "Escape") { setEditing(false); setValue(parseFloat(wallet.balance).toFixed(2)); }
+            }}
+          />
+          <span className="absolute right-2 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">{wallet.currency}</span>
+        </div>
+        <Button size="icon" variant="ghost" className="h-8 w-8 text-green-600" onClick={() => mutation.mutate()} disabled={mutation.isPending}>
+          <Check className="h-3.5 w-3.5" />
+        </Button>
+        <Button size="icon" variant="ghost" className="h-8 w-8" onClick={() => { setEditing(false); setValue(parseFloat(wallet.balance).toFixed(2)); }}>
+          <X className="h-3.5 w-3.5" />
+        </Button>
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex items-center justify-between">
+      <div>
+        <span className="text-xs font-mono text-muted-foreground">{wallet.currency}</span>
+        <span className="ml-2 font-semibold tabular-nums">{parseFloat(wallet.balance).toLocaleString("fr-FR")}</span>
+      </div>
+      <Button size="icon" variant="ghost" className="h-7 w-7 text-muted-foreground hover:text-foreground"
+        onClick={() => { setValue(parseFloat(wallet.balance).toFixed(2)); setEditing(true); }}>
+        <Pencil className="h-3.5 w-3.5" />
+      </Button>
+    </div>
+  );
+}
+
 export default function AdminUserDetail() {
   const params = useParams<{ id: string }>();
   const userId = parseInt(params.id ?? "0");
@@ -207,6 +277,17 @@ export default function AdminUserDetail() {
       qc.invalidateQueries({ queryKey: ["admin-users"] });
       toast({ title: "Rôle mis à jour" });
     },
+  });
+
+  const banMutation = useMutation({
+    mutationFn: (status: "ACTIVE" | "BANNED") =>
+      customFetch(`/api/admin/users/${userId}/ban`, { method: "PATCH", body: JSON.stringify({ status }) }),
+    onSuccess: (result: any) => {
+      qc.invalidateQueries({ queryKey: ["admin-user", userId] });
+      qc.invalidateQueries({ queryKey: ["admin-users"] });
+      toast({ title: result.message ?? "Statut mis à jour" });
+    },
+    onError: () => toast({ title: "Erreur", variant: "destructive" }),
   });
 
   if (isLoading) {
@@ -245,11 +326,16 @@ export default function AdminUserDetail() {
             {user.name.charAt(0).toUpperCase()}
           </div>
           <div>
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 flex-wrap">
               <h1 className="text-2xl font-bold">{user.name}</h1>
               {user.role === "ADMIN" && (
                 <Badge variant="outline" className="text-purple-700 border-purple-200 bg-purple-50">
                   <ShieldCheck className="h-3.5 w-3.5 mr-1" />Admin
+                </Badge>
+              )}
+              {user.status === "BANNED" && (
+                <Badge variant="outline" className="text-red-700 border-red-300 bg-red-50 font-semibold">
+                  <Ban className="h-3.5 w-3.5 mr-1" />Compte banni
                 </Badge>
               )}
             </div>
@@ -261,57 +347,99 @@ export default function AdminUserDetail() {
         </div>
       </div>
 
-      {/* Wallets + Role */}
+      {/* Wallets + Actions */}
       <div className="grid grid-cols-2 gap-4">
+        {/* Wallets with editable balances */}
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">Portefeuilles</CardTitle>
+            <div className="flex items-center gap-2">
+              <Wallet className="h-4 w-4 text-muted-foreground" />
+              <CardTitle className="text-sm font-medium text-muted-foreground">Portefeuilles</CardTitle>
+            </div>
           </CardHeader>
           <CardContent>
             {wallets.length === 0 ? (
               <p className="text-sm text-muted-foreground">Aucun portefeuille</p>
             ) : (
-              <div className="space-y-1">
+              <div className="space-y-2">
                 {wallets.map((w) => (
-                  <div key={w.currency} className="flex items-center justify-between">
-                    <span className="text-sm font-mono text-muted-foreground">{w.currency}</span>
-                    <span className="font-semibold">{parseFloat(w.balance).toLocaleString("fr-FR")}</span>
-                  </div>
+                  <WalletBalanceEditor key={w.currency} wallet={w} userId={userId} onSaved={refresh} />
                 ))}
               </div>
             )}
           </CardContent>
         </Card>
 
-        <Card>
+        {/* Role + Ban */}
+        <Card className={user.status === "BANNED" ? "border-red-200 bg-red-50/50" : ""}>
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">Rôle du compte</CardTitle>
+            <CardTitle className="text-sm font-medium text-muted-foreground">Gestion du compte</CardTitle>
           </CardHeader>
           <CardContent className="space-y-3">
-            <p className="text-sm">Rôle actuel : <strong>{user.role === "ADMIN" ? "Administrateur" : "Utilisateur"}</strong></p>
-            <AlertDialog>
-              <AlertDialogTrigger asChild>
-                <Button variant="outline" size="sm" className="w-full">
-                  {user.role === "ADMIN" ? "Rétrograder en utilisateur" : "Promouvoir en admin"}
-                </Button>
-              </AlertDialogTrigger>
-              <AlertDialogContent>
-                <AlertDialogHeader>
-                  <AlertDialogTitle>{user.role === "ADMIN" ? "Rétrograder cet admin ?" : "Promouvoir en administrateur ?"}</AlertDialogTitle>
-                  <AlertDialogDescription>
-                    {user.role === "ADMIN"
-                      ? `${user.name} perdra tous les accès admin.`
-                      : `${user.name} aura accès au panneau d'administration complet.`}
-                  </AlertDialogDescription>
-                </AlertDialogHeader>
-                <AlertDialogFooter>
-                  <AlertDialogCancel>Annuler</AlertDialogCancel>
-                  <AlertDialogAction onClick={() => roleMutation.mutate(user.role === "ADMIN" ? "USER" : "ADMIN")}>
-                    Confirmer
-                  </AlertDialogAction>
-                </AlertDialogFooter>
-              </AlertDialogContent>
-            </AlertDialog>
+            {/* Role */}
+            <div>
+              <p className="text-xs text-muted-foreground mb-1.5">Rôle</p>
+              <AlertDialog>
+                <AlertDialogTrigger asChild>
+                  <Button variant="outline" size="sm" className="w-full">
+                    {user.role === "ADMIN" ? "Rétrograder en utilisateur" : "Promouvoir en admin"}
+                  </Button>
+                </AlertDialogTrigger>
+                <AlertDialogContent>
+                  <AlertDialogHeader>
+                    <AlertDialogTitle>{user.role === "ADMIN" ? "Rétrograder ?" : "Promouvoir en admin ?"}</AlertDialogTitle>
+                    <AlertDialogDescription>
+                      {user.role === "ADMIN" ? `${user.name} perdra tous les accès admin.` : `${user.name} aura accès au panneau d'administration.`}
+                    </AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel>Annuler</AlertDialogCancel>
+                    <AlertDialogAction onClick={() => roleMutation.mutate(user.role === "ADMIN" ? "USER" : "ADMIN")}>Confirmer</AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
+            </div>
+
+            {/* Ban */}
+            <div>
+              <p className="text-xs text-muted-foreground mb-1.5">Suspension</p>
+              <AlertDialog>
+                <AlertDialogTrigger asChild>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className={`w-full gap-2 ${user.status === "BANNED" ? "border-green-300 text-green-700 hover:bg-green-50" : "border-red-200 text-red-700 hover:bg-red-50"}`}
+                    disabled={banMutation.isPending}
+                  >
+                    {user.status === "BANNED"
+                      ? <><Unlock className="h-3.5 w-3.5" />Réactiver le compte</>
+                      : <><Ban className="h-3.5 w-3.5" />Bannir l'utilisateur</>
+                    }
+                  </Button>
+                </AlertDialogTrigger>
+                <AlertDialogContent>
+                  <AlertDialogHeader>
+                    <AlertDialogTitle>
+                      {user.status === "BANNED" ? "Réactiver ce compte ?" : "Bannir cet utilisateur ?"}
+                    </AlertDialogTitle>
+                    <AlertDialogDescription>
+                      {user.status === "BANNED"
+                        ? `${user.name} pourra à nouveau accéder à son compte et effectuer des transactions.`
+                        : `${user.name} sera immédiatement bloqué et ne pourra plus accéder à son compte. Ses portefeuilles seront conservés.`}
+                    </AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel>Annuler</AlertDialogCancel>
+                    <AlertDialogAction
+                      className={user.status === "BANNED" ? "bg-green-600 hover:bg-green-700" : "bg-red-600 hover:bg-red-700"}
+                      onClick={() => banMutation.mutate(user.status === "BANNED" ? "ACTIVE" : "BANNED")}
+                    >
+                      {user.status === "BANNED" ? "Réactiver" : "Bannir"}
+                    </AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
+            </div>
           </CardContent>
         </Card>
       </div>

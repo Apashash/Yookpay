@@ -84,6 +84,7 @@ router.get("/users", async (req: AuthRequest, res) => {
         phone: usersTable.phone,
         country: usersTable.country,
         role: usersTable.role,
+        status: sql<string>`coalesce(users.status, 'ACTIVE')`,
         createdAt: usersTable.createdAt,
       })
       .from(usersTable)
@@ -240,7 +241,7 @@ router.get("/users/:id", async (req: AuthRequest, res) => {
     }
 
     res.json({
-      user: { id: user.id, email: user.email, name: user.name, phone: user.phone, country: user.country, role: user.role, createdAt: user.createdAt },
+      user: { id: user.id, email: user.email, name: user.name, phone: user.phone, country: user.country, role: user.role, status: (user as any).status ?? "ACTIVE", createdAt: user.createdAt },
       wallets,
       effectiveRates,
       fullFeeTable,
@@ -499,6 +500,108 @@ router.patch("/users/:id/role", async (req: AuthRequest, res) => {
   } catch (err) {
     req.log.error({ err }, "Admin update role error");
     res.status(500).json({ error: "InternalError", message: "Failed to update role" });
+  }
+});
+
+// PATCH /admin/users/:id/ban — ban or unban a user
+router.patch("/users/:id/ban", async (req: AuthRequest, res) => {
+  const userId = parseInt(req.params.id);
+  if (isNaN(userId)) {
+    res.status(400).json({ error: "ValidationError", message: "Invalid user ID" });
+    return;
+  }
+  if (userId === req.userId) {
+    res.status(400).json({ error: "Forbidden", message: "Impossible de bannir votre propre compte" });
+    return;
+  }
+
+  const schema = z.object({ status: z.enum(["ACTIVE", "BANNED"]) });
+  const parse = schema.safeParse(req.body);
+  if (!parse.success) {
+    res.status(400).json({ error: "ValidationError", message: "Statut invalide (ACTIVE ou BANNED)" });
+    return;
+  }
+
+  try {
+    const [user] = await db.select().from(usersTable).where(eq(usersTable.id, userId)).limit(1);
+    if (!user) {
+      res.status(404).json({ error: "NotFound", message: "Utilisateur introuvable" });
+      return;
+    }
+
+    await db
+      .update(usersTable)
+      .set({ status: parse.data.status } as any)
+      .where(eq(usersTable.id, userId));
+
+    req.log.info({ adminId: req.userId, targetUserId: userId, status: parse.data.status }, "User ban status updated");
+    res.json({
+      success: true,
+      status: parse.data.status,
+      message: parse.data.status === "BANNED" ? "Utilisateur banni avec succès" : "Utilisateur réactivé avec succès",
+    });
+  } catch (err) {
+    req.log.error({ err }, "Admin ban user error");
+    res.status(500).json({ error: "InternalError", message: "Impossible de modifier le statut" });
+  }
+});
+
+// PUT /admin/users/:id/wallets/:currency — update a user's wallet balance
+router.put("/users/:id/wallets/:currency", async (req: AuthRequest, res) => {
+  const userId = parseInt(req.params.id);
+  const currency = req.params.currency.toUpperCase();
+
+  if (isNaN(userId)) {
+    res.status(400).json({ error: "ValidationError", message: "Invalid user ID" });
+    return;
+  }
+
+  const schema = z.object({
+    balance: z.number().min(0, "Le solde ne peut pas être négatif"),
+    reason: z.string().max(200).optional(),
+  });
+
+  const parse = schema.safeParse(req.body);
+  if (!parse.success) {
+    res.status(400).json({ error: "ValidationError", message: parse.error.errors[0]?.message ?? "Solde invalide" });
+    return;
+  }
+
+  try {
+    const [wallet] = await db
+      .select()
+      .from(walletsTable)
+      .where(and(eq(walletsTable.userId, userId), eq(walletsTable.currency, currency)))
+      .limit(1);
+
+    if (!wallet) {
+      res.status(404).json({ error: "NotFound", message: `Aucun portefeuille ${currency} pour cet utilisateur` });
+      return;
+    }
+
+    const oldBalance = parseFloat(wallet.balance);
+    const newBalance = parse.data.balance;
+
+    await db
+      .update(walletsTable)
+      .set({ balance: newBalance.toString(), updatedAt: new Date() })
+      .where(eq(walletsTable.id, wallet.id));
+
+    req.log.info(
+      { adminId: req.userId, targetUserId: userId, currency, oldBalance, newBalance, reason: parse.data.reason },
+      "Admin wallet balance updated"
+    );
+
+    res.json({
+      success: true,
+      currency,
+      oldBalance,
+      newBalance,
+      message: `Solde ${currency} mis à jour : ${newBalance.toLocaleString("fr-FR")} ${currency}`,
+    });
+  } catch (err) {
+    req.log.error({ err }, "Admin update wallet error");
+    res.status(500).json({ error: "InternalError", message: "Impossible de modifier le solde" });
   }
 });
 

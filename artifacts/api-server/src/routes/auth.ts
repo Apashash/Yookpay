@@ -95,6 +95,12 @@ router.post("/login", authRateLimit, async (req, res) => {
       return;
     }
 
+    if ((user as any).status === "BANNED") {
+      req.log.warn({ email, userId: user.id }, "Banned user attempted login");
+      res.status(403).json({ error: "Banned", message: "Votre compte a été suspendu. Contactez le support." });
+      return;
+    }
+
     const token = signToken(user.id);
     req.log.info({ userId: user.id }, "User logged in");
 
@@ -129,6 +135,11 @@ router.get("/me", authMiddleware, async (req: AuthRequest, res) => {
       return;
     }
 
+    if ((user as any).status === "BANNED") {
+      res.status(403).json({ error: "Banned", message: "Votre compte a été suspendu. Contactez le support." });
+      return;
+    }
+
     res.json({
       id: user.id,
       email: user.email,
@@ -136,6 +147,7 @@ router.get("/me", authMiddleware, async (req: AuthRequest, res) => {
       phone: user.phone ?? null,
       country: user.country ?? null,
       role: user.role,
+      status: (user as any).status ?? "ACTIVE",
       createdAt: user.createdAt,
     });
   } catch (err) {

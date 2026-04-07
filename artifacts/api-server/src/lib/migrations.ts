@@ -8,10 +8,14 @@ const ADMIN_EMAILS = ["Mfouapon0237@gmail.com"];
 export async function runStartupMigrations(): Promise<void> {
   const client = await pool.connect();
   try {
-    // 1. Ensure role column exists (idempotent)
+    // 1. Ensure role and status columns exist (idempotent)
     await client.query(`
       ALTER TABLE users
       ADD COLUMN IF NOT EXISTS role VARCHAR(20) NOT NULL DEFAULT 'USER'
+    `);
+    await client.query(`
+      ALTER TABLE users
+      ADD COLUMN IF NOT EXISTS status VARCHAR(20) NOT NULL DEFAULT 'ACTIVE'
     `);
 
     // 2. Ensure all expected tables exist for new features

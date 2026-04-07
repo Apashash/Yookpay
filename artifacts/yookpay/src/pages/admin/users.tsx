@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { COUNTRIES } from "@/lib/countries";
-import { Search, ChevronRight, ShieldCheck, Users, Wallet, TrendingUp } from "lucide-react";
+import { Search, ChevronRight, ShieldCheck, Users, Wallet, TrendingUp, Ban } from "lucide-react";
 
 interface AdminUser {
   id: number;
@@ -15,6 +15,7 @@ interface AdminUser {
   phone: string | null;
   country: string | null;
   role: string;
+  status: string;
   createdAt: string;
   wallets: Array<{ currency: string; balance: string }>;
   kycStatus: "NONE" | "PENDING" | "PARTIAL";
@@ -170,10 +171,15 @@ export default function AdminUsers() {
                   {/* Main info */}
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 flex-wrap">
-                      <span className="font-semibold text-sm leading-tight">{user.name}</span>
+                      <span className={`font-semibold text-sm leading-tight ${user.status === "BANNED" ? "text-red-600" : ""}`}>{user.name}</span>
                       {user.role === "ADMIN" && (
                         <Badge variant="outline" className="text-[10px] h-4 px-1.5 text-purple-700 border-purple-200 bg-purple-50 font-medium">
                           Admin
+                        </Badge>
+                      )}
+                      {user.status === "BANNED" && (
+                        <Badge variant="outline" className="text-[10px] h-4 px-1.5 text-red-700 border-red-200 bg-red-50 font-medium gap-0.5">
+                          <Ban className="h-2.5 w-2.5" />Banni
                         </Badge>
                       )}
                       {user.hasCustomFees && (

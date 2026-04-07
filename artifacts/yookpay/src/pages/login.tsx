@@ -57,10 +57,13 @@ export default function Login() {
           });
         },
         onError: (err) => {
+          const isBanned = (err as any)?.error === "Banned";
           toast({
             variant: "destructive",
-            title: "Login failed",
-            description: err.error?.message || "Please check your credentials and try again.",
+            title: isBanned ? "Compte suspendu" : "Connexion échouée",
+            description: isBanned
+              ? "Votre compte a été suspendu. Contactez le support YookPay."
+              : err.error?.message || "Vérifiez vos identifiants et réessayez.",
           });
         },
       }
