@@ -95,10 +95,11 @@ export default function Withdraw() {
   // Instant local recalculation using the cached rate when only amount changes
   useEffect(() => {
     if (!feePreview || !amount || amount < 100) return;
-    const feeAmount = Math.max(Math.round(amount * feePreview.feeRate), 1);
-    const netAmount = Math.max(amount + feeAmount, 0);
+    const amt = Number(amount);
+    const feeAmount = Math.max(Math.round(amt * feePreview.feeRate), 1);
+    const netAmount = Math.max(amt + feeAmount, 0);
     setFeePreview((prev) =>
-      prev ? { ...prev, grossAmount: Number(amount), feeAmount: Number(feeAmount), netAmount: Number(netAmount) } : null
+      prev ? { ...prev, grossAmount: amt, feeAmount, netAmount } : null
     );
   }, [amount]); // eslint-disable-line react-hooks/exhaustive-deps
 
