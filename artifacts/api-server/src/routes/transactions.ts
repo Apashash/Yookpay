@@ -17,6 +17,20 @@ import {
 import { callPixPayAirtime, getOperatorFlow, type PixPayCallParams } from "../lib/pixpay";
 import { z } from "zod";
 
+const OPERATOR_LABELS: Record<string, string> = {
+  MTN:      "MTN Mobile Money",
+  ORANGE:   "Orange Money",
+  MOOV:     "Moov Money",
+  WAVE:     "Wave",
+  AIRTEL:   "Airtel Money",
+  VODACOM:  "M-Pesa (Vodacom)",
+  AFRICELL: "Africell Money",
+  QMONEY:   "QMoney",
+  CELLCOM:  "Cellcom Money",
+  FREE:     "Free Money",
+  TOGOCEL:  "T-Money (Togocel)",
+};
+
 const GLOBAL_COUNTRY = "ZZ";
 const GLOBAL_OPERATOR = "GLOBAL";
 
@@ -229,6 +243,16 @@ router.post("/deposit", authMiddleware, transactionRateLimit, async (req: AuthRe
       ? calculateFeeWithRate(amount, country as Country, operator as Operator, "DEPOSIT", userRate)
       : calculateFee(amount, country as Country, operator as Operator, "DEPOSIT");
 
+    // Check service availability BEFORE creating the transaction
+    const serviceId = await getPixPayServiceId(operator, currency, "DEPOSIT");
+    if (serviceId === null) {
+      res.status(503).json({
+        error: "ServiceNotAvailable",
+        message: `Le dépôt via ${OPERATOR_LABELS[operator] ?? operator} (${currency}) n'est pas encore disponible. Contactez le support YookPay.`,
+      });
+      return;
+    }
+
     const [tx] = await db
       .insert(transactionsTable)
       .values({
@@ -253,84 +277,59 @@ router.post("/deposit", authMiddleware, transactionRateLimit, async (req: AuthRe
       "Deposit transaction created — calling PixPay"
     );
 
-    const serviceId = await getPixPayServiceId(operator, currency, "DEPOSIT");
+    const pixParams: PixPayCallParams = {
+      currency,
+      serviceId,
+      amount,
+      phone,
+      customData: reference,
+      omOtp,
+    };
 
-    if (serviceId !== null) {
-      const pixParams: PixPayCallParams = {
-        currency,
-        serviceId,
-        amount,
-        phone,
-        customData: reference,
-        omOtp,
-      };
-
-      if (flow === "WAVE") {
-        const waveBusinessNameId = await getPlatformConfig("WAVE_BUSINESS_NAME_ID");
-        const waveRedirectUrl = await getPlatformConfig("WAVE_REDIRECT_URL");
-        const waveRedirectErrorUrl = await getPlatformConfig("WAVE_REDIRECT_ERROR_URL");
-        if (waveBusinessNameId) {
-          pixParams.businessNameId = waveBusinessNameId;
-          pixParams.redirectUrl = waveRedirectUrl ?? "";
-          pixParams.redirectErrorUrl = waveRedirectErrorUrl ?? "";
-        }
+    if (flow === "WAVE") {
+      const waveBusinessNameId = await getPlatformConfig("WAVE_BUSINESS_NAME_ID");
+      const waveRedirectUrl = await getPlatformConfig("WAVE_REDIRECT_URL");
+      const waveRedirectErrorUrl = await getPlatformConfig("WAVE_REDIRECT_ERROR_URL");
+      if (waveBusinessNameId) {
+        pixParams.businessNameId = waveBusinessNameId;
+        pixParams.redirectUrl = waveRedirectUrl ?? "";
+        pixParams.redirectErrorUrl = waveRedirectErrorUrl ?? "";
       }
-
-      const pixResult = await callPixPayAirtime(pixParams);
-
-      await db
-        .update(transactionsTable)
-        .set({
-          providerReference: pixResult.pixTransactionId,
-          metadata: {
-            initiatedAt: new Date().toISOString(),
-            feeBearer,
-            flow,
-            pixState: pixResult.state,
-            pixMessage: pixResult.message,
-            smsLink: pixResult.smsLink,
-          },
-          updatedAt: new Date(),
-        })
-        .where(eq(transactionsTable.id, tx.id));
-
-      req.log.info(
-        { txId: tx.id, pixId: pixResult.pixTransactionId, pixState: pixResult.state },
-        "PixPay deposit initiated — awaiting IPN"
-      );
-
-      res.status(201).json({
-        transaction: formatTx(tx),
-        feeBreakdown,
-        feeBearer,
-        flow,
-        pixState: pixResult.state,
-        smsLink: pixResult.smsLink,
-        message: pixResult.message,
-        pending: true,
-      });
-    } else {
-      // No service configured — mark as failed immediately
-      const [updatedTx] = await db
-        .update(transactionsTable)
-        .set({
-          status: "FAILED",
-          metadata: { initiatedAt: new Date().toISOString(), feeBearer, flow, error: "Service PixPay non configuré pour cet opérateur" },
-          updatedAt: new Date(),
-        })
-        .where(eq(transactionsTable.id, tx.id))
-        .returning();
-
-      req.log.warn({ txId: tx.id, operator, currency }, "No PixPay service_id configured");
-      res.status(201).json({
-        transaction: formatTx(updatedTx),
-        feeBreakdown,
-        feeBearer,
-        flow,
-        pending: false,
-        message: "Service de paiement non configuré pour cet opérateur. Contactez le support.",
-      });
     }
+
+    const pixResult = await callPixPayAirtime(pixParams);
+
+    await db
+      .update(transactionsTable)
+      .set({
+        providerReference: pixResult.pixTransactionId,
+        metadata: {
+          initiatedAt: new Date().toISOString(),
+          feeBearer,
+          flow,
+          pixState: pixResult.state,
+          pixMessage: pixResult.message,
+          smsLink: pixResult.smsLink,
+        },
+        updatedAt: new Date(),
+      })
+      .where(eq(transactionsTable.id, tx.id));
+
+    req.log.info(
+      { txId: tx.id, pixId: pixResult.pixTransactionId, pixState: pixResult.state },
+      "PixPay deposit initiated — awaiting IPN"
+    );
+
+    res.status(201).json({
+      transaction: formatTx(tx),
+      feeBreakdown,
+      feeBearer,
+      flow,
+      pixState: pixResult.state,
+      smsLink: pixResult.smsLink,
+      message: pixResult.message,
+      pending: true,
+    });
   } catch (err) {
     req.log.error({ err, reference }, "Deposit error");
     const msg = err instanceof Error ? err.message : "Dépôt échoué";
@@ -408,6 +407,16 @@ router.post("/withdraw", authMiddleware, transactionRateLimit, async (req: AuthR
 
     const flow = getOperatorFlow(operator);
 
+    // Check service availability BEFORE touching the wallet
+    const serviceId = await getPixPayServiceId(operator, currency, "WITHDRAWAL");
+    if (serviceId === null) {
+      res.status(503).json({
+        error: "ServiceNotAvailable",
+        message: `Le retrait via ${OPERATOR_LABELS[operator] ?? operator} (${currency}) n'est pas encore disponible. Contactez le support YookPay.`,
+      });
+      return;
+    }
+
     // Deduct wallet BEFORE calling PixPay (IPN will refund on FAILED)
     const debitAmount = requiredBalance;
     const newBalance = parseFloat(wallet.balance) - debitAmount;
@@ -440,89 +449,58 @@ router.post("/withdraw", authMiddleware, transactionRateLimit, async (req: AuthR
       "Withdrawal transaction created — wallet reserved — calling PixPay"
     );
 
-    const serviceId = await getPixPayServiceId(operator, currency, "WITHDRAWAL");
+    const pixParams: PixPayCallParams = {
+      currency,
+      serviceId,
+      amount,
+      phone,
+      customData: reference,
+    };
 
-    if (serviceId !== null) {
-      const pixParams: PixPayCallParams = {
-        currency,
-        serviceId,
-        amount,
-        phone,
-        customData: reference,
-      };
-
-      if (flow === "WAVE") {
-        const waveBusinessNameId = await getPlatformConfig("WAVE_BUSINESS_NAME_ID");
-        const waveRedirectUrl = await getPlatformConfig("WAVE_REDIRECT_URL");
-        const waveRedirectErrorUrl = await getPlatformConfig("WAVE_REDIRECT_ERROR_URL");
-        if (waveBusinessNameId) {
-          pixParams.businessNameId = waveBusinessNameId;
-          pixParams.redirectUrl = waveRedirectUrl ?? "";
-          pixParams.redirectErrorUrl = waveRedirectErrorUrl ?? "";
-        }
+    if (flow === "WAVE") {
+      const waveBusinessNameId = await getPlatformConfig("WAVE_BUSINESS_NAME_ID");
+      const waveRedirectUrl = await getPlatformConfig("WAVE_REDIRECT_URL");
+      const waveRedirectErrorUrl = await getPlatformConfig("WAVE_REDIRECT_ERROR_URL");
+      if (waveBusinessNameId) {
+        pixParams.businessNameId = waveBusinessNameId;
+        pixParams.redirectUrl = waveRedirectUrl ?? "";
+        pixParams.redirectErrorUrl = waveRedirectErrorUrl ?? "";
       }
-
-      const pixResult = await callPixPayAirtime(pixParams);
-
-      await db
-        .update(transactionsTable)
-        .set({
-          providerReference: pixResult.pixTransactionId,
-          metadata: {
-            initiatedAt: new Date().toISOString(),
-            feeBearer,
-            flow,
-            pixState: pixResult.state,
-            pixMessage: pixResult.message,
-            smsLink: pixResult.smsLink,
-          },
-          updatedAt: new Date(),
-        })
-        .where(eq(transactionsTable.id, tx.id));
-
-      req.log.info(
-        { txId: tx.id, pixId: pixResult.pixTransactionId, pixState: pixResult.state },
-        "PixPay withdrawal initiated — awaiting IPN"
-      );
-
-      res.status(201).json({
-        transaction: formatTx(tx),
-        feeBreakdown,
-        feeBearer,
-        flow,
-        pixState: pixResult.state,
-        smsLink: pixResult.smsLink,
-        message: pixResult.message,
-        pending: true,
-      });
-    } else {
-      // No service configured — refund wallet immediately
-      const refundedBalance = parseFloat(wallet.balance);
-      await db
-        .update(walletsTable)
-        .set({ balance: refundedBalance.toFixed(2), updatedAt: new Date() })
-        .where(eq(walletsTable.id, wallet.id));
-
-      const [updatedTx] = await db
-        .update(transactionsTable)
-        .set({
-          status: "FAILED",
-          metadata: { initiatedAt: new Date().toISOString(), feeBearer, flow, error: "Service PixPay non configuré" },
-          updatedAt: new Date(),
-        })
-        .where(eq(transactionsTable.id, tx.id))
-        .returning();
-
-      req.log.warn({ txId: tx.id, operator, currency }, "No PixPay service_id configured — withdrawal refunded");
-      res.status(201).json({
-        transaction: formatTx(updatedTx),
-        feeBreakdown,
-        feeBearer,
-        flow,
-        pending: false,
-        message: "Service de paiement non configuré pour cet opérateur. Contactez le support.",
-      });
     }
+
+    const pixResult = await callPixPayAirtime(pixParams);
+
+    await db
+      .update(transactionsTable)
+      .set({
+        providerReference: pixResult.pixTransactionId,
+        metadata: {
+          initiatedAt: new Date().toISOString(),
+          feeBearer,
+          flow,
+          pixState: pixResult.state,
+          pixMessage: pixResult.message,
+          smsLink: pixResult.smsLink,
+        },
+        updatedAt: new Date(),
+      })
+      .where(eq(transactionsTable.id, tx.id));
+
+    req.log.info(
+      { txId: tx.id, pixId: pixResult.pixTransactionId, pixState: pixResult.state },
+      "PixPay withdrawal initiated — awaiting IPN"
+    );
+
+    res.status(201).json({
+      transaction: formatTx(tx),
+      feeBreakdown,
+      feeBearer,
+      flow,
+      pixState: pixResult.state,
+      smsLink: pixResult.smsLink,
+      message: pixResult.message,
+      pending: true,
+    });
   } catch (err) {
     req.log.error({ err, reference }, "Withdrawal error");
     const msg = err instanceof Error ? err.message : "Retrait échoué";

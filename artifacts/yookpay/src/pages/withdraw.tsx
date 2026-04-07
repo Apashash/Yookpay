@@ -92,6 +92,17 @@ export default function Withdraw() {
     setPendingResult(null);
   }, [country]);
 
+  // Instant local recalculation using the cached rate when only amount changes
+  useEffect(() => {
+    if (!feePreview || !amount || amount < 100) return;
+    const feeAmount = Math.max(Math.round(amount * feePreview.feeRate), 1);
+    const netAmount = Math.max(amount + feeAmount, 0);
+    setFeePreview((prev) =>
+      prev ? { ...prev, grossAmount: amount, feeAmount, netAmount } : null
+    );
+  }, [amount]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // API call for accurate rate (debounced, fires on operator/country change too)
   useEffect(() => {
     if (!amount || amount < 100 || !country || !operator) return;
     let active = true;
@@ -101,7 +112,7 @@ export default function Withdraw() {
         const res = await getFeePreview({ amount, country, operator, type: "WITHDRAWAL" });
         if (active) setFeePreview(res as FeePreview);
       } catch { /* silent */ }
-    }, 500);
+    }, 200);
     return () => { active = false; clearTimeout(id); };
   }, [amount, country, operator]);
 
