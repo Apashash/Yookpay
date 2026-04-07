@@ -1,11 +1,12 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { useCreateDeposit } from "@workspace/api-client-react";
+import { useCreateDeposit, customFetch, getGetWalletsQueryKey, getGetDashboardSummaryQueryKey } from "@workspace/api-client-react";
 import { formatCurrency } from "@/lib/format";
 import { useToast } from "@/hooks/use-toast";
 import { useLocation } from "wouter";
+import { useQueryClient } from "@tanstack/react-query";
 import { COUNTRIES, OPERATOR_LABELS } from "@/lib/countries";
 import { getOperatorFlow } from "@/lib/operator-flow";
 
@@ -59,20 +60,72 @@ type FeePreview = {
 };
 
 type DepositResult = {
-  transaction: { amount: number; currency: string; status: string };
+  transaction: { id: number; amount: number; currency: string; status: string };
   flow?: string;
   smsLink?: string | null;
   pending?: boolean;
   message?: string;
 };
 
+type PollStatus = "PENDING" | "SUCCESS" | "FAILED";
+
+const COUNTDOWN_SECONDS = 30;
+const CIRCLE_RADIUS = 52;
+const CIRCLE_CIRCUMFERENCE = 2 * Math.PI * CIRCLE_RADIUS;
+
 export default function Deposit() {
   const { toast } = useToast();
   const [, setLocation] = useLocation();
+  const qc = useQueryClient();
   const depositMutation = useCreateDeposit();
   const [feeBearer, setFeeBearer] = useState<FeeBearer>("SENDER");
   const [feePreview, setFeePreview] = useState<FeePreview | null>(null);
   const [pendingResult, setPendingResult] = useState<DepositResult | null>(null);
+  const [pollStatus, setPollStatus] = useState<PollStatus>("PENDING");
+  const [timeLeft, setTimeLeft] = useState(COUNTDOWN_SECONDS);
+
+  const refreshWallet = useCallback(() => {
+    qc.invalidateQueries({ queryKey: getGetWalletsQueryKey() });
+    qc.invalidateQueries({ queryKey: getGetDashboardSummaryQueryKey() });
+  }, [qc]);
+
+  // Countdown: 30s timer for deposit confirmation
+  useEffect(() => {
+    if (!pendingResult) return;
+    setPollStatus("PENDING");
+    setTimeLeft(COUNTDOWN_SECONDS);
+    const timer = setInterval(() => {
+      setTimeLeft((prev) => {
+        if (prev <= 1) {
+          clearInterval(timer);
+          setPollStatus((ps) => (ps === "PENDING" ? "FAILED" : ps));
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+    return () => clearInterval(timer);
+  }, [pendingResult]);
+
+  // Polling: check status every 3s until resolved
+  useEffect(() => {
+    if (!pendingResult) return;
+    const txId = pendingResult.transaction.id;
+    const interval = setInterval(async () => {
+      try {
+        const tx = await customFetch<{ status: string }>(`/api/transactions/${txId}`);
+        if (tx.status === "SUCCESS") {
+          setPollStatus("SUCCESS");
+          refreshWallet();
+          clearInterval(interval);
+        } else if (tx.status === "FAILED") {
+          setPollStatus("FAILED");
+          clearInterval(interval);
+        }
+      } catch { /* silent — network hiccup, retry next tick */ }
+    }, 3000);
+    return () => clearInterval(interval);
+  }, [pendingResult, refreshWallet]);
 
   const form = useForm<DepositFormValues>({
     resolver: zodResolver(depositSchema),
@@ -170,21 +223,67 @@ export default function Deposit() {
 
   // Show pending / Wave result screen
   if (pendingResult) {
+    const dashOffset = CIRCLE_CIRCUMFERENCE * (1 - timeLeft / COUNTDOWN_SECONDS);
+    const circleColor =
+      pollStatus === "SUCCESS" ? "#22c55e"
+      : pollStatus === "FAILED" ? "#ef4444"
+      : timeLeft > 15 ? "#22c55e"
+      : timeLeft > 7 ? "#f59e0b"
+      : "#ef4444";
+
     return (
       <div className="max-w-2xl mx-auto">
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
-              <Clock className="h-5 w-5 text-amber-500" />
-              Dépôt en cours de traitement
+              {pollStatus === "SUCCESS" ? (
+                <span className="text-emerald-500">✓</span>
+              ) : pollStatus === "FAILED" ? (
+                <span className="text-rose-500">✗</span>
+              ) : (
+                <Clock className="h-5 w-5 text-amber-500" />
+              )}
+              {pollStatus === "SUCCESS"
+                ? "Dépôt confirmé !"
+                : pollStatus === "FAILED"
+                ? "Dépôt échoué"
+                : "Confirmation en attente"}
             </CardTitle>
             <CardDescription>
-              Votre demande de dépôt a bien été transmise à l'opérateur.
+              {pollStatus === "SUCCESS"
+                ? "Votre wallet a été crédité avec succès."
+                : pollStatus === "FAILED"
+                ? "Le paiement n'a pas été validé dans le délai imparti. Votre wallet n'a pas été débité."
+                : "Confirmez le paiement sur votre téléphone. Le statut est mis à jour automatiquement."}
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
 
-            {pendingResult.smsLink && (
+            {/* SVG Countdown Circle — visible only while PENDING */}
+            {pollStatus === "PENDING" && (
+              <div className="flex flex-col items-center gap-1 my-2">
+                <svg width="120" height="120" viewBox="0 0 120 120">
+                  <circle cx="60" cy="60" r={CIRCLE_RADIUS} fill="none" stroke="#e5e7eb" strokeWidth="8" />
+                  <circle
+                    cx="60" cy="60" r={CIRCLE_RADIUS}
+                    fill="none"
+                    stroke={circleColor}
+                    strokeWidth="8"
+                    strokeDasharray={CIRCLE_CIRCUMFERENCE}
+                    strokeDashoffset={dashOffset}
+                    strokeLinecap="round"
+                    transform="rotate(-90 60 60)"
+                    style={{ transition: "stroke-dashoffset 1s linear, stroke 0.5s ease" }}
+                  />
+                  <text x="60" y="62" textAnchor="middle" fontSize="26" fontWeight="bold" fill="currentColor">{timeLeft}</text>
+                  <text x="60" y="78" textAnchor="middle" fontSize="10" fill="#9ca3af">secondes</text>
+                </svg>
+                <p className="text-xs text-muted-foreground">Vérification automatique toutes les 3s</p>
+              </div>
+            )}
+
+            {/* Wave SMS link */}
+            {pollStatus === "PENDING" && pendingResult.smsLink && (
               <Alert className="border-blue-200 bg-blue-50 dark:bg-blue-900/20">
                 <ExternalLink className="h-4 w-4 text-blue-600" />
                 <AlertTitle className="text-blue-700 dark:text-blue-300">Paiement Wave requis</AlertTitle>
@@ -203,17 +302,18 @@ export default function Deposit() {
               </Alert>
             )}
 
-            {!pendingResult.smsLink && pendingResult.flow === "STANDARD" && (
+            {/* Standard / OTP instructions */}
+            {pollStatus === "PENDING" && !pendingResult.smsLink && pendingResult.flow === "STANDARD" && (
               <Alert className="border-amber-200 bg-amber-50 dark:bg-amber-900/20">
                 <Info className="h-4 w-4 text-amber-600" />
                 <AlertTitle className="text-amber-700 dark:text-amber-300">Confirmation Mobile Money requise</AlertTitle>
                 <AlertDescription className="text-amber-600 dark:text-amber-400">
-                  Vous allez recevoir une invitation SMS ou USSD de votre opérateur pour confirmer le paiement. Veuillez valider pour finaliser votre dépôt.
+                  Vous allez recevoir une invitation SMS ou USSD de votre opérateur. Confirmez pour finaliser le dépôt.
                 </AlertDescription>
               </Alert>
             )}
 
-            {!pendingResult.smsLink && pendingResult.flow === "OTP" && (
+            {pollStatus === "PENDING" && !pendingResult.smsLink && pendingResult.flow === "OTP" && (
               <Alert className="border-amber-200 bg-amber-50 dark:bg-amber-900/20">
                 <Info className="h-4 w-4 text-amber-600" />
                 <AlertTitle className="text-amber-700 dark:text-amber-300">Transaction Orange Money en attente</AlertTitle>
@@ -223,10 +323,17 @@ export default function Deposit() {
               </Alert>
             )}
 
+            {/* Transaction summary */}
             <div className="bg-muted rounded-lg p-4 space-y-2">
               <div className="flex justify-between text-sm">
                 <span className="text-muted-foreground">Statut</span>
-                <span className="font-medium text-amber-600">En attente</span>
+                <span className={`font-medium ${
+                  pollStatus === "SUCCESS" ? "text-emerald-600"
+                  : pollStatus === "FAILED" ? "text-rose-600"
+                  : "text-amber-600"
+                }`}>
+                  {pollStatus === "SUCCESS" ? "Confirmé" : pollStatus === "FAILED" ? "Échoué" : "En attente"}
+                </span>
               </div>
               <div className="flex justify-between text-sm">
                 <span className="text-muted-foreground">Opérateur</span>
@@ -238,11 +345,11 @@ export default function Deposit() {
               </div>
             </div>
 
-            <div className="flex gap-3 pt-2">
-              <Button variant="outline" className="flex-1" onClick={() => setLocation("/dashboard")}>
+            <div className="flex flex-col gap-2 pt-2">
+              <Button variant="outline" className="w-full" onClick={() => setLocation("/dashboard")}>
                 Retour au dashboard
               </Button>
-              <Button variant="outline" className="flex-1" onClick={() => setLocation("/transactions")}>
+              <Button variant="outline" className="w-full" onClick={() => setLocation("/transactions")}>
                 Voir mes transactions
               </Button>
             </div>

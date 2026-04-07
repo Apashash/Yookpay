@@ -1,11 +1,12 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { useCreateWithdrawal } from "@workspace/api-client-react";
+import { useCreateWithdrawal, customFetch, getGetWalletsQueryKey, getGetDashboardSummaryQueryKey } from "@workspace/api-client-react";
 import { formatCurrency } from "@/lib/format";
 import { useToast } from "@/hooks/use-toast";
 import { useLocation } from "wouter";
+import { useQueryClient } from "@tanstack/react-query";
 import { COUNTRIES, OPERATOR_LABELS } from "@/lib/countries";
 import { getOperatorFlow } from "@/lib/operator-flow";
 
@@ -58,20 +59,51 @@ type FeePreview = {
 };
 
 type WithdrawResult = {
-  transaction: { amount: number; currency: string; status: string };
+  transaction: { id: number; amount: number; currency: string; status: string };
   flow?: string;
   smsLink?: string | null;
   pending?: boolean;
   message?: string;
 };
 
+type PollStatus = "PENDING" | "SUCCESS" | "FAILED";
+
 export default function Withdraw() {
   const { toast } = useToast();
   const [, setLocation] = useLocation();
+  const qc = useQueryClient();
   const withdrawMutation = useCreateWithdrawal();
   const [feeBearer, setFeeBearer] = useState<FeeBearer>("SENDER");
   const [feePreview, setFeePreview] = useState<FeePreview | null>(null);
   const [pendingResult, setPendingResult] = useState<WithdrawResult | null>(null);
+  const [pollStatus, setPollStatus] = useState<PollStatus>("PENDING");
+
+  const refreshWallet = useCallback(() => {
+    qc.invalidateQueries({ queryKey: getGetWalletsQueryKey() });
+    qc.invalidateQueries({ queryKey: getGetDashboardSummaryQueryKey() });
+  }, [qc]);
+
+  // Polling: check status every 3s until resolved
+  useEffect(() => {
+    if (!pendingResult) return;
+    setPollStatus("PENDING");
+    const txId = pendingResult.transaction.id;
+    const interval = setInterval(async () => {
+      try {
+        const tx = await customFetch<{ status: string }>(`/api/transactions/${txId}`);
+        if (tx.status === "SUCCESS") {
+          setPollStatus("SUCCESS");
+          refreshWallet();
+          clearInterval(interval);
+        } else if (tx.status === "FAILED") {
+          setPollStatus("FAILED");
+          refreshWallet();
+          clearInterval(interval);
+        }
+      } catch { /* silent */ }
+    }, 3000);
+    return () => clearInterval(interval);
+  }, [pendingResult, refreshWallet]);
 
   const form = useForm<WithdrawFormValues>({
     resolver: zodResolver(withdrawSchema),
@@ -162,16 +194,44 @@ export default function Withdraw() {
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
-              <Clock className="h-5 w-5 text-amber-500" />
-              Retrait en cours de traitement
+              {pollStatus === "SUCCESS" ? (
+                <span className="text-emerald-500">✓</span>
+              ) : pollStatus === "FAILED" ? (
+                <span className="text-rose-500">✗</span>
+              ) : (
+                <Clock className="h-5 w-5 text-amber-500" />
+              )}
+              {pollStatus === "SUCCESS"
+                ? "Retrait confirmé !"
+                : pollStatus === "FAILED"
+                ? "Retrait échoué"
+                : "Retrait en cours de traitement"}
             </CardTitle>
             <CardDescription>
-              Votre demande de retrait a été transmise à l'opérateur. Le solde de votre wallet a été réservé.
+              {pollStatus === "SUCCESS"
+                ? "Les fonds ont bien été envoyés sur votre compte Mobile Money."
+                : pollStatus === "FAILED"
+                ? "Le retrait a échoué. Votre solde wallet a été automatiquement recrédité."
+                : "Votre demande a été transmise à l'opérateur. Vérification toutes les 3 secondes."}
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
 
-            {pendingResult.smsLink && (
+            {/* Spinner while PENDING */}
+            {pollStatus === "PENDING" && (
+              <div className="flex flex-col items-center gap-2 py-4">
+                <div className="relative w-16 h-16">
+                  <svg className="w-16 h-16 animate-spin" viewBox="0 0 64 64" fill="none">
+                    <circle cx="32" cy="32" r="28" stroke="#e5e7eb" strokeWidth="6" />
+                    <path d="M32 4 a28 28 0 0 1 28 28" stroke="#f59e0b" strokeWidth="6" strokeLinecap="round" />
+                  </svg>
+                </div>
+                <p className="text-xs text-muted-foreground">Vérification automatique toutes les 3s</p>
+              </div>
+            )}
+
+            {/* Wave link */}
+            {pollStatus === "PENDING" && pendingResult.smsLink && (
               <Alert className="border-blue-200 bg-blue-50 dark:bg-blue-900/20">
                 <ExternalLink className="h-4 w-4 text-blue-600" />
                 <AlertTitle className="text-blue-700 dark:text-blue-300">Confirmation Wave requise</AlertTitle>
@@ -190,7 +250,7 @@ export default function Withdraw() {
               </Alert>
             )}
 
-            {!pendingResult.smsLink && (
+            {pollStatus === "PENDING" && !pendingResult.smsLink && (
               <Alert className="border-amber-200 bg-amber-50 dark:bg-amber-900/20">
                 <Info className="h-4 w-4 text-amber-600" />
                 <AlertTitle className="text-amber-700 dark:text-amber-300">Retrait en cours</AlertTitle>
@@ -203,7 +263,13 @@ export default function Withdraw() {
             <div className="bg-muted rounded-lg p-4 space-y-2">
               <div className="flex justify-between text-sm">
                 <span className="text-muted-foreground">Statut</span>
-                <span className="font-medium text-amber-600">En attente</span>
+                <span className={`font-medium ${
+                  pollStatus === "SUCCESS" ? "text-emerald-600"
+                  : pollStatus === "FAILED" ? "text-rose-600"
+                  : "text-amber-600"
+                }`}>
+                  {pollStatus === "SUCCESS" ? "Confirmé" : pollStatus === "FAILED" ? "Échoué" : "En attente"}
+                </span>
               </div>
               <div className="flex justify-between text-sm">
                 <span className="text-muted-foreground">Opérateur</span>
@@ -215,11 +281,11 @@ export default function Withdraw() {
               </div>
             </div>
 
-            <div className="flex gap-3 pt-2">
-              <Button variant="outline" className="flex-1" onClick={() => setLocation("/dashboard")}>
+            <div className="flex flex-col gap-2 pt-2">
+              <Button variant="outline" className="w-full" onClick={() => setLocation("/dashboard")}>
                 Retour au dashboard
               </Button>
-              <Button variant="outline" className="flex-1" onClick={() => setLocation("/transactions")}>
+              <Button variant="outline" className="w-full" onClick={() => setLocation("/transactions")}>
                 Voir mes transactions
               </Button>
             </div>

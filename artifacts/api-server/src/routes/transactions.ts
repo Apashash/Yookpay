@@ -140,6 +140,30 @@ router.get("/", authMiddleware, async (req: AuthRequest, res) => {
   }
 });
 
+// GET /transactions/:id  — status polling endpoint
+router.get("/:id", authMiddleware, async (req: AuthRequest, res) => {
+  const id = parseInt(req.params.id, 10);
+  if (isNaN(id)) {
+    res.status(400).json({ error: "ValidationError", message: "Invalid transaction id" });
+    return;
+  }
+  try {
+    const [tx] = await db
+      .select()
+      .from(transactionsTable)
+      .where(and(eq(transactionsTable.id, id), eq(transactionsTable.userId, req.userId!)))
+      .limit(1);
+    if (!tx) {
+      res.status(404).json({ error: "NotFound", message: "Transaction not found" });
+      return;
+    }
+    res.json(formatTx(tx));
+  } catch (err) {
+    req.log.error({ err }, "Get transaction by id error");
+    res.status(500).json({ error: "InternalError", message: "Failed to fetch transaction" });
+  }
+});
+
 // POST /transactions/fee-preview
 router.post("/fee-preview", authMiddleware, async (req: AuthRequest, res) => {
   const schema = z.object({
