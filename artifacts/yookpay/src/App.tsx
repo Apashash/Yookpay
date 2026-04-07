@@ -12,6 +12,7 @@ import Deposit from "@/pages/deposit";
 import Withdraw from "@/pages/withdraw";
 import Transfer from "@/pages/transfer";
 import Transactions from "@/pages/transactions";
+import Settings from "@/pages/settings";
 import NotFound from "@/pages/not-found";
 
 const queryClient = new QueryClient();
@@ -47,6 +48,7 @@ function Router() {
       <Route path="/withdraw" component={() => <ProtectedRoute component={Withdraw} />} />
       <Route path="/transfer" component={() => <ProtectedRoute component={Transfer} />} />
       <Route path="/transactions" component={() => <ProtectedRoute component={Transactions} />} />
+      <Route path="/settings" component={() => <ProtectedRoute component={Settings} />} />
       
       <Route component={NotFound} />
     </Switch>

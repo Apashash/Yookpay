@@ -10,6 +10,7 @@ import {
   LogOut,
   Menu,
   X,
+  Settings,
 } from "lucide-react";
 import { YookPayLogo } from "@/components/yookpay-logo";
 import { Button } from "@/components/ui/button";
@@ -38,11 +39,12 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
   }, []);
 
   const navItems = [
-    { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
-    { href: "/deposit", label: "Deposit", icon: ArrowDownToLine },
-    { href: "/withdraw", label: "Withdraw", icon: ArrowUpFromLine },
-    { href: "/transfer", label: "Transfer", icon: ArrowRightLeft },
-    { href: "/transactions", label: "Transactions", icon: ListOrdered },
+    { href: "/dashboard",    label: "Dashboard",     icon: LayoutDashboard },
+    { href: "/deposit",      label: "Dépôt",          icon: ArrowDownToLine },
+    { href: "/withdraw",     label: "Retrait",        icon: ArrowUpFromLine },
+    { href: "/transfer",     label: "Transfert",      icon: ArrowRightLeft },
+    { href: "/transactions", label: "Transactions",   icon: ListOrdered },
+    { href: "/settings",     label: "Paramètres",     icon: Settings },
   ];
 
   const pageTitle = location.split("/")[1] || "Dashboard";
@@ -109,22 +111,25 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
 
         {/* User profile + logout */}
         <div className="p-4 border-t border-border flex-shrink-0">
-          <div className="flex items-center gap-3 mb-3 px-2">
-            <div className="h-9 w-9 rounded-full bg-primary/20 flex items-center justify-center text-primary font-semibold flex-shrink-0">
-              {user?.name.charAt(0).toUpperCase()}
+          <Link href="/settings">
+            <div className="flex items-center gap-3 mb-3 px-2 py-1.5 rounded-md hover:bg-muted/50 transition-colors cursor-pointer group">
+              <div className="h-9 w-9 rounded-full bg-primary/20 flex items-center justify-center text-primary font-semibold flex-shrink-0 group-hover:bg-primary/30 transition-colors">
+                {user?.name.charAt(0).toUpperCase()}
+              </div>
+              <div className="flex-1 min-w-0">
+                <p
+                  className="text-sm font-medium text-foreground truncate"
+                  data-testid="text-username"
+                >
+                  {user?.name}
+                </p>
+                <p className="text-xs text-muted-foreground truncate">
+                  {user?.email}
+                </p>
+              </div>
+              <Settings className="h-3.5 w-3.5 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0" />
             </div>
-            <div className="flex-1 min-w-0">
-              <p
-                className="text-sm font-medium text-foreground truncate"
-                data-testid="text-username"
-              >
-                {user?.name}
-              </p>
-              <p className="text-xs text-muted-foreground truncate">
-                {user?.email}
-              </p>
-            </div>
-          </div>
+          </Link>
           <Button
             variant="ghost"
             className="w-full justify-start text-muted-foreground hover:text-foreground"
@@ -132,7 +137,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
             data-testid="button-logout"
           >
             <LogOut className="h-4 w-4 mr-2" />
-            Log out
+            Déconnexion
           </Button>
         </div>
       </aside>
