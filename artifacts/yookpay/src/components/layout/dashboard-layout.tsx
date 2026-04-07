@@ -8,10 +8,10 @@ import {
   ArrowRightLeft,
   ListOrdered,
   LogOut,
-  Wallet,
   Menu,
   X,
 } from "lucide-react";
+import { YookPayLogo } from "@/components/yookpay-logo";
 import { Button } from "@/components/ui/button";
 
 interface DashboardLayoutProps {
@@ -73,10 +73,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
       >
         {/* Sidebar header with logo + close button */}
         <div className="h-16 flex items-center justify-between px-5 border-b border-border flex-shrink-0">
-          <div className="flex items-center gap-2 text-primary font-bold text-xl">
-            <Wallet className="h-6 w-6" />
-            <span>YookPay</span>
-          </div>
+          <YookPayLogo size="md" />
           <button
             onClick={() => setSidebarOpen(false)}
             className="p-1.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-colors"
@@ -153,10 +150,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
             <Menu className="h-5 w-5" />
           </button>
 
-          <div className="flex items-center gap-2 text-primary font-bold text-lg">
-            <Wallet className="h-5 w-5" />
-            <span>YookPay</span>
-          </div>
+          <YookPayLogo size="sm" />
 
           <div className="ml-auto">
             <h1 className="text-sm font-medium text-muted-foreground capitalize">

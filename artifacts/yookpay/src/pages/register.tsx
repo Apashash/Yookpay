@@ -21,7 +21,8 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Link, useLocation } from "wouter";
-import { Wallet, Eye, EyeOff } from "lucide-react";
+import { Eye, EyeOff } from "lucide-react";
+import { YookPayLogo } from "@/components/yookpay-logo";
 import { useEffect, useState } from "react";
 import { useToast } from "@/hooks/use-toast";
 
@@ -102,11 +103,11 @@ export default function Register() {
     <div className="min-h-screen flex flex-col justify-center bg-background py-8 sm:px-6 lg:px-8">
       {/* Header */}
       <div className="sm:mx-auto sm:w-full sm:max-w-md">
-        <div className="flex justify-center text-primary mb-4">
-          <Wallet className="h-10 w-10" />
+        <div className="flex justify-center mb-4">
+          <YookPayLogo size="lg" />
         </div>
         <h2 className="text-center text-2xl font-bold tracking-tight text-foreground">
-          Créer un compte YookPay
+          Créer un compte
         </h2>
         <p className="mt-2 text-center text-sm text-muted-foreground">
           Déjà inscrit ?{" "}

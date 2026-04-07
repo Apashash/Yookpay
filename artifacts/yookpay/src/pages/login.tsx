@@ -14,8 +14,8 @@ import {
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Link, useLocation } from "wouter";
-import { Wallet } from "lucide-react";
 import { useEffect } from "react";
+import { YookPayLogo } from "@/components/yookpay-logo";
 import { useToast } from "@/hooks/use-toast";
 
 const loginSchema = z.object({
@@ -72,16 +72,16 @@ export default function Login() {
   return (
     <div className="min-h-screen flex flex-col justify-center bg-background sm:px-6 lg:px-8">
       <div className="sm:mx-auto sm:w-full sm:max-w-md">
-        <div className="flex justify-center text-primary mb-6">
-          <Wallet className="h-12 w-12" />
+        <div className="flex justify-center mb-6">
+          <YookPayLogo size="lg" />
         </div>
-        <h2 className="text-center text-3xl font-bold tracking-tight text-foreground">
-          Sign in to YookPay
+        <h2 className="text-center text-2xl font-bold tracking-tight text-foreground">
+          Connexion à votre compte
         </h2>
         <p className="mt-2 text-center text-sm text-muted-foreground">
-          Or{" "}
+          Pas encore de compte ?{" "}
           <Link href="/register" className="font-medium text-primary hover:text-primary/80 transition-colors" data-testid="link-register">
-            create a new account
+            S'inscrire
           </Link>
         </p>
       </div>
@@ -95,9 +95,9 @@ export default function Login() {
                 name="email"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Email address</FormLabel>
+                    <FormLabel>Adresse email</FormLabel>
                     <FormControl>
-                      <Input placeholder="you@company.com" {...field} data-testid="input-email" />
+                      <Input placeholder="vous@exemple.com" autoComplete="email" {...field} data-testid="input-email" />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -109,9 +109,9 @@ export default function Login() {
                 name="password"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Password</FormLabel>
+                    <FormLabel>Mot de passe</FormLabel>
                     <FormControl>
-                      <Input type="password" placeholder="••••••••" {...field} data-testid="input-password" />
+                      <Input type="password" placeholder="••••••••" autoComplete="current-password" {...field} data-testid="input-password" />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -124,7 +124,7 @@ export default function Login() {
                 disabled={loginMutation.isPending}
                 data-testid="button-submit"
               >
-                {loginMutation.isPending ? "Signing in..." : "Sign in"}
+                {loginMutation.isPending ? "Connexion..." : "Se connecter"}
               </Button>
             </form>
           </Form>
