@@ -95,11 +95,16 @@ export default function Deposit() {
           });
           setLocation("/dashboard");
         },
-        onError: (err: { error?: { message?: string } }) => {
+        onError: (err: unknown) => {
+          const raw =
+            (err as { error?: { message?: string } })?.error?.message ||
+            (err as { message?: string })?.message ||
+            "Une erreur s'est produite lors du traitement.";
+          const msg = raw.replace(/^HTTP\s+\d+\s+[^:]+:\s*/i, "");
           toast({
             variant: "destructive",
             title: "Échec du dépôt",
-            description: err.error?.message || "Une erreur s'est produite lors du traitement.",
+            description: msg,
           });
         },
       }

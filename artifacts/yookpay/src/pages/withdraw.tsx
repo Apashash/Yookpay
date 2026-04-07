@@ -95,10 +95,11 @@ export default function Withdraw() {
           setLocation("/dashboard");
         },
         onError: (err: unknown) => {
-          const msg =
+          const raw =
             (err as { error?: { message?: string } })?.error?.message ||
             (err as { message?: string })?.message ||
             "Une erreur s'est produite lors du traitement.";
+          const msg = raw.replace(/^HTTP\s+\d+\s+[^:]+:\s*/i, "");
           toast({
             variant: "destructive",
             title: "Échec du retrait",
