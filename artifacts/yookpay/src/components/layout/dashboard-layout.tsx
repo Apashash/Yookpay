@@ -1,13 +1,16 @@
+import { useState, useEffect } from "react";
 import { Link, useLocation } from "wouter";
 import { useAuth } from "@/lib/auth";
-import { 
-  LayoutDashboard, 
-  ArrowDownToLine, 
-  ArrowUpFromLine, 
-  ArrowRightLeft, 
-  ListOrdered, 
+import {
+  LayoutDashboard,
+  ArrowDownToLine,
+  ArrowUpFromLine,
+  ArrowRightLeft,
+  ListOrdered,
   LogOut,
-  Wallet
+  Wallet,
+  Menu,
+  X,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
@@ -18,6 +21,21 @@ interface DashboardLayoutProps {
 export function DashboardLayout({ children }: DashboardLayoutProps) {
   const { user, logout } = useAuth();
   const [location] = useLocation();
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+
+  // Close sidebar on route change
+  useEffect(() => {
+    setSidebarOpen(false);
+  }, [location]);
+
+  // Close sidebar on Escape key
+  useEffect(() => {
+    const handleKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setSidebarOpen(false);
+    };
+    document.addEventListener("keydown", handleKey);
+    return () => document.removeEventListener("keydown", handleKey);
+  }, []);
 
   const navItems = [
     { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
@@ -27,50 +45,91 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
     { href: "/transactions", label: "Transactions", icon: ListOrdered },
   ];
 
+  const pageTitle = location.split("/")[1] || "Dashboard";
+
   return (
     <div className="flex h-screen bg-background overflow-hidden">
-      {/* Sidebar */}
-      <div className="w-64 border-r border-border bg-card flex flex-col">
-        <div className="h-16 flex items-center px-6 border-b border-border">
+
+      {/* Backdrop overlay — tap outside to close */}
+      {sidebarOpen && (
+        <div
+          className="fixed inset-0 z-30 bg-black/40 backdrop-blur-sm"
+          onClick={() => setSidebarOpen(false)}
+          data-testid="sidebar-backdrop"
+          aria-hidden="true"
+        />
+      )}
+
+      {/* Sidebar — slides in from left, always on top */}
+      <aside
+        className={`
+          fixed top-0 left-0 h-full z-40 w-72
+          bg-card border-r border-border
+          flex flex-col
+          transition-transform duration-300 ease-in-out
+          ${sidebarOpen ? "translate-x-0 shadow-2xl" : "-translate-x-full"}
+        `}
+        data-testid="sidebar"
+      >
+        {/* Sidebar header with logo + close button */}
+        <div className="h-16 flex items-center justify-between px-5 border-b border-border flex-shrink-0">
           <div className="flex items-center gap-2 text-primary font-bold text-xl">
             <Wallet className="h-6 w-6" />
             <span>YookPay</span>
           </div>
+          <button
+            onClick={() => setSidebarOpen(false)}
+            className="p-1.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-colors"
+            aria-label="Close menu"
+            data-testid="button-close-sidebar"
+          >
+            <X className="h-5 w-5" />
+          </button>
         </div>
 
+        {/* Navigation links */}
         <nav className="flex-1 overflow-y-auto py-4 px-3 space-y-1">
           {navItems.map((item) => {
-            const isActive = location === item.href || location.startsWith(`${item.href}/`);
+            const isActive =
+              location === item.href || location.startsWith(`${item.href}/`);
             return (
               <Link key={item.href} href={item.href}>
-                <div 
-                  className={`flex items-center gap-3 px-3 py-2.5 rounded-md transition-colors cursor-pointer ${
-                    isActive 
-                      ? "bg-primary/10 text-primary font-medium" 
+                <div
+                  className={`flex items-center gap-3 px-3 py-3 rounded-md transition-colors cursor-pointer ${
+                    isActive
+                      ? "bg-primary/10 text-primary font-medium"
                       : "text-muted-foreground hover:bg-muted/50 hover:text-foreground"
                   }`}
                   data-testid={`nav-${item.label.toLowerCase()}`}
                 >
-                  <item.icon className="h-5 w-5" />
-                  {item.label}
+                  <item.icon className="h-5 w-5 flex-shrink-0" />
+                  <span>{item.label}</span>
                 </div>
               </Link>
             );
           })}
         </nav>
 
-        <div className="p-4 border-t border-border">
-          <div className="flex items-center gap-3 mb-4 px-2">
-            <div className="h-9 w-9 rounded-full bg-primary/20 flex items-center justify-center text-primary font-medium">
+        {/* User profile + logout */}
+        <div className="p-4 border-t border-border flex-shrink-0">
+          <div className="flex items-center gap-3 mb-3 px-2">
+            <div className="h-9 w-9 rounded-full bg-primary/20 flex items-center justify-center text-primary font-semibold flex-shrink-0">
               {user?.name.charAt(0).toUpperCase()}
             </div>
             <div className="flex-1 min-w-0">
-              <p className="text-sm font-medium text-foreground truncate" data-testid="text-username">{user?.name}</p>
-              <p className="text-xs text-muted-foreground truncate">{user?.email}</p>
+              <p
+                className="text-sm font-medium text-foreground truncate"
+                data-testid="text-username"
+              >
+                {user?.name}
+              </p>
+              <p className="text-xs text-muted-foreground truncate">
+                {user?.email}
+              </p>
             </div>
           </div>
-          <Button 
-            variant="ghost" 
+          <Button
+            variant="ghost"
             className="w-full justify-start text-muted-foreground hover:text-foreground"
             onClick={logout}
             data-testid="button-logout"
@@ -79,19 +138,40 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
             Log out
           </Button>
         </div>
-      </div>
+      </aside>
 
-      {/* Main Content */}
-      <main className="flex-1 overflow-y-auto">
-        <div className="h-16 flex items-center justify-between px-8 border-b border-border bg-card/50 backdrop-blur-sm sticky top-0 z-10">
-          <h1 className="text-lg font-medium text-foreground capitalize">
-            {location.split("/")[1] || "Dashboard"}
-          </h1>
-        </div>
-        <div className="p-8 max-w-6xl mx-auto">
-          {children}
-        </div>
-      </main>
+      {/* Main content — full width, no left offset */}
+      <div className="flex flex-col flex-1 min-w-0">
+        {/* Top bar with hamburger toggle */}
+        <header className="h-16 flex items-center gap-4 px-4 sm:px-6 border-b border-border bg-card/50 backdrop-blur-sm sticky top-0 z-20 flex-shrink-0">
+          <button
+            onClick={() => setSidebarOpen(true)}
+            className="p-2 rounded-md text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-colors"
+            aria-label="Open menu"
+            data-testid="button-open-sidebar"
+          >
+            <Menu className="h-5 w-5" />
+          </button>
+
+          <div className="flex items-center gap-2 text-primary font-bold text-lg">
+            <Wallet className="h-5 w-5" />
+            <span>YookPay</span>
+          </div>
+
+          <div className="ml-auto">
+            <h1 className="text-sm font-medium text-muted-foreground capitalize">
+              {pageTitle}
+            </h1>
+          </div>
+        </header>
+
+        {/* Page content */}
+        <main className="flex-1 overflow-y-auto">
+          <div className="p-4 sm:p-6 lg:p-8 max-w-6xl mx-auto">
+            {children}
+          </div>
+        </main>
+      </div>
     </div>
   );
 }
