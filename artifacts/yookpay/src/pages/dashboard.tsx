@@ -23,7 +23,7 @@ import {
   ResponsiveContainer 
 } from "recharts";
 import { Badge } from "@/components/ui/badge";
-import { ArrowDownRight, ArrowUpRight, Activity } from "lucide-react";
+import { ArrowDownRight, ArrowUpRight, Activity, TrendingUp } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Link } from "wouter";
 
@@ -96,26 +96,111 @@ export default function Dashboard() {
 
   return (
     <div className="space-y-8">
-      {/* Wallet Balances */}
-      <div className="grid gap-4 md:grid-cols-3">
-        {summary.wallets.map((wallet) => (
-          <Card key={wallet.id} className="bg-gradient-to-br from-card to-card/50 overflow-hidden relative">
-            <div className="absolute top-0 right-0 p-6 opacity-5">
-              <Wallet className="w-24 h-24" />
-            </div>
-            <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0 relative z-10">
-              <CardTitle className="text-sm font-medium text-muted-foreground">
-                {wallet.currency} Balance
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="relative z-10">
-              <div className="text-3xl font-bold tracking-tight text-foreground" data-testid={`text-balance-${wallet.currency}`}>
-                {formatCurrency(wallet.balance, wallet.currency)}
-              </div>
-            </CardContent>
-          </Card>
-        ))}
-      </div>
+      {/* Wallet Balance Cards */}
+      {(() => {
+        const walletMeta: Record<string, {
+          label: string;
+          country: string;
+          flag: string;
+          gradient: string;
+          border: string;
+          badge: string;
+          dot: string;
+          icon: string;
+        }> = {
+          XAF: {
+            label: "Franc CFA",
+            country: "Cameroun",
+            flag: "🇨🇲",
+            gradient: "from-violet-600 via-indigo-600 to-indigo-700",
+            border: "border-indigo-400/30",
+            badge: "bg-white/15 text-white",
+            dot: "bg-violet-300",
+            icon: "FCFA",
+          },
+          XOF: {
+            label: "Franc CFA",
+            country: "Sénégal",
+            flag: "🇸🇳",
+            gradient: "from-emerald-500 via-teal-600 to-teal-700",
+            border: "border-emerald-400/30",
+            badge: "bg-white/15 text-white",
+            dot: "bg-emerald-300",
+            icon: "CFA",
+          },
+          CDF: {
+            label: "Franc Congolais",
+            country: "RD Congo",
+            flag: "🇨🇩",
+            gradient: "from-amber-500 via-orange-500 to-orange-600",
+            border: "border-amber-400/30",
+            badge: "bg-white/15 text-white",
+            dot: "bg-amber-300",
+            icon: "FC",
+          },
+        };
+
+        return (
+          <div className="grid gap-4 md:grid-cols-3">
+            {summary.wallets.map((wallet) => {
+              const meta = walletMeta[wallet.currency] ?? {
+                label: wallet.currency,
+                country: "",
+                flag: "💳",
+                gradient: "from-slate-600 to-slate-700",
+                border: "border-slate-400/30",
+                badge: "bg-white/15 text-white",
+                dot: "bg-slate-300",
+                icon: wallet.currency,
+              };
+              return (
+                <div
+                  key={wallet.id}
+                  className={`relative overflow-hidden rounded-2xl bg-gradient-to-br ${meta.gradient} ${meta.border} border p-5 shadow-lg`}
+                  data-testid={`wallet-card-${wallet.currency}`}
+                >
+                  {/* Decorative circles */}
+                  <div className="absolute -top-6 -right-6 w-28 h-28 rounded-full bg-white/10" />
+                  <div className="absolute -bottom-8 -right-2 w-20 h-20 rounded-full bg-white/5" />
+
+                  {/* Top row: flag + country badge */}
+                  <div className="relative flex items-center justify-between mb-4">
+                    <div className="flex items-center gap-2">
+                      <span className="text-2xl leading-none">{meta.flag}</span>
+                      <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${meta.badge} backdrop-blur-sm`}>
+                        {meta.country}
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-1.5">
+                      <div className={`w-2 h-2 rounded-full ${meta.dot} animate-pulse`} />
+                      <span className="text-xs text-white/70 font-medium">Actif</span>
+                    </div>
+                  </div>
+
+                  {/* Currency label */}
+                  <p className="relative text-xs font-medium text-white/60 uppercase tracking-widest mb-1">
+                    {wallet.currency} · {meta.label}
+                  </p>
+
+                  {/* Balance amount */}
+                  <div
+                    className="relative text-3xl font-extrabold text-white tracking-tight"
+                    data-testid={`text-balance-${wallet.currency}`}
+                  >
+                    {formatCurrency(wallet.balance, wallet.currency)}
+                  </div>
+
+                  {/* Bottom: trend indicator */}
+                  <div className="relative mt-4 flex items-center gap-1 text-white/70 text-xs">
+                    <TrendingUp className="w-3.5 h-3.5" />
+                    <span>Solde disponible</span>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        );
+      })()}
 
       {/* Stats row */}
       <div className="grid gap-4 md:grid-cols-4">
