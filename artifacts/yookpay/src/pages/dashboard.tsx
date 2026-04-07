@@ -84,6 +84,23 @@ export default function Dashboard() {
 
   const periodStart = useMemo(() => getPeriodStart(period, customDate), [period, customDate]);
 
+  // Sort wallets: the one with the most recent transaction comes first
+  const sortedWallets = useMemo(() => {
+    if (!summary) return [];
+    const lastTxDate: Record<string, number> = {};
+    for (const tx of summary.recentTransactions) {
+      const t = new Date(tx.createdAt).getTime();
+      if (!lastTxDate[tx.currency] || t > lastTxDate[tx.currency]) {
+        lastTxDate[tx.currency] = t;
+      }
+    }
+    return [...summary.wallets].sort((a, b) => {
+      const da = lastTxDate[a.currency] ?? 0;
+      const db = lastTxDate[b.currency] ?? 0;
+      return db - da;
+    });
+  }, [summary]);
+
   const filteredTransactions = useMemo(() => {
     if (!summary) return [];
     return summary.recentTransactions.filter((tx) => {
@@ -182,7 +199,7 @@ export default function Dashboard() {
 
       {/* ── Wallet Balance Cards ── */}
       <div className="grid gap-4 md:grid-cols-3">
-        {summary.wallets.map((wallet) => {
+        {sortedWallets.map((wallet) => {
           const meta = walletMeta[wallet.currency] ?? {
             label: wallet.currency,
             gradient: "from-slate-600 to-slate-700",
