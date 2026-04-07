@@ -2,6 +2,7 @@ import { Router } from "express";
 import { db } from "@workspace/db";
 import { transactionsTable, walletsTable, userFeesTable } from "@workspace/db/schema";
 import { eq, and, desc, count } from "drizzle-orm";
+import { sql } from "drizzle-orm";
 import { authMiddleware, type AuthRequest } from "../middlewares/authMiddleware";
 import { transactionRateLimit } from "../middlewares/rateLimitMiddleware";
 import {
@@ -13,7 +14,7 @@ import {
   type Operator,
   type TransactionType,
 } from "../services/feeService";
-import { initiatePayment } from "../services/providerService";
+import { callPixPayAirtime, getOperatorFlow, type PixPayCallParams } from "../lib/pixpay";
 import { z } from "zod";
 
 const GLOBAL_COUNTRY = "ZZ";
@@ -153,6 +154,44 @@ router.post("/fee-preview", authMiddleware, async (req: AuthRequest, res) => {
   }
 });
 
+// Helper: get PixPay service_id for operator+currency+type
+async function getPixPayServiceId(
+  operator: string,
+  currency: string,
+  type: "DEPOSIT" | "WITHDRAWAL",
+): Promise<number | null> {
+  try {
+    const result = await db.execute(
+      sql`SELECT service_id FROM pixpay_services
+          WHERE operator = ${operator.toUpperCase()}
+            AND currency = ${currency.toUpperCase()}
+            AND type = ${type}
+            AND active = true
+          LIMIT 1`,
+    );
+    if (result.rows.length > 0) {
+      const sid = parseInt(String((result.rows[0] as { service_id: unknown }).service_id));
+      return sid > 0 ? sid : null;
+    }
+  } catch {
+    // table may not exist yet - ignore
+  }
+  return null;
+}
+
+// Helper: get platform_config value
+async function getPlatformConfig(key: string): Promise<string | null> {
+  try {
+    const result = await db.execute(
+      sql`SELECT value FROM platform_config WHERE key = ${key} LIMIT 1`,
+    );
+    if (result.rows.length > 0) return String((result.rows[0] as { value: unknown }).value);
+  } catch {
+    // ignore
+  }
+  return null;
+}
+
 // POST /transactions/deposit
 router.post("/deposit", authMiddleware, transactionRateLimit, async (req: AuthRequest, res) => {
   const schema = z.object({
@@ -161,6 +200,7 @@ router.post("/deposit", authMiddleware, transactionRateLimit, async (req: AuthRe
     operator: z.string().min(2),
     phone: z.string().min(6),
     feeBearer: z.enum(["SENDER", "RECIPIENT"]).default("SENDER"),
+    omOtp: z.string().optional(),
   });
 
   const parse = schema.safeParse(req.body);
@@ -169,9 +209,19 @@ router.post("/deposit", authMiddleware, transactionRateLimit, async (req: AuthRe
     return;
   }
 
-  const { amount, country, operator, phone, feeBearer } = parse.data;
+  const { amount, country, operator, phone, feeBearer, omOtp } = parse.data;
   const currency = CURRENCY_MAP[country as Country];
   const reference = generateReference();
+  const flow = getOperatorFlow(operator);
+
+  // Orange Money requires OTP
+  if (flow === "OTP" && !omOtp) {
+    res.status(400).json({
+      error: "OtpRequired",
+      message: "Un code OTP Orange Money est requis. Composez #144*82# pour l'obtenir.",
+    });
+    return;
+  }
 
   try {
     const userRate = await getUserFeeRate(req.userId!, country, operator, "DEPOSIT");
@@ -194,78 +244,97 @@ router.post("/deposit", authMiddleware, transactionRateLimit, async (req: AuthRe
         phone,
         reference,
         feeRate: feeBreakdown.feeRate.toString(),
-        metadata: { initiatedAt: new Date().toISOString() },
+        metadata: { initiatedAt: new Date().toISOString(), feeBearer, flow },
       })
       .returning();
 
     req.log.info(
-      { txId: tx.id, reference, userId: req.userId, amount, currency, operator, country },
-      "Deposit transaction created"
+      { txId: tx.id, reference, userId: req.userId, amount, currency, operator, country, flow },
+      "Deposit transaction created — calling PixPay"
     );
 
-    const providerResult = await initiatePayment({
-      phone,
-      amount,
-      currency,
-      operator,
-      country,
-      reference,
-      type: "DEPOSIT",
-    });
+    const serviceId = await getPixPayServiceId(operator, currency, "DEPOSIT");
 
-    const newStatus = providerResult.status === "SUCCESS" ? "SUCCESS" : "FAILED";
+    if (serviceId !== null) {
+      const pixParams: PixPayCallParams = {
+        currency,
+        serviceId,
+        amount,
+        phone,
+        customData: reference,
+        omOtp,
+      };
 
-    const [updatedTx] = await db
-      .update(transactionsTable)
-      .set({
-        status: newStatus,
-        providerReference: providerResult.providerReference,
-        metadata: {
-          initiatedAt: new Date().toISOString(),
-          providerResponse: providerResult.message,
-        },
-        updatedAt: new Date(),
-      })
-      .where(eq(transactionsTable.id, tx.id))
-      .returning();
-
-    if (newStatus === "SUCCESS") {
-      const [wallet] = await db
-        .select()
-        .from(walletsTable)
-        .where(and(eq(walletsTable.userId, req.userId!), eq(walletsTable.currency, currency)))
-        .limit(1);
-
-      if (wallet) {
-        // SENDER pays: wallet receives netAmount (grossAmount - fee)
-        // RECIPIENT pays: wallet receives grossAmount (full), fee is borne by wallet owner
-        const creditAmount = feeBearer === "RECIPIENT"
-          ? feeBreakdown.grossAmount
-          : feeBreakdown.netAmount;
-        const newBalance = parseFloat(wallet.balance) + creditAmount;
-        await db
-          .update(walletsTable)
-          .set({ balance: newBalance.toString(), updatedAt: new Date() })
-          .where(eq(walletsTable.id, wallet.id));
-
-        req.log.info(
-          { txId: tx.id, reference, creditAmount, feeBearer, currency },
-          "Deposit SUCCESS - wallet updated"
-        );
+      if (flow === "WAVE") {
+        const waveBusinessNameId = await getPlatformConfig("WAVE_BUSINESS_NAME_ID");
+        const waveRedirectUrl = await getPlatformConfig("WAVE_REDIRECT_URL");
+        const waveRedirectErrorUrl = await getPlatformConfig("WAVE_REDIRECT_ERROR_URL");
+        if (waveBusinessNameId) {
+          pixParams.businessNameId = waveBusinessNameId;
+          pixParams.redirectUrl = waveRedirectUrl ?? "";
+          pixParams.redirectErrorUrl = waveRedirectErrorUrl ?? "";
+        }
       }
-    } else {
-      req.log.warn({ txId: tx.id, reference }, "Deposit FAILED by provider");
-    }
 
-    res.status(201).json({
-      transaction: formatTx(updatedTx),
-      feeBreakdown,
-      feeBearer,
-      message: providerResult.message,
-    });
+      const pixResult = await callPixPayAirtime(pixParams);
+
+      await db
+        .update(transactionsTable)
+        .set({
+          providerReference: pixResult.pixTransactionId,
+          metadata: {
+            initiatedAt: new Date().toISOString(),
+            feeBearer,
+            flow,
+            pixState: pixResult.state,
+            pixMessage: pixResult.message,
+            smsLink: pixResult.smsLink,
+          },
+          updatedAt: new Date(),
+        })
+        .where(eq(transactionsTable.id, tx.id));
+
+      req.log.info(
+        { txId: tx.id, pixId: pixResult.pixTransactionId, pixState: pixResult.state },
+        "PixPay deposit initiated — awaiting IPN"
+      );
+
+      res.status(201).json({
+        transaction: formatTx(tx),
+        feeBreakdown,
+        feeBearer,
+        flow,
+        pixState: pixResult.state,
+        smsLink: pixResult.smsLink,
+        message: pixResult.message,
+        pending: true,
+      });
+    } else {
+      // No service configured — mark as failed immediately
+      const [updatedTx] = await db
+        .update(transactionsTable)
+        .set({
+          status: "FAILED",
+          metadata: { initiatedAt: new Date().toISOString(), feeBearer, flow, error: "Service PixPay non configuré pour cet opérateur" },
+          updatedAt: new Date(),
+        })
+        .where(eq(transactionsTable.id, tx.id))
+        .returning();
+
+      req.log.warn({ txId: tx.id, operator, currency }, "No PixPay service_id configured");
+      res.status(201).json({
+        transaction: formatTx(updatedTx),
+        feeBreakdown,
+        feeBearer,
+        flow,
+        pending: false,
+        message: "Service de paiement non configuré pour cet opérateur. Contactez le support.",
+      });
+    }
   } catch (err) {
     req.log.error({ err, reference }, "Deposit error");
-    res.status(500).json({ error: "InternalError", message: "Deposit failed" });
+    const msg = err instanceof Error ? err.message : "Dépôt échoué";
+    res.status(500).json({ error: "InternalError", message: msg });
   }
 });
 
@@ -337,6 +406,16 @@ router.post("/withdraw", authMiddleware, transactionRateLimit, async (req: AuthR
       return;
     }
 
+    const flow = getOperatorFlow(operator);
+
+    // Deduct wallet BEFORE calling PixPay (IPN will refund on FAILED)
+    const debitAmount = requiredBalance;
+    const newBalance = parseFloat(wallet.balance) - debitAmount;
+    await db
+      .update(walletsTable)
+      .set({ balance: Math.max(newBalance, 0).toFixed(2), updatedAt: new Date() })
+      .where(eq(walletsTable.id, wallet.id));
+
     const [tx] = await db
       .insert(transactionsTable)
       .values({
@@ -352,65 +431,102 @@ router.post("/withdraw", authMiddleware, transactionRateLimit, async (req: AuthR
         phone,
         reference,
         feeRate: feeBreakdown.feeRate.toString(),
-        metadata: { initiatedAt: new Date().toISOString() },
+        metadata: { initiatedAt: new Date().toISOString(), feeBearer, flow },
       })
       .returning();
 
     req.log.info(
-      { txId: tx.id, reference, userId: req.userId, amount, currency, operator },
-      "Withdrawal transaction created"
+      { txId: tx.id, reference, userId: req.userId, amount, currency, operator, flow },
+      "Withdrawal transaction created — wallet reserved — calling PixPay"
     );
 
-    const providerResult = await initiatePayment({
-      phone,
-      amount,
-      currency,
-      operator,
-      country,
-      reference,
-      type: "WITHDRAWAL",
-    });
+    const serviceId = await getPixPayServiceId(operator, currency, "WITHDRAWAL");
 
-    const newStatus = providerResult.status === "SUCCESS" ? "SUCCESS" : "FAILED";
+    if (serviceId !== null) {
+      const pixParams: PixPayCallParams = {
+        currency,
+        serviceId,
+        amount,
+        phone,
+        customData: reference,
+      };
 
-    const [updatedTx] = await db
-      .update(transactionsTable)
-      .set({
-        status: newStatus,
-        providerReference: providerResult.providerReference,
-        metadata: {
-          initiatedAt: new Date().toISOString(),
-          providerResponse: providerResult.message,
-        },
-        updatedAt: new Date(),
-      })
-      .where(eq(transactionsTable.id, tx.id))
-      .returning();
+      if (flow === "WAVE") {
+        const waveBusinessNameId = await getPlatformConfig("WAVE_BUSINESS_NAME_ID");
+        const waveRedirectUrl = await getPlatformConfig("WAVE_REDIRECT_URL");
+        const waveRedirectErrorUrl = await getPlatformConfig("WAVE_REDIRECT_ERROR_URL");
+        if (waveBusinessNameId) {
+          pixParams.businessNameId = waveBusinessNameId;
+          pixParams.redirectUrl = waveRedirectUrl ?? "";
+          pixParams.redirectErrorUrl = waveRedirectErrorUrl ?? "";
+        }
+      }
 
-    if (newStatus === "SUCCESS") {
-      // SENDER pays: debit amount + fee (netAmount)
-      // RECIPIENT pays: debit amount only (grossAmount), recipient absorbs fee
-      const debitAmount = requiredBalance;
-      const newBalance = parseFloat(wallet.balance) - debitAmount;
+      const pixResult = await callPixPayAirtime(pixParams);
+
+      await db
+        .update(transactionsTable)
+        .set({
+          providerReference: pixResult.pixTransactionId,
+          metadata: {
+            initiatedAt: new Date().toISOString(),
+            feeBearer,
+            flow,
+            pixState: pixResult.state,
+            pixMessage: pixResult.message,
+            smsLink: pixResult.smsLink,
+          },
+          updatedAt: new Date(),
+        })
+        .where(eq(transactionsTable.id, tx.id));
+
+      req.log.info(
+        { txId: tx.id, pixId: pixResult.pixTransactionId, pixState: pixResult.state },
+        "PixPay withdrawal initiated — awaiting IPN"
+      );
+
+      res.status(201).json({
+        transaction: formatTx(tx),
+        feeBreakdown,
+        feeBearer,
+        flow,
+        pixState: pixResult.state,
+        smsLink: pixResult.smsLink,
+        message: pixResult.message,
+        pending: true,
+      });
+    } else {
+      // No service configured — refund wallet immediately
+      const refundedBalance = parseFloat(wallet.balance);
       await db
         .update(walletsTable)
-        .set({ balance: Math.max(newBalance, 0).toString(), updatedAt: new Date() })
+        .set({ balance: refundedBalance.toFixed(2), updatedAt: new Date() })
         .where(eq(walletsTable.id, wallet.id));
 
-      req.log.info({ txId: tx.id, reference, debitAmount, feeBearer, currency }, "Withdrawal SUCCESS - wallet deducted");
-    } else {
-      req.log.warn({ txId: tx.id, reference }, "Withdrawal FAILED by provider");
-    }
+      const [updatedTx] = await db
+        .update(transactionsTable)
+        .set({
+          status: "FAILED",
+          metadata: { initiatedAt: new Date().toISOString(), feeBearer, flow, error: "Service PixPay non configuré" },
+          updatedAt: new Date(),
+        })
+        .where(eq(transactionsTable.id, tx.id))
+        .returning();
 
-    res.status(201).json({
-      transaction: formatTx(updatedTx),
-      feeBreakdown,
-      feeBearer,
-      message: providerResult.message,
-    });
+      req.log.warn({ txId: tx.id, operator, currency }, "No PixPay service_id configured — withdrawal refunded");
+      res.status(201).json({
+        transaction: formatTx(updatedTx),
+        feeBreakdown,
+        feeBearer,
+        flow,
+        pending: false,
+        message: "Service de paiement non configuré pour cet opérateur. Contactez le support.",
+      });
+    }
   } catch (err) {
     req.log.error({ err, reference }, "Withdrawal error");
-    res.status(500).json({ error: "InternalError", message: "Withdrawal failed" });
+    const msg = err instanceof Error ? err.message : "Retrait échoué";
+    res.status(500).json({ error: "InternalError", message: msg });
   }
 });
 

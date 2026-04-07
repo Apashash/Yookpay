@@ -651,4 +651,95 @@ router.put("/users/:id/wallets/:currency", async (req: AuthRequest, res) => {
   }
 });
 
+// ─── PixPay Services Configuration ─────────────────────────────────────────────
+
+// GET /admin/pixpay/services — list all pixpay_services rows
+router.get("/pixpay/services", async (_req, res) => {
+  try {
+    const result = await db.execute(sql`
+      SELECT id, operator, currency, type, service_id, active, notes, updated_at
+      FROM pixpay_services
+      ORDER BY currency, operator, type
+    `);
+    res.json({ services: result.rows });
+  } catch (err) {
+    res.status(500).json({ error: "InternalError", message: "Impossible de charger les services PixPay" });
+  }
+});
+
+// PUT /admin/pixpay/services — upsert a row (operator+currency+type)
+router.put("/pixpay/services", async (req: AuthRequest, res) => {
+  const schema = z.object({
+    operator: z.string().min(2).toUpperCase(),
+    currency: z.enum(["XAF", "XOF", "CDF"]),
+    type: z.enum(["DEPOSIT", "WITHDRAWAL"]),
+    serviceId: z.number().int().min(0),
+    active: z.boolean().default(true),
+    notes: z.string().optional(),
+  });
+
+  const parse = schema.safeParse(req.body);
+  if (!parse.success) {
+    res.status(400).json({ error: "ValidationError", message: "Paramètres invalides" });
+    return;
+  }
+
+  const { operator, currency, type, serviceId, active, notes } = parse.data;
+
+  try {
+    await db.execute(sql`
+      INSERT INTO pixpay_services (operator, currency, type, service_id, active, notes, updated_at)
+      VALUES (${operator}, ${currency}, ${type}, ${serviceId}, ${active}, ${notes ?? null}, NOW())
+      ON CONFLICT (operator, currency, type)
+      DO UPDATE SET service_id = ${serviceId}, active = ${active}, notes = ${notes ?? null}, updated_at = NOW()
+    `);
+
+    req.log.info({ adminId: req.userId, operator, currency, type, serviceId, active }, "PixPay service upserted");
+    res.json({ success: true, message: `Service PixPay ${operator} ${currency} ${type} mis à jour` });
+  } catch (err) {
+    req.log.error({ err }, "Admin upsert pixpay service error");
+    res.status(500).json({ error: "InternalError", message: "Impossible de mettre à jour le service PixPay" });
+  }
+});
+
+// GET /admin/pixpay/config — list platform_config keys
+router.get("/pixpay/config", async (_req, res) => {
+  try {
+    const result = await db.execute(sql`SELECT key, value, updated_at FROM platform_config ORDER BY key`);
+    res.json({ config: result.rows });
+  } catch (err) {
+    res.status(500).json({ error: "InternalError", message: "Impossible de charger la configuration" });
+  }
+});
+
+// PUT /admin/pixpay/config — set a platform_config value
+router.put("/pixpay/config", async (req: AuthRequest, res) => {
+  const schema = z.object({
+    key: z.string().min(1).max(100),
+    value: z.string(),
+  });
+
+  const parse = schema.safeParse(req.body);
+  if (!parse.success) {
+    res.status(400).json({ error: "ValidationError", message: "Paramètres invalides" });
+    return;
+  }
+
+  const { key, value } = parse.data;
+
+  try {
+    await db.execute(sql`
+      INSERT INTO platform_config (key, value, updated_at)
+      VALUES (${key}, ${value}, NOW())
+      ON CONFLICT (key) DO UPDATE SET value = ${value}, updated_at = NOW()
+    `);
+
+    req.log.info({ adminId: req.userId, key }, "Platform config updated");
+    res.json({ success: true, message: `Configuration ${key} mise à jour` });
+  } catch (err) {
+    req.log.error({ err }, "Admin update platform config error");
+    res.status(500).json({ error: "InternalError", message: "Impossible de mettre à jour la configuration" });
+  }
+});
+
 export default router;

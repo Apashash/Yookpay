@@ -17,6 +17,7 @@ import {
   Users,
   FileCheck,
   Repeat2,
+  Zap,
 } from "lucide-react";
 import { YookPayLogo } from "@/components/yookpay-logo";
 import { Button } from "@/components/ui/button";
@@ -57,10 +58,11 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
   ];
 
   const adminItems = [
-    { href: "/admin",             label: "Vue d'ensemble", icon: LayoutDashboard },
-    { href: "/admin/users",       label: "Utilisateurs",   icon: Users },
-    { href: "/admin/kyc",         label: "File KYC",       icon: FileCheck },
-    { href: "/admin/conversion",  label: "Conversion",     icon: Repeat2 },
+    { href: "/admin",               label: "Vue d'ensemble", icon: LayoutDashboard },
+    { href: "/admin/users",         label: "Utilisateurs",   icon: Users },
+    { href: "/admin/kyc",           label: "File KYC",       icon: FileCheck },
+    { href: "/admin/conversion",    label: "Conversion",     icon: Repeat2 },
+    { href: "/admin/pixpay-config", label: "PixPay",         icon: Zap },
   ];
 
   const pageTitle = location.split("/")[1] || "Dashboard";

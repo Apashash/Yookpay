@@ -1,0 +1,127 @@
+import { logger } from "./logger";
+
+const PROD_BASE = "https://proxy-coreapi.pixelinnov.net/api_v1/transaction";
+const SANDBOX_BASE = "https://standbox-api.pixelinnov.net/api_v1/transaction";
+
+function getBaseUrl(): string {
+  return process.env["PIXPAY_ENV"] === "production" ? PROD_BASE : SANDBOX_BASE;
+}
+
+export type OperatorFlow = "STANDARD" | "OTP" | "WAVE" | "QMONEY";
+
+export function getOperatorFlow(operator: string): OperatorFlow {
+  const op = operator.toUpperCase();
+  if (op === "WAVE") return "WAVE";
+  if (op === "QMONEY") return "QMONEY";
+  if (op === "ORANGE") return "OTP";
+  return "STANDARD";
+}
+
+export function getApiKey(currency: string): string {
+  const key = process.env[`PIXPAY_API_KEY_${currency.toUpperCase()}`];
+  if (!key) throw new Error(`Clé API PixPay manquante pour la devise : ${currency}`);
+  return key.trim();
+}
+
+export function getIpnUrl(): string {
+  const base =
+    process.env["PIXPAY_IPN_BASE_URL"] ||
+    (process.env["REPLIT_DOMAINS"]
+      ? `https://${process.env["REPLIT_DOMAINS"].split(",")[0]!}`
+      : "http://localhost:8080");
+  return `${base}/api/ipn/pixpay`;
+}
+
+export type PixPayCallParams = {
+  currency: string;
+  serviceId: number;
+  amount: number;
+  phone: string;
+  customData: string;
+  omOtp?: string;
+  businessNameId?: string;
+  redirectUrl?: string;
+  redirectErrorUrl?: string;
+};
+
+export type PixPayCallResult = {
+  pixTransactionId: string;
+  state: string;
+  smsLink: string | null;
+  message: string;
+};
+
+export async function callPixPayAirtime(params: PixPayCallParams): Promise<PixPayCallResult> {
+  const apiKey = getApiKey(params.currency);
+  const ipnUrl = getIpnUrl();
+
+  const body: Record<string, unknown> = {
+    amount: params.amount,
+    api_key: apiKey,
+    destination: params.phone,
+    ipn_url: ipnUrl,
+    service_id: params.serviceId,
+    custom_data: params.customData,
+  };
+
+  if (params.omOtp) {
+    body["om_otp"] = params.omOtp;
+  }
+
+  if (params.businessNameId) {
+    body["business_name_id"] = params.businessNameId;
+    body["redirect_url"] = params.redirectUrl ?? "";
+    body["redirect_error_url"] = params.redirectErrorUrl ?? "";
+  }
+
+  logger.info(
+    { serviceId: params.serviceId, currency: params.currency, amount: params.amount, customData: params.customData },
+    "PixPay airtime call initiated"
+  );
+
+  const res = await fetch(`${getBaseUrl()}/airtime`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+    signal: AbortSignal.timeout(30_000),
+  });
+
+  const json = (await res.json()) as {
+    data?: Record<string, unknown>;
+    message?: string;
+    statut_code?: number;
+  };
+
+  logger.info({ statusCode: res.status, pixpayStatus: json.statut_code, state: json.data?.["state"] }, "PixPay airtime response");
+
+  if (!res.ok || json.statut_code === 500) {
+    throw new Error(json.message ?? `PixPay API error: ${res.status}`);
+  }
+
+  const data = json.data ?? {};
+  return {
+    pixTransactionId: String(data["transaction_id"] ?? ""),
+    state: String(data["state"] ?? "PENDING1"),
+    smsLink: data["sms_link"] ? String(data["sms_link"]) : null,
+    message: json.message ?? "Transaction initiée",
+  };
+}
+
+export async function confirmQmoney(pixTransactionId: string, otp: string): Promise<void> {
+  const confirmUrl =
+    process.env["PIXPAY_ENV"] === "production"
+      ? "https://proxy-coreapi.pixelinnov.net/api_v1/confirm/cashout/qmoney"
+      : "https://standbox-api.pixelinnov.net/api_v1/confirm/cashout/qmoney";
+
+  const res = await fetch(confirmUrl, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ transaction_id: pixTransactionId, otp }),
+    signal: AbortSignal.timeout(15_000),
+  });
+
+  if (!res.ok) {
+    const json = (await res.json().catch(() => ({}))) as { message?: string };
+    throw new Error(json.message ?? `Qmoney confirm error: ${res.status}`);
+  }
+}

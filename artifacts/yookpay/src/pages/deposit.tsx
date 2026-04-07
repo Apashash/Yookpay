@@ -7,6 +7,7 @@ import { formatCurrency } from "@/lib/format";
 import { useToast } from "@/hooks/use-toast";
 import { useLocation } from "wouter";
 import { COUNTRIES, OPERATOR_LABELS } from "@/lib/countries";
+import { getOperatorFlow } from "@/lib/operator-flow";
 
 import {
   Card,
@@ -34,6 +35,8 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { ExternalLink, Clock, Info } from "lucide-react";
 
 type FeeBearer = "SENDER" | "RECIPIENT";
 
@@ -42,6 +45,7 @@ const depositSchema = z.object({
   country:  z.string().min(2, "Veuillez sélectionner un pays"),
   operator: z.string().min(2, "Veuillez sélectionner un opérateur"),
   phone:    z.string().min(6, "Numéro de téléphone invalide"),
+  omOtp:    z.string().optional(),
 });
 
 type DepositFormValues = z.infer<typeof depositSchema>;
@@ -54,16 +58,25 @@ type FeePreview = {
   currency: string;
 };
 
+type DepositResult = {
+  transaction: { amount: number; currency: string; status: string };
+  flow?: string;
+  smsLink?: string | null;
+  pending?: boolean;
+  message?: string;
+};
+
 export default function Deposit() {
   const { toast } = useToast();
   const [, setLocation] = useLocation();
   const depositMutation = useCreateDeposit();
   const [feeBearer, setFeeBearer] = useState<FeeBearer>("SENDER");
   const [feePreview, setFeePreview] = useState<FeePreview | null>(null);
+  const [pendingResult, setPendingResult] = useState<DepositResult | null>(null);
 
   const form = useForm<DepositFormValues>({
     resolver: zodResolver(depositSchema),
-    defaultValues: { amount: 1000, country: "", operator: "", phone: "" },
+    defaultValues: { amount: 1000, country: "", operator: "", phone: "", omOtp: "" },
   });
 
   const amount   = form.watch("amount");
@@ -72,11 +85,18 @@ export default function Deposit() {
 
   const selectedCountry = COUNTRIES.find((c) => c.code === country);
   const operators = selectedCountry?.operators ?? [];
+  const flow = operator ? getOperatorFlow(operator) : null;
 
   useEffect(() => {
     form.setValue("operator", "");
+    form.setValue("omOtp", "");
     setFeePreview(null);
+    setPendingResult(null);
   }, [country]);
+
+  useEffect(() => {
+    form.setValue("omOtp", "");
+  }, [operator]);
 
   useEffect(() => {
     if (!amount || amount < 100 || !country || !operator) return;
@@ -92,15 +112,36 @@ export default function Deposit() {
   }, [amount, country, operator]);
 
   const onSubmit = (data: DepositFormValues) => {
+    const body: Record<string, unknown> = {
+      amount: data.amount,
+      country: data.country,
+      operator: data.operator,
+      phone: data.phone,
+      feeBearer,
+    };
+    if (data.omOtp) body["omOtp"] = data.omOtp;
+
     depositMutation.mutate(
-      { data: { amount: data.amount, country: data.country, operator: data.operator, phone: data.phone, feeBearer } },
+      { data: body as Parameters<typeof depositMutation.mutate>[0]["data"] },
       {
         onSuccess: (res) => {
-          toast({
-            title: "Dépôt initié",
-            description: `Votre dépôt de ${formatCurrency(res.transaction.amount, res.transaction.currency)} est en cours.`,
-          });
-          setLocation("/dashboard");
+          const result = res as DepositResult;
+          if (result.pending) {
+            setPendingResult(result);
+            toast({
+              title: "Dépôt initié",
+              description: result.smsLink
+                ? "Cliquez sur le lien Wave pour finaliser votre paiement."
+                : "Transaction en attente — vous recevrez une confirmation par SMS.",
+            });
+          } else {
+            toast({
+              title: "Dépôt envoyé",
+              description: `Dépôt de ${formatCurrency(result.transaction.amount, result.transaction.currency)} soumis.`,
+              variant: result.transaction.status === "FAILED" ? "destructive" : "default",
+            });
+            setLocation("/dashboard");
+          }
         },
         onError: (err: unknown) => {
           const raw =
@@ -115,6 +156,90 @@ export default function Deposit() {
   };
 
   const currency = feePreview?.currency ?? selectedCountry?.currency ?? "";
+
+  // Show pending / Wave result screen
+  if (pendingResult) {
+    return (
+      <div className="max-w-2xl mx-auto">
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Clock className="h-5 w-5 text-amber-500" />
+              Dépôt en cours de traitement
+            </CardTitle>
+            <CardDescription>
+              Votre demande de dépôt a bien été transmise à l'opérateur.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+
+            {pendingResult.smsLink && (
+              <Alert className="border-blue-200 bg-blue-50 dark:bg-blue-900/20">
+                <ExternalLink className="h-4 w-4 text-blue-600" />
+                <AlertTitle className="text-blue-700 dark:text-blue-300">Paiement Wave requis</AlertTitle>
+                <AlertDescription className="text-blue-600 dark:text-blue-400 mt-2">
+                  <p className="mb-3">Ouvrez le lien ci-dessous pour finaliser votre paiement Wave.</p>
+                  <a
+                    href={pendingResult.smsLink}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-blue-700 transition-colors"
+                  >
+                    <ExternalLink className="h-4 w-4" />
+                    Payer avec Wave
+                  </a>
+                </AlertDescription>
+              </Alert>
+            )}
+
+            {!pendingResult.smsLink && pendingResult.flow === "STANDARD" && (
+              <Alert className="border-amber-200 bg-amber-50 dark:bg-amber-900/20">
+                <Info className="h-4 w-4 text-amber-600" />
+                <AlertTitle className="text-amber-700 dark:text-amber-300">Confirmation Mobile Money requise</AlertTitle>
+                <AlertDescription className="text-amber-600 dark:text-amber-400">
+                  Vous allez recevoir une invitation SMS ou USSD de votre opérateur pour confirmer le paiement. Veuillez valider pour finaliser votre dépôt.
+                </AlertDescription>
+              </Alert>
+            )}
+
+            {!pendingResult.smsLink && pendingResult.flow === "OTP" && (
+              <Alert className="border-amber-200 bg-amber-50 dark:bg-amber-900/20">
+                <Info className="h-4 w-4 text-amber-600" />
+                <AlertTitle className="text-amber-700 dark:text-amber-300">Transaction Orange Money en attente</AlertTitle>
+                <AlertDescription className="text-amber-600 dark:text-amber-400">
+                  Votre dépôt Orange Money a été soumis avec votre OTP. Vous recevrez une confirmation par SMS.
+                </AlertDescription>
+              </Alert>
+            )}
+
+            <div className="bg-muted rounded-lg p-4 space-y-2">
+              <div className="flex justify-between text-sm">
+                <span className="text-muted-foreground">Statut</span>
+                <span className="font-medium text-amber-600">En attente</span>
+              </div>
+              <div className="flex justify-between text-sm">
+                <span className="text-muted-foreground">Opérateur</span>
+                <span className="font-medium">{OPERATOR_LABELS[operator] ?? operator}</span>
+              </div>
+              <div className="flex justify-between text-sm">
+                <span className="text-muted-foreground">Montant</span>
+                <span className="font-medium">{formatCurrency(pendingResult.transaction.amount, pendingResult.transaction.currency)}</span>
+              </div>
+            </div>
+
+            <div className="flex gap-3 pt-2">
+              <Button variant="outline" className="flex-1" onClick={() => setLocation("/dashboard")}>
+                Retour au dashboard
+              </Button>
+              <Button variant="outline" className="flex-1" onClick={() => setLocation("/transactions")}>
+                Voir mes transactions
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
 
   return (
     <div className="max-w-2xl mx-auto">
@@ -221,6 +346,47 @@ export default function Deposit() {
                 />
               )}
 
+              {/* Instructions spécifiques à l'opérateur */}
+              {flow === "OTP" && (
+                <Alert className="border-orange-200 bg-orange-50 dark:bg-orange-900/20">
+                  <Info className="h-4 w-4 text-orange-600" />
+                  <AlertTitle className="text-orange-700 dark:text-orange-300">Code OTP Orange Money requis</AlertTitle>
+                  <AlertDescription className="text-orange-600 dark:text-orange-400 text-sm mt-1">
+                    Composez <strong>#144*82#</strong> depuis votre téléphone Orange pour générer un code OTP à 6 chiffres. Saisissez-le ci-dessous.
+                  </AlertDescription>
+                </Alert>
+              )}
+
+              {flow === "WAVE" && (
+                <Alert className="border-blue-200 bg-blue-50 dark:bg-blue-900/20">
+                  <Info className="h-4 w-4 text-blue-600" />
+                  <AlertTitle className="text-blue-700 dark:text-blue-300">Paiement Wave</AlertTitle>
+                  <AlertDescription className="text-blue-600 dark:text-blue-400 text-sm mt-1">
+                    Après validation, vous serez redirigé vers un lien de paiement Wave. Assurez-vous que l'application Wave est installée sur votre téléphone.
+                  </AlertDescription>
+                </Alert>
+              )}
+
+              {flow === "STANDARD" && operator && (
+                <Alert className="border-muted bg-muted/30">
+                  <Info className="h-4 w-4 text-muted-foreground" />
+                  <AlertTitle className="text-sm">Confirmation par SMS</AlertTitle>
+                  <AlertDescription className="text-muted-foreground text-sm mt-1">
+                    Après validation, vous recevrez une invitation SMS ou USSD de {OPERATOR_LABELS[operator] ?? operator} pour confirmer le paiement.
+                  </AlertDescription>
+                </Alert>
+              )}
+
+              {flow === "QMONEY" && (
+                <Alert className="border-muted bg-muted/30">
+                  <Info className="h-4 w-4 text-muted-foreground" />
+                  <AlertTitle className="text-sm">Paiement QMoney</AlertTitle>
+                  <AlertDescription className="text-muted-foreground text-sm mt-1">
+                    Vous recevrez un OTP de QMoney pour confirmer votre transaction.
+                  </AlertDescription>
+                </Alert>
+              )}
+
               {/* Téléphone */}
               <FormField
                 control={form.control}
@@ -249,6 +415,31 @@ export default function Deposit() {
                   </FormItem>
                 )}
               />
+
+              {/* OTP Orange Money */}
+              {flow === "OTP" && (
+                <FormField
+                  control={form.control}
+                  name="omOtp"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Code OTP Orange Money</FormLabel>
+                      <FormControl>
+                        <Input
+                          type="text"
+                          inputMode="numeric"
+                          maxLength={6}
+                          placeholder="123456"
+                          data-testid="input-otp"
+                          {...field}
+                        />
+                      </FormControl>
+                      <FormDescription>Code à 6 chiffres obtenu en composant <strong>#144*82#</strong>.</FormDescription>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              )}
 
               {/* Montant */}
               <FormField
@@ -317,7 +508,7 @@ export default function Deposit() {
               <Button
                 type="submit"
                 className="w-full"
-                disabled={depositMutation.isPending || !country || !operator}
+                disabled={depositMutation.isPending || !country || !operator || (flow === "OTP" && !form.watch("omOtp"))}
                 data-testid="button-submit-deposit"
               >
                 {depositMutation.isPending ? "Traitement en cours..." : "Initier le dépôt"}

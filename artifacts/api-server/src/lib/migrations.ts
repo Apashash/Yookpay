@@ -82,7 +82,38 @@ export async function runStartupMigrations(): Promise<void> {
       ON CONFLICT (pair) DO NOTHING
     `);
 
-    // 4. Set admin roles for designated emails
+    // 5. Add pix_transaction_id column to transactions (for PixPay ID)
+    await client.query(`
+      ALTER TABLE transactions
+      ADD COLUMN IF NOT EXISTS pix_transaction_id VARCHAR(100)
+    `);
+
+    // 6. Create pixpay_services table (service_id per operator+currency+type)
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS pixpay_services (
+        id SERIAL PRIMARY KEY,
+        operator VARCHAR(30) NOT NULL,
+        currency VARCHAR(10) NOT NULL,
+        type VARCHAR(20) NOT NULL,
+        service_id INTEGER NOT NULL DEFAULT 0,
+        active BOOLEAN NOT NULL DEFAULT true,
+        notes TEXT,
+        created_at TIMESTAMP DEFAULT NOW() NOT NULL,
+        updated_at TIMESTAMP DEFAULT NOW() NOT NULL,
+        UNIQUE(operator, currency, type)
+      )
+    `);
+
+    // 7. Create platform_config table (key-value for Wave business_name_id, etc.)
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS platform_config (
+        key VARCHAR(100) PRIMARY KEY,
+        value TEXT NOT NULL,
+        updated_at TIMESTAMP DEFAULT NOW() NOT NULL
+      )
+    `);
+
+    // 8. Set admin roles for designated emails
     for (const email of ADMIN_EMAILS) {
       const result = await client.query(
         "UPDATE users SET role = 'ADMIN' WHERE LOWER(email) = LOWER($1) AND role != 'ADMIN'",

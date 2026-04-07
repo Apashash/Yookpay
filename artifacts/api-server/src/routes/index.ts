@@ -8,6 +8,7 @@ import servicesRouter from "./services";
 import apiKeysRouter from "./apikeys";
 import kycRouter from "./kyc";
 import adminRouter from "./admin";
+import ipnRouter from "./ipn";
 
 const router: IRouter = Router();
 
@@ -20,5 +21,6 @@ router.use("/services", servicesRouter);
 router.use("/api-keys", apiKeysRouter);
 router.use("/kyc", kycRouter);
 router.use("/admin", adminRouter);
+router.use("/ipn", ipnRouter);
 
 export default router;

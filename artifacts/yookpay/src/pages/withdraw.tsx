@@ -7,6 +7,7 @@ import { formatCurrency } from "@/lib/format";
 import { useToast } from "@/hooks/use-toast";
 import { useLocation } from "wouter";
 import { COUNTRIES, OPERATOR_LABELS } from "@/lib/countries";
+import { getOperatorFlow } from "@/lib/operator-flow";
 
 import {
   Card,
@@ -34,6 +35,8 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { ExternalLink, Clock, Info } from "lucide-react";
 
 type FeeBearer = "SENDER" | "RECIPIENT";
 
@@ -54,12 +57,21 @@ type FeePreview = {
   currency: string;
 };
 
+type WithdrawResult = {
+  transaction: { amount: number; currency: string; status: string };
+  flow?: string;
+  smsLink?: string | null;
+  pending?: boolean;
+  message?: string;
+};
+
 export default function Withdraw() {
   const { toast } = useToast();
   const [, setLocation] = useLocation();
   const withdrawMutation = useCreateWithdrawal();
   const [feeBearer, setFeeBearer] = useState<FeeBearer>("SENDER");
   const [feePreview, setFeePreview] = useState<FeePreview | null>(null);
+  const [pendingResult, setPendingResult] = useState<WithdrawResult | null>(null);
 
   const form = useForm<WithdrawFormValues>({
     resolver: zodResolver(withdrawSchema),
@@ -72,10 +84,12 @@ export default function Withdraw() {
 
   const selectedCountry = COUNTRIES.find((c) => c.code === country);
   const operators = selectedCountry?.operators ?? [];
+  const flow = operator ? getOperatorFlow(operator) : null;
 
   useEffect(() => {
     form.setValue("operator", "");
     setFeePreview(null);
+    setPendingResult(null);
   }, [country]);
 
   useEffect(() => {
@@ -97,11 +111,23 @@ export default function Withdraw() {
       { data: { amount: data.amount, currency, country: data.country, operator: data.operator, phone: data.phone, feeBearer } },
       {
         onSuccess: (res) => {
-          toast({
-            title: "Retrait initié",
-            description: `Votre retrait de ${formatCurrency(res.transaction.amount, res.transaction.currency)} est en cours.`,
-          });
-          setLocation("/dashboard");
+          const result = res as WithdrawResult;
+          if (result.pending) {
+            setPendingResult(result);
+            toast({
+              title: "Retrait initié",
+              description: result.smsLink
+                ? "Cliquez sur le lien Wave pour finaliser votre retrait."
+                : "Transaction en attente — votre opérateur va traiter le retrait.",
+            });
+          } else {
+            toast({
+              title: "Retrait soumis",
+              description: `Retrait de ${formatCurrency(result.transaction.amount, result.transaction.currency)} soumis.`,
+              variant: result.transaction.status === "FAILED" ? "destructive" : "default",
+            });
+            setLocation("/dashboard");
+          }
         },
         onError: (err: unknown) => {
           const raw =
@@ -116,6 +142,80 @@ export default function Withdraw() {
   };
 
   const currency = feePreview?.currency ?? selectedCountry?.currency ?? "";
+
+  // Show pending / Wave result screen
+  if (pendingResult) {
+    return (
+      <div className="max-w-2xl mx-auto">
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Clock className="h-5 w-5 text-amber-500" />
+              Retrait en cours de traitement
+            </CardTitle>
+            <CardDescription>
+              Votre demande de retrait a été transmise à l'opérateur. Le solde de votre wallet a été réservé.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+
+            {pendingResult.smsLink && (
+              <Alert className="border-blue-200 bg-blue-50 dark:bg-blue-900/20">
+                <ExternalLink className="h-4 w-4 text-blue-600" />
+                <AlertTitle className="text-blue-700 dark:text-blue-300">Confirmation Wave requise</AlertTitle>
+                <AlertDescription className="text-blue-600 dark:text-blue-400 mt-2">
+                  <p className="mb-3">Ouvrez le lien ci-dessous pour confirmer votre retrait Wave.</p>
+                  <a
+                    href={pendingResult.smsLink}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-blue-700 transition-colors"
+                  >
+                    <ExternalLink className="h-4 w-4" />
+                    Confirmer avec Wave
+                  </a>
+                </AlertDescription>
+              </Alert>
+            )}
+
+            {!pendingResult.smsLink && (
+              <Alert className="border-amber-200 bg-amber-50 dark:bg-amber-900/20">
+                <Info className="h-4 w-4 text-amber-600" />
+                <AlertTitle className="text-amber-700 dark:text-amber-300">Retrait en cours</AlertTitle>
+                <AlertDescription className="text-amber-600 dark:text-amber-400">
+                  Les fonds seront envoyés sur votre numéro Mobile Money. En cas d'échec, votre solde sera automatiquement recrédité.
+                </AlertDescription>
+              </Alert>
+            )}
+
+            <div className="bg-muted rounded-lg p-4 space-y-2">
+              <div className="flex justify-between text-sm">
+                <span className="text-muted-foreground">Statut</span>
+                <span className="font-medium text-amber-600">En attente</span>
+              </div>
+              <div className="flex justify-between text-sm">
+                <span className="text-muted-foreground">Opérateur</span>
+                <span className="font-medium">{OPERATOR_LABELS[operator] ?? operator}</span>
+              </div>
+              <div className="flex justify-between text-sm">
+                <span className="text-muted-foreground">Montant</span>
+                <span className="font-medium">{formatCurrency(pendingResult.transaction.amount, pendingResult.transaction.currency)}</span>
+              </div>
+            </div>
+
+            <div className="flex gap-3 pt-2">
+              <Button variant="outline" className="flex-1" onClick={() => setLocation("/dashboard")}>
+                Retour au dashboard
+              </Button>
+              <Button variant="outline" className="flex-1" onClick={() => setLocation("/transactions")}>
+                Voir mes transactions
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
 
   return (
     <div className="max-w-2xl mx-auto">
@@ -220,6 +320,27 @@ export default function Withdraw() {
                     </FormItem>
                   )}
                 />
+              )}
+
+              {/* Instructions spécifiques à l'opérateur */}
+              {flow === "WAVE" && (
+                <Alert className="border-blue-200 bg-blue-50 dark:bg-blue-900/20">
+                  <Info className="h-4 w-4 text-blue-600" />
+                  <AlertTitle className="text-blue-700 dark:text-blue-300">Retrait Wave</AlertTitle>
+                  <AlertDescription className="text-blue-600 dark:text-blue-400 text-sm mt-1">
+                    Après validation, un lien Wave vous sera fourni pour confirmer le retrait depuis votre application Wave.
+                  </AlertDescription>
+                </Alert>
+              )}
+
+              {flow === "STANDARD" && operator && (
+                <Alert className="border-muted bg-muted/30">
+                  <Info className="h-4 w-4 text-muted-foreground" />
+                  <AlertTitle className="text-sm">Retrait Mobile Money</AlertTitle>
+                  <AlertDescription className="text-muted-foreground text-sm mt-1">
+                    Les fonds seront envoyés directement sur le numéro {OPERATOR_LABELS[operator] ?? operator} indiqué. En cas d'échec, votre solde sera automatiquement recrédité.
+                  </AlertDescription>
+                </Alert>
               )}
 
               {/* Téléphone */}
