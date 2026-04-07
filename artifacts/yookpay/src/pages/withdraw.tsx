@@ -35,6 +35,8 @@ import {
 } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
 
+type FeeBearer = "SENDER" | "RECIPIENT";
+
 const withdrawSchema = z.object({
   amount:   z.coerce.number().min(100, "Montant minimum : 100"),
   country:  z.string().min(2, "Veuillez sélectionner un pays"),
@@ -44,13 +46,20 @@ const withdrawSchema = z.object({
 
 type WithdrawFormValues = z.infer<typeof withdrawSchema>;
 
+type FeePreview = {
+  grossAmount: number;
+  feeRate: number;
+  feeAmount: number;
+  netAmount: number;
+  currency: string;
+};
+
 export default function Withdraw() {
   const { toast } = useToast();
   const [, setLocation] = useLocation();
   const withdrawMutation = useCreateWithdrawal();
-  const [feePreview, setFeePreview] = useState<{
-    grossAmount: number; feeRate: number; feeAmount: number; netAmount: number; currency: string;
-  } | null>(null);
+  const [feeBearer, setFeeBearer] = useState<FeeBearer>("SENDER");
+  const [feePreview, setFeePreview] = useState<FeePreview | null>(null);
 
   const form = useForm<WithdrawFormValues>({
     resolver: zodResolver(withdrawSchema),
@@ -76,7 +85,7 @@ export default function Withdraw() {
       try {
         const { getFeePreview } = await import("@workspace/api-client-react");
         const res = await getFeePreview({ amount, country, operator, type: "WITHDRAWAL" });
-        if (active) setFeePreview(res as typeof feePreview);
+        if (active) setFeePreview(res as FeePreview);
       } catch { /* silent */ }
     }, 500);
     return () => { active = false; clearTimeout(id); };
@@ -85,7 +94,7 @@ export default function Withdraw() {
   const onSubmit = (data: WithdrawFormValues) => {
     const currency = selectedCountry?.currency ?? "XAF";
     withdrawMutation.mutate(
-      { data: { amount: data.amount, currency, country: data.country, operator: data.operator, phone: data.phone } },
+      { data: { amount: data.amount, currency, country: data.country, operator: data.operator, phone: data.phone, feeBearer } },
       {
         onSuccess: (res) => {
           toast({
@@ -100,15 +109,13 @@ export default function Withdraw() {
             (err as { message?: string })?.message ||
             "Une erreur s'est produite lors du traitement.";
           const msg = raw.replace(/^HTTP\s+\d+\s+[^:]+:\s*/i, "");
-          toast({
-            variant: "destructive",
-            title: "Échec du retrait",
-            description: msg,
-          });
+          toast({ variant: "destructive", title: "Échec du retrait", description: msg });
         },
       }
     );
   };
+
+  const currency = feePreview?.currency ?? selectedCountry?.currency ?? "";
 
   return (
     <div className="max-w-2xl mx-auto">
@@ -122,6 +129,40 @@ export default function Withdraw() {
         <CardContent>
           <Form {...form}>
             <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+
+              {/* Toggle : Qui paie les frais ? */}
+              <div>
+                <p className="text-sm font-medium mb-2">Qui paie les frais ?</p>
+                <div className="flex rounded-lg border border-input overflow-hidden w-full">
+                  <button
+                    type="button"
+                    onClick={() => setFeeBearer("SENDER")}
+                    className={`flex-1 py-2 text-sm font-medium transition-colors ${
+                      feeBearer === "SENDER"
+                        ? "bg-primary text-primary-foreground"
+                        : "bg-background text-muted-foreground hover:bg-muted"
+                    }`}
+                  >
+                    Moi (envoyeur)
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setFeeBearer("RECIPIENT")}
+                    className={`flex-1 py-2 text-sm font-medium transition-colors border-l border-input ${
+                      feeBearer === "RECIPIENT"
+                        ? "bg-primary text-primary-foreground"
+                        : "bg-background text-muted-foreground hover:bg-muted"
+                    }`}
+                  >
+                    Destinataire
+                  </button>
+                </div>
+                <p className="text-xs text-muted-foreground mt-1.5">
+                  {feeBearer === "SENDER"
+                    ? "Votre wallet supporte les frais — le destinataire reçoit le montant exact."
+                    : "Le destinataire supporte les frais — votre wallet est débité du montant exact saisi."}
+                </p>
+              </div>
 
               {/* Pays */}
               <FormField
@@ -217,7 +258,9 @@ export default function Withdraw() {
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>
-                      Montant à retirer{selectedCountry ? ` (${selectedCountry.currency})` : ""}
+                      {feeBearer === "SENDER"
+                        ? `Montant que le destinataire recevra${currency ? ` (${currency})` : ""}`
+                        : `Montant total à débiter de votre wallet${currency ? ` (${currency})` : ""}`}
                     </FormLabel>
                     <FormControl>
                       <Input type="number" placeholder="1000" data-testid="input-amount" {...field} />
@@ -231,19 +274,42 @@ export default function Withdraw() {
               {feePreview && (
                 <div className="bg-muted rounded-lg p-4 space-y-2 border border-border">
                   <h4 className="text-sm font-semibold mb-3">Résumé de la transaction</h4>
-                  <div className="flex justify-between text-sm">
-                    <span className="text-muted-foreground">Montant du retrait</span>
-                    <span>{formatCurrency(feePreview.grossAmount, feePreview.currency)}</span>
-                  </div>
-                  <div className="flex justify-between text-sm">
-                    <span className="text-muted-foreground">Frais ({(feePreview.feeRate * 100).toFixed(1)}%)</span>
-                    <span className="text-rose-500">+ {formatCurrency(feePreview.feeAmount, feePreview.currency)}</span>
-                  </div>
-                  <Separator className="my-2" />
-                  <div className="flex justify-between font-semibold">
-                    <span>Total débité du portefeuille</span>
-                    <span className="text-rose-600">{formatCurrency(feePreview.netAmount, feePreview.currency)}</span>
-                  </div>
+
+                  {feeBearer === "SENDER" ? (
+                    <>
+                      <div className="flex justify-between text-sm">
+                        <span className="text-muted-foreground">Montant reçu par le destinataire</span>
+                        <span>{formatCurrency(feePreview.grossAmount, feePreview.currency)}</span>
+                      </div>
+                      <div className="flex justify-between text-sm">
+                        <span className="text-muted-foreground">Frais ({(feePreview.feeRate * 100).toFixed(1)}%) — à votre charge</span>
+                        <span className="text-rose-500">+ {formatCurrency(feePreview.feeAmount, feePreview.currency)}</span>
+                      </div>
+                      <Separator className="my-2" />
+                      <div className="flex justify-between font-semibold">
+                        <span>Total débité de votre wallet</span>
+                        <span className="text-rose-600">{formatCurrency(feePreview.netAmount, feePreview.currency)}</span>
+                      </div>
+                    </>
+                  ) : (
+                    <>
+                      <div className="flex justify-between text-sm">
+                        <span className="text-muted-foreground">Montant débité de votre wallet</span>
+                        <span>{formatCurrency(feePreview.grossAmount, feePreview.currency)}</span>
+                      </div>
+                      <div className="flex justify-between text-sm">
+                        <span className="text-muted-foreground">Frais ({(feePreview.feeRate * 100).toFixed(1)}%) — à charge du destinataire</span>
+                        <span className="text-rose-500">− {formatCurrency(feePreview.feeAmount, feePreview.currency)}</span>
+                      </div>
+                      <Separator className="my-2" />
+                      <div className="flex justify-between font-semibold">
+                        <span>Le destinataire reçoit</span>
+                        <span className="text-emerald-600">
+                          {formatCurrency(Math.max(feePreview.grossAmount - feePreview.feeAmount, 0), feePreview.currency)}
+                        </span>
+                      </div>
+                    </>
+                  )}
                 </div>
               )}
 

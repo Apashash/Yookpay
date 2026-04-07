@@ -126,31 +126,19 @@ export interface TransactionResponse {
   message?: string;
 }
 
-export type DepositBodyCountry =
-  (typeof DepositBodyCountry)[keyof typeof DepositBodyCountry];
+export type DepositBodyCountry = string;
 
-export const DepositBodyCountry = {
-  CM: "CM",
-  SN: "SN",
-  CD: "CD",
-} as const;
+export type DepositBodyOperator = string;
 
-export type DepositBodyOperator =
-  (typeof DepositBodyOperator)[keyof typeof DepositBodyOperator];
-
-export const DepositBodyOperator = {
-  MTN: "MTN",
-  ORANGE: "ORANGE",
-  MOOV: "MOOV",
-  WAVE: "WAVE",
-} as const;
+export type FeeBearer = "SENDER" | "RECIPIENT";
 
 export interface DepositBody {
   /** @minimum 100 */
   amount: number;
-  country: DepositBodyCountry;
-  operator: DepositBodyOperator;
+  country: string;
+  operator: string;
   phone: string;
+  feeBearer?: FeeBearer;
 }
 
 export type WithdrawBodyCurrency = string;
@@ -164,6 +152,7 @@ export interface WithdrawBody {
   country: string;
   phone: string;
   operator: string;
+  feeBearer?: FeeBearer;
 }
 
 export type TransferBodyFromCurrency =

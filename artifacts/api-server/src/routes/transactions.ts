@@ -125,7 +125,8 @@ router.post("/deposit", authMiddleware, transactionRateLimit, async (req: AuthRe
     amount: z.number().min(100),
     country: z.string().min(2),
     operator: z.string().min(2),
-    phone: z.string().min(8),
+    phone: z.string().min(6),
+    feeBearer: z.enum(["SENDER", "RECIPIENT"]).default("SENDER"),
   });
 
   const parse = schema.safeParse(req.body);
@@ -134,7 +135,7 @@ router.post("/deposit", authMiddleware, transactionRateLimit, async (req: AuthRe
     return;
   }
 
-  const { amount, country, operator, phone } = parse.data;
+  const { amount, country, operator, phone, feeBearer } = parse.data;
   const currency = CURRENCY_MAP[country as Country];
   const reference = generateReference();
 
@@ -199,17 +200,22 @@ router.post("/deposit", authMiddleware, transactionRateLimit, async (req: AuthRe
         .limit(1);
 
       if (wallet) {
-        const newBalance = parseFloat(wallet.balance) + feeBreakdown.netAmount;
+        // SENDER pays: wallet receives netAmount (grossAmount - fee)
+        // RECIPIENT pays: wallet receives grossAmount (full), fee is borne by wallet owner
+        const creditAmount = feeBearer === "RECIPIENT"
+          ? feeBreakdown.grossAmount
+          : feeBreakdown.netAmount;
+        const newBalance = parseFloat(wallet.balance) + creditAmount;
         await db
           .update(walletsTable)
           .set({ balance: newBalance.toString(), updatedAt: new Date() })
           .where(eq(walletsTable.id, wallet.id));
-      }
 
-      req.log.info(
-        { txId: tx.id, reference, netAmount: feeBreakdown.netAmount, currency },
-        "Deposit SUCCESS - wallet updated"
-      );
+        req.log.info(
+          { txId: tx.id, reference, creditAmount, feeBearer, currency },
+          "Deposit SUCCESS - wallet updated"
+        );
+      }
     } else {
       req.log.warn({ txId: tx.id, reference }, "Deposit FAILED by provider");
     }
@@ -217,6 +223,7 @@ router.post("/deposit", authMiddleware, transactionRateLimit, async (req: AuthRe
     res.status(201).json({
       transaction: formatTx(updatedTx),
       feeBreakdown,
+      feeBearer,
       message: providerResult.message,
     });
   } catch (err) {
@@ -233,6 +240,7 @@ router.post("/withdraw", authMiddleware, transactionRateLimit, async (req: AuthR
     country: z.string().min(2),
     phone: z.string().min(6),
     operator: z.string().min(2),
+    feeBearer: z.enum(["SENDER", "RECIPIENT"]).default("SENDER"),
   });
 
   const parse = schema.safeParse(req.body);
@@ -241,7 +249,7 @@ router.post("/withdraw", authMiddleware, transactionRateLimit, async (req: AuthR
     return;
   }
 
-  const { amount, currency, country, phone, operator } = parse.data;
+  const { amount, currency, country, phone, operator, feeBearer } = parse.data;
   const reference = generateReference();
 
   try {
@@ -278,10 +286,13 @@ router.post("/withdraw", authMiddleware, transactionRateLimit, async (req: AuthR
       };
     }
 
-    if (balance < feeBreakdown.netAmount) {
+    // SENDER pays: wallet must cover amount + fee (netAmount)
+    // RECIPIENT pays: wallet only needs to cover the gross amount
+    const requiredBalance = feeBearer === "RECIPIENT" ? feeBreakdown.grossAmount : feeBreakdown.netAmount;
+    if (balance < requiredBalance) {
       res.status(400).json({
         error: "InsufficientFunds",
-        message: `Solde du portefeuille ${currency} insuffisant pour couvrir le montant et les frais (nécessaire : ${feeBreakdown.netAmount.toLocaleString("fr-FR")} ${currency}, disponible : ${balance.toLocaleString("fr-FR")} ${currency})`,
+        message: `Solde du portefeuille ${currency} insuffisant pour couvrir le montant${feeBearer === "SENDER" ? " et les frais" : ""} (nécessaire : ${requiredBalance.toLocaleString("fr-FR")} ${currency}, disponible : ${balance.toLocaleString("fr-FR")} ${currency})`,
       });
       return;
     }
@@ -337,13 +348,16 @@ router.post("/withdraw", authMiddleware, transactionRateLimit, async (req: AuthR
       .returning();
 
     if (newStatus === "SUCCESS") {
-      const newBalance = parseFloat(wallet.balance) - feeBreakdown.netAmount;
+      // SENDER pays: debit amount + fee (netAmount)
+      // RECIPIENT pays: debit amount only (grossAmount), recipient absorbs fee
+      const debitAmount = requiredBalance;
+      const newBalance = parseFloat(wallet.balance) - debitAmount;
       await db
         .update(walletsTable)
         .set({ balance: Math.max(newBalance, 0).toString(), updatedAt: new Date() })
         .where(eq(walletsTable.id, wallet.id));
 
-      req.log.info({ txId: tx.id, reference, amount, currency }, "Withdrawal SUCCESS - wallet deducted");
+      req.log.info({ txId: tx.id, reference, debitAmount, feeBearer, currency }, "Withdrawal SUCCESS - wallet deducted");
     } else {
       req.log.warn({ txId: tx.id, reference }, "Withdrawal FAILED by provider");
     }
@@ -351,6 +365,7 @@ router.post("/withdraw", authMiddleware, transactionRateLimit, async (req: AuthR
     res.status(201).json({
       transaction: formatTx(updatedTx),
       feeBreakdown,
+      feeBearer,
       message: providerResult.message,
     });
   } catch (err) {
