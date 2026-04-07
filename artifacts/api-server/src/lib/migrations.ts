@@ -137,42 +137,45 @@ export async function runStartupMigrations(): Promise<void> {
     // 6d. Seed all PixPay service IDs (ON CONFLICT DO NOTHING — preserves manual overrides)
     await client.query(`
       INSERT INTO pixpay_services (operator, country, currency, type, service_id, active, notes) VALUES
+        -- RÈGLE: CASH OUT (argent sort du mobile → YookPay) = DEPOSIT
+        --        CASH IN  (argent entre dans mobile ← YookPay) = WITHDRAWAL
         -- XOF — Côte d'Ivoire (CI)
-        ('ORANGE',   'CI', 'XOF', 'DEPOSIT',    2,   true, 'OM_CI CASH IN'),
-        ('ORANGE',   'CI', 'XOF', 'WITHDRAWAL', 1,   true, 'OM_CI CASH OUT'),
-        ('MOOV',     'CI', 'XOF', 'DEPOSIT',    4,   true, 'MOOV_CI CASH IN'),
-        ('MOOV',     'CI', 'XOF', 'WITHDRAWAL', 3,   true, 'MOOV_CI CASH OUT'),
-        ('MTN',      'CI', 'XOF', 'DEPOSIT',    6,   true, 'MTN_CI CASH IN'),
-        ('MTN',      'CI', 'XOF', 'WITHDRAWAL', 5,   true, 'MTN_CI CASH OUT'),
-        ('WAVE',     'CI', 'XOF', 'DEPOSIT',    8,   true, 'WAVE_CI CASH IN'),
-        ('WAVE',     'CI', 'XOF', 'WITHDRAWAL', 7,   true, 'WAVE_CI CASH OUT'),
+        ('ORANGE',   'CI', 'XOF', 'DEPOSIT',    1,   true, 'OM_CI CASH OUT'),
+        ('ORANGE',   'CI', 'XOF', 'WITHDRAWAL', 2,   true, 'OM_CI CASH IN'),
+        ('MOOV',     'CI', 'XOF', 'DEPOSIT',    3,   true, 'MOOV_CI CASH OUT'),
+        ('MOOV',     'CI', 'XOF', 'WITHDRAWAL', 4,   true, 'MOOV_CI CASH IN'),
+        ('MTN',      'CI', 'XOF', 'DEPOSIT',    5,   true, 'MTN_CI CASH OUT'),
+        ('MTN',      'CI', 'XOF', 'WITHDRAWAL', 6,   true, 'MTN_CI CASH IN'),
+        ('WAVE',     'CI', 'XOF', 'DEPOSIT',    7,   true, 'WAVE_CI CASH OUT'),
+        ('WAVE',     'CI', 'XOF', 'WITHDRAWAL', 8,   true, 'WAVE_CI CASH IN'),
         -- XOF — Sénégal (SN)
-        ('WAVE',     'SN', 'XOF', 'DEPOSIT',    210, true, 'WAVE_SN CASH IN'),
-        ('WAVE',     'SN', 'XOF', 'WITHDRAWAL', 211, true, 'WAVE_SN CASH OUT'),
-        ('ORANGE',   'SN', 'XOF', 'DEPOSIT',    214, true, 'OM_SN CASH IN'),
-        ('ORANGE',   'SN', 'XOF', 'WITHDRAWAL', 213, true, 'OM_SN CASH OUT'),
-        ('FREE',     'SN', 'XOF', 'DEPOSIT',    340, true, 'MIX_SN CASH IN'),
-        ('FREE',     'SN', 'XOF', 'WITHDRAWAL', 341, true, 'MIX_SN CASH OUT'),
+        ('WAVE',     'SN', 'XOF', 'DEPOSIT',    211, true, 'WAVE_SN CASH OUT'),
+        ('WAVE',     'SN', 'XOF', 'WITHDRAWAL', 210, true, 'WAVE_SN CASH IN'),
+        ('ORANGE',   'SN', 'XOF', 'DEPOSIT',    213, true, 'OM_SN CASH OUT'),
+        ('ORANGE',   'SN', 'XOF', 'WITHDRAWAL', 214, true, 'OM_SN CASH IN'),
+        ('FREE',     'SN', 'XOF', 'DEPOSIT',    341, true, 'MIX_SN CASH OUT'),
+        ('FREE',     'SN', 'XOF', 'WITHDRAWAL', 340, true, 'MIX_SN CASH IN'),
         -- XOF — Burkina Faso (BF)
-        ('MOOV',     'BF', 'XOF', 'DEPOSIT',    238, true, 'MOOV_BF CASH IN'),
-        ('MOOV',     'BF', 'XOF', 'WITHDRAWAL', 239, true, 'MOOV_BF CASH OUT'),
-        ('ORANGE',   'BF', 'XOF', 'DEPOSIT',    240, true, 'ORANGE_BF CASH IN'),
-        ('ORANGE',   'BF', 'XOF', 'WITHDRAWAL', 241, true, 'ORANGE_BF CASH OUT'),
+        ('MOOV',     'BF', 'XOF', 'DEPOSIT',    239, true, 'MOOV_BF CASH OUT'),
+        ('MOOV',     'BF', 'XOF', 'WITHDRAWAL', 238, true, 'MOOV_BF CASH IN'),
+        ('ORANGE',   'BF', 'XOF', 'DEPOSIT',    241, true, 'ORANGE_BF CASH OUT'),
+        ('ORANGE',   'BF', 'XOF', 'WITHDRAWAL', 240, true, 'ORANGE_BF CASH IN'),
         -- XAF — Cameroun (CM)
-        ('ORANGE',   'CM', 'XAF', 'DEPOSIT',    336, true, 'ORANGE_CM CASH IN'),
-        ('ORANGE',   'CM', 'XAF', 'WITHDRAWAL', 337, true, 'ORANGE_CM CASH OUT'),
-        ('MTN',      'CM', 'XAF', 'DEPOSIT',    338, true, 'MTN_CM CASH IN'),
-        ('MTN',      'CM', 'XAF', 'WITHDRAWAL', 339, true, 'MTN_CM CASH OUT'),
+        ('ORANGE',   'CM', 'XAF', 'DEPOSIT',    337, true, 'ORANGE_CM CASH OUT'),
+        ('ORANGE',   'CM', 'XAF', 'WITHDRAWAL', 336, true, 'ORANGE_CM CASH IN'),
+        ('MTN',      'CM', 'XAF', 'DEPOSIT',    339, true, 'MTN_CM CASH OUT'),
+        ('MTN',      'CM', 'XAF', 'WITHDRAWAL', 338, true, 'MTN_CM CASH IN'),
         -- CDF — Congo RDC (CD)
-        ('VODACOM',  'CD', 'CDF', 'DEPOSIT',    342, true, 'MPESA_CD CASH IN'),
-        ('VODACOM',  'CD', 'CDF', 'WITHDRAWAL', 343, true, 'MPESA_CD CASH OUT'),
-        ('AIRTEL',   'CD', 'CDF', 'DEPOSIT',    344, true, 'AIRTEL_CD CASH IN'),
-        ('AIRTEL',   'CD', 'CDF', 'WITHDRAWAL', 345, true, 'AIRTEL_CD CASH OUT'),
-        ('ORANGE',   'CD', 'CDF', 'DEPOSIT',    346, true, 'ORANGE_CD CASH IN'),
-        ('ORANGE',   'CD', 'CDF', 'WITHDRAWAL', 347, true, 'ORANGE_CD CASH OUT'),
-        ('AFRICELL', 'CD', 'CDF', 'DEPOSIT',    348, true, 'AFRIMONEY_CD CASH IN'),
-        ('AFRICELL', 'CD', 'CDF', 'WITHDRAWAL', 349, true, 'AFRIMONEY_CD CASH OUT')
-      ON CONFLICT ON CONSTRAINT pixpay_services_uq DO NOTHING
+        ('VODACOM',  'CD', 'CDF', 'DEPOSIT',    343, true, 'MPESA_CD CASH OUT'),
+        ('VODACOM',  'CD', 'CDF', 'WITHDRAWAL', 342, true, 'MPESA_CD CASH IN'),
+        ('AIRTEL',   'CD', 'CDF', 'DEPOSIT',    345, true, 'AIRTEL_CD CASH OUT'),
+        ('AIRTEL',   'CD', 'CDF', 'WITHDRAWAL', 344, true, 'AIRTEL_CD CASH IN'),
+        ('ORANGE',   'CD', 'CDF', 'DEPOSIT',    347, true, 'ORANGE_CD CASH OUT'),
+        ('ORANGE',   'CD', 'CDF', 'WITHDRAWAL', 346, true, 'ORANGE_CD CASH IN'),
+        ('AFRICELL', 'CD', 'CDF', 'DEPOSIT',    349, true, 'AFRIMONEY_CD CASH OUT'),
+        ('AFRICELL', 'CD', 'CDF', 'WITHDRAWAL', 348, true, 'AFRIMONEY_CD CASH IN')
+      ON CONFLICT ON CONSTRAINT pixpay_services_uq
+      DO UPDATE SET service_id = EXCLUDED.service_id, notes = EXCLUDED.notes, updated_at = NOW()
     `);
 
     // 7. Create platform_config table (key-value for Wave business_name_id, etc.)
