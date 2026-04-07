@@ -165,12 +165,12 @@ function EditableCell({
   }
 
   return (
-    <div className="flex items-center justify-end gap-1 group">
+    <div className="flex items-center justify-end gap-1">
       <span className={`text-sm font-semibold tabular-nums ${cell.source === "specific" ? "text-amber-600" : cell.source === "global" ? "text-blue-600" : "text-foreground"}`}>
         {(cell.rate * 100).toFixed(2)}%
       </span>
       {cell.source === "specific" && <Star className="h-2.5 w-2.5 text-amber-500 fill-amber-400 flex-shrink-0" />}
-      <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
+      <div className="flex items-center gap-0.5">
         <Button size="icon" variant="ghost" className="h-6 w-6 text-muted-foreground hover:text-foreground"
           onClick={() => { setValue((cell.rate * 100).toFixed(2)); setEditing(true); }}>
           <Pencil className="h-3 w-3" />
@@ -206,15 +206,6 @@ export default function AdminUserDetail() {
       qc.invalidateQueries({ queryKey: ["admin-user", userId] });
       qc.invalidateQueries({ queryKey: ["admin-users"] });
       toast({ title: "Rôle mis à jour" });
-    },
-  });
-
-  const resetGlobalMutation = useMutation({
-    mutationFn: (type: string) =>
-      customFetch(`/api/admin/users/${userId}/global-fees/${type}`, { method: "DELETE" }),
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["admin-user", userId] });
-      toast({ title: "Taux global réinitialisé" });
     },
   });
 
@@ -324,52 +315,6 @@ export default function AdminUserDetail() {
           </CardContent>
         </Card>
       </div>
-
-      {/* Global rates (quick summary) */}
-      <Card>
-        <CardHeader>
-          <div className="flex items-center justify-between">
-            <div>
-              <CardTitle className="text-base">Taux globaux appliqués</CardTitle>
-              <p className="text-xs text-muted-foreground mt-0.5">
-                S'appliquent à tous les opérateurs sauf surcharge spécifique ci-dessous.
-              </p>
-            </div>
-          </div>
-        </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-3 gap-3">
-            {(effectiveRates ?? []).map((r) => {
-              const colors: Record<string, string> = {
-                DEPOSIT: "text-green-700 bg-green-50 border-green-200",
-                WITHDRAWAL: "text-red-700 bg-red-50 border-red-200",
-                TRANSFER: "text-blue-700 bg-blue-50 border-blue-200",
-              };
-              return (
-                <div key={r.transactionType} className={`rounded-lg border p-3 ${colors[r.transactionType]}`}>
-                  <p className="text-xs font-medium opacity-70">{TX_LABELS[r.transactionType]}</p>
-                  <p className="text-2xl font-bold mt-1">{(r.rate * 100).toFixed(2)}%</p>
-                  {r.isCustom ? (
-                    <div className="flex items-center justify-between mt-1">
-                      <span className="text-xs opacity-70">personnalisé</span>
-                      <Button variant="ghost" size="icon" className="h-5 w-5 opacity-60 hover:opacity-100"
-                        onClick={() => resetGlobalMutation.mutate(r.transactionType)}>
-                        <RotateCcw className="h-3 w-3" />
-                      </Button>
-                    </div>
-                  ) : (
-                    <p className="text-xs opacity-70 mt-1">taux par défaut</p>
-                  )}
-                </div>
-              );
-            })}
-          </div>
-          <p className="text-xs text-muted-foreground mt-3 flex items-center gap-1">
-            <Pencil className="h-3 w-3" />
-            Survolez un taux dans le tableau ci-dessous pour le modifier individuellement.
-          </p>
-        </CardContent>
-      </Card>
 
       {/* Legend */}
       {hasAnyCustom && (
