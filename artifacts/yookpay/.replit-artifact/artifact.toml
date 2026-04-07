@@ -1,0 +1,31 @@
+kind = "web"
+previewPath = "/"
+title = "YookPay - African Payment Platform"
+version = "1.0.0"
+id = "artifacts/yookpay"
+router = "path"
+
+[[integratedSkills]]
+name = "react-vite"
+version = "1.0.0"
+
+[[services]]
+name = "web"
+paths = [ "/" ]
+localPort = 18182
+
+[services.development]
+run = "pnpm --filter @workspace/yookpay run dev"
+
+[services.production]
+build = [ "pnpm", "--filter", "@workspace/yookpay", "run", "build" ]
+publicDir = "artifacts/yookpay/dist/public"
+serve = "static"
+
+[[services.production.rewrites]]
+from = "/*"
+to = "/index.html"
+
+[services.env]
+PORT = "18182"
+BASE_PATH = "/"

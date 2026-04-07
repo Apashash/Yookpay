@@ -3,20 +3,29 @@ info:
   # Do not change the title, if the title changes, the import paths will be broken
   title: Api
   version: 0.1.0
-  description: API specification
+  description: YookPay African Payment Platform API
 servers:
   - url: /api
     description: Base API path
 tags:
   - name: health
     description: Health operations
+  - name: auth
+    description: Authentication operations
+  - name: wallets
+    description: Wallet management
+  - name: transactions
+    description: Transaction operations
+  - name: fees
+    description: Fee configuration
+  - name: dashboard
+    description: Dashboard summary endpoints
 paths:
   /healthz:
     get:
       operationId: healthCheck
       tags: [health]
       summary: Health check
-      description: Returns server health status
       responses:
         "200":
           description: Healthy
@@ -24,7 +33,315 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthStatus"
+
+  /auth/register:
+    post:
+      operationId: register
+      tags: [auth]
+      summary: Register a new user
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RegisterBody"
+      responses:
+        "201":
+          description: Registered
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthResponse"
+        "400":
+          description: Invalid input
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /auth/login:
+    post:
+      operationId: login
+      tags: [auth]
+      summary: Login
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LoginBody"
+      responses:
+        "200":
+          description: Logged in
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthResponse"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /auth/me:
+    get:
+      operationId: getMe
+      tags: [auth]
+      summary: Get current user
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Current user
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/User"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /wallets:
+    get:
+      operationId: getWallets
+      tags: [wallets]
+      summary: Get all wallets for current user
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: List of wallets
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Wallet"
+
+  /transactions:
+    get:
+      operationId: getTransactions
+      tags: [transactions]
+      summary: Get transaction history
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: query
+          name: page
+          schema:
+            type: number
+          required: false
+        - in: query
+          name: limit
+          schema:
+            type: number
+          required: false
+        - in: query
+          name: status
+          schema:
+            type: string
+            enum: [PENDING, SUCCESS, FAILED]
+          required: false
+        - in: query
+          name: currency
+          schema:
+            type: string
+          required: false
+      responses:
+        "200":
+          description: Transaction list
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TransactionListResponse"
+
+  /transactions/deposit:
+    post:
+      operationId: createDeposit
+      tags: [transactions]
+      summary: Create a deposit via Mobile Money
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/DepositBody"
+      responses:
+        "201":
+          description: Deposit initiated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TransactionResponse"
+        "400":
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "429":
+          description: Rate limit exceeded
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /transactions/withdraw:
+    post:
+      operationId: createWithdrawal
+      tags: [transactions]
+      summary: Create a withdrawal
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/WithdrawBody"
+      responses:
+        "201":
+          description: Withdrawal initiated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TransactionResponse"
+        "400":
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /transactions/transfer:
+    post:
+      operationId: createTransfer
+      tags: [transactions]
+      summary: Transfer between wallets
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TransferBody"
+      responses:
+        "201":
+          description: Transfer initiated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TransactionResponse"
+        "400":
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /transactions/fee-preview:
+    post:
+      operationId: getFeePreview
+      tags: [fees]
+      summary: Preview fees for a transaction
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/FeePreviewBody"
+      responses:
+        "200":
+          description: Fee breakdown
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FeeBreakdown"
+
+  /transactions/webhook:
+    post:
+      operationId: processWebhook
+      tags: [transactions]
+      summary: Process payment webhook callback
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/WebhookBody"
+      responses:
+        "200":
+          description: Webhook processed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SuccessResponse"
+
+  /dashboard/summary:
+    get:
+      operationId: getDashboardSummary
+      tags: [dashboard]
+      summary: Get dashboard summary stats
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Dashboard summary
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DashboardSummary"
+
+  /dashboard/recent-activity:
+    get:
+      operationId: getRecentActivity
+      tags: [dashboard]
+      summary: Get recent transactions for activity feed
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Recent activity
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Transaction"
+
+  /dashboard/volume-chart:
+    get:
+      operationId: getVolumeChart
+      tags: [dashboard]
+      summary: Get 7-day transaction volume data
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Volume chart data
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/VolumeDataPoint"
+
 components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
   schemas:
     HealthStatus:
       type: object
@@ -34,3 +351,370 @@ components:
       required:
         - status
 
+    ErrorResponse:
+      type: object
+      properties:
+        error:
+          type: string
+        message:
+          type: string
+      required:
+        - error
+
+    SuccessResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        message:
+          type: string
+      required:
+        - success
+
+    RegisterBody:
+      type: object
+      properties:
+        email:
+          type: string
+          format: email
+        password:
+          type: string
+          minLength: 8
+        name:
+          type: string
+        phone:
+          type: string
+      required:
+        - email
+        - password
+        - name
+
+    LoginBody:
+      type: object
+      properties:
+        email:
+          type: string
+          format: email
+        password:
+          type: string
+      required:
+        - email
+        - password
+
+    User:
+      type: object
+      properties:
+        id:
+          type: number
+        email:
+          type: string
+        name:
+          type: string
+        phone:
+          type: string
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - email
+        - name
+        - createdAt
+
+    AuthResponse:
+      type: object
+      properties:
+        token:
+          type: string
+        user:
+          $ref: "#/components/schemas/User"
+      required:
+        - token
+        - user
+
+    Wallet:
+      type: object
+      properties:
+        id:
+          type: number
+        userId:
+          type: number
+        currency:
+          type: string
+          enum: [XAF, XOF, CDF]
+        balance:
+          type: number
+        country:
+          type: string
+        updatedAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - userId
+        - currency
+        - balance
+        - country
+        - updatedAt
+
+    Transaction:
+      type: object
+      properties:
+        id:
+          type: number
+        userId:
+          type: number
+        type:
+          type: string
+          enum: [DEPOSIT, WITHDRAWAL, TRANSFER]
+        status:
+          type: string
+          enum: [PENDING, SUCCESS, FAILED]
+        amount:
+          type: number
+        fee:
+          type: number
+        netAmount:
+          type: number
+        currency:
+          type: string
+        country:
+          type: string
+          nullable: true
+        operator:
+          type: string
+          nullable: true
+        phone:
+          type: string
+          nullable: true
+        reference:
+          type: string
+        feeRate:
+          type: number
+          nullable: true
+        metadata:
+          type: object
+          nullable: true
+          additionalProperties: true
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - userId
+        - type
+        - status
+        - amount
+        - fee
+        - netAmount
+        - currency
+        - reference
+        - createdAt
+        - updatedAt
+
+    TransactionListResponse:
+      type: object
+      properties:
+        transactions:
+          type: array
+          items:
+            $ref: "#/components/schemas/Transaction"
+        total:
+          type: number
+        page:
+          type: number
+        limit:
+          type: number
+        totalPages:
+          type: number
+      required:
+        - transactions
+        - total
+        - page
+        - limit
+        - totalPages
+
+    TransactionResponse:
+      type: object
+      properties:
+        transaction:
+          $ref: "#/components/schemas/Transaction"
+        feeBreakdown:
+          $ref: "#/components/schemas/FeeBreakdown"
+        message:
+          type: string
+      required:
+        - transaction
+        - feeBreakdown
+
+    DepositBody:
+      type: object
+      properties:
+        amount:
+          type: number
+          minimum: 100
+        country:
+          type: string
+          enum: [CM, SN, CD]
+        operator:
+          type: string
+          enum: [MTN, ORANGE, MOOV, WAVE]
+        phone:
+          type: string
+      required:
+        - amount
+        - country
+        - operator
+        - phone
+
+    WithdrawBody:
+      type: object
+      properties:
+        amount:
+          type: number
+          minimum: 100
+        currency:
+          type: string
+          enum: [XAF, XOF, CDF]
+        phone:
+          type: string
+        operator:
+          type: string
+          enum: [MTN, ORANGE, MOOV, WAVE]
+      required:
+        - amount
+        - currency
+        - phone
+        - operator
+
+    TransferBody:
+      type: object
+      properties:
+        amount:
+          type: number
+          minimum: 100
+        fromCurrency:
+          type: string
+          enum: [XAF, XOF, CDF]
+        toCurrency:
+          type: string
+          enum: [XAF, XOF, CDF]
+      required:
+        - amount
+        - fromCurrency
+        - toCurrency
+
+    FeePreviewBody:
+      type: object
+      properties:
+        amount:
+          type: number
+        country:
+          type: string
+          enum: [CM, SN, CD]
+        operator:
+          type: string
+          enum: [MTN, ORANGE, MOOV, WAVE]
+        type:
+          type: string
+          enum: [DEPOSIT, WITHDRAWAL, TRANSFER]
+      required:
+        - amount
+        - country
+        - operator
+        - type
+
+    FeeBreakdown:
+      type: object
+      properties:
+        grossAmount:
+          type: number
+        feeRate:
+          type: number
+        feeAmount:
+          type: number
+        netAmount:
+          type: number
+        currency:
+          type: string
+        operator:
+          type: string
+        country:
+          type: string
+      required:
+        - grossAmount
+        - feeRate
+        - feeAmount
+        - netAmount
+        - currency
+        - operator
+        - country
+
+    WebhookBody:
+      type: object
+      properties:
+        reference:
+          type: string
+        status:
+          type: string
+          enum: [SUCCESS, FAILED]
+        providerReference:
+          type: string
+        metadata:
+          type: object
+          nullable: true
+          additionalProperties: true
+      required:
+        - reference
+        - status
+
+    DashboardSummary:
+      type: object
+      properties:
+        totalDeposited:
+          type: number
+        totalWithdrawn:
+          type: number
+        totalFeesPaid:
+          type: number
+        transactionCount:
+          type: number
+        successRate:
+          type: number
+        wallets:
+          type: array
+          items:
+            $ref: "#/components/schemas/Wallet"
+        recentTransactions:
+          type: array
+          items:
+            $ref: "#/components/schemas/Transaction"
+      required:
+        - totalDeposited
+        - totalWithdrawn
+        - totalFeesPaid
+        - transactionCount
+        - successRate
+        - wallets
+        - recentTransactions
+
+    VolumeDataPoint:
+      type: object
+      properties:
+        date:
+          type: string
+        deposits:
+          type: number
+        withdrawals:
+          type: number
+        transfers:
+          type: number
+      required:
+        - date
+        - deposits
+        - withdrawals
+        - transfers

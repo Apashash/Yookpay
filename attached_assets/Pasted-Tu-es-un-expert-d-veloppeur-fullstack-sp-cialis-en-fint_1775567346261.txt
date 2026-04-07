@@ -1,0 +1,89 @@
+Tu es un expert développeur fullstack spécialisé en fintech.
+
+Génère une application complète appelée "YookPay", un agrégateur de paiement africain, avec l’architecture suivante :
+
+STACK TECHNIQUE :
+- Frontend : React.js + Tailwind CSS + Axios
+- Backend : Node.js + Express.js
+- Base de données : MySQL (avec Sequelize ORM)
+- Authentification : JWT
+
+OBJECTIF :
+Créer une plateforme de paiement permettant :
+- Dépôt d’argent via Mobile Money (MTN, Orange, Moov)
+- Gestion de wallet multi-devises : XAF (Cameroun), XOF (UEMOA), CDF (RDC)
+- Dashboard utilisateur moderne avec affichage des soldes
+- API sécurisée pour les transactions
+
+STRUCTURE DU PROJET :
+Backend :
+- /routes (payments.js, auth.js, webhook.js)
+- /controllers (paymentController.js, authController.js)
+- /services (providerService.js, currencyService.js)
+- /models (User.js, Wallet.js, Transaction.js)
+- /middlewares (authMiddleware.js)
+- /config (db.js)
+
+Frontend :
+- /components (Dashboard.jsx, DepositForm.jsx, Navbar.jsx)
+- /pages (Login.jsx, Register.jsx)
+- /services (api.js)
+
+FONCTIONNALITÉS BACKEND :
+1. Route POST /api/deposit
+   - Prend : userId, amount, country, operator, phone
+   - Détecte la devise automatiquement
+   - Appelle un provider simulé (mock API)
+   - Enregistre la transaction en base
+   - Met à jour le wallet
+
+2. Route POST /api/webhook
+   - Reçoit confirmation paiement
+   - Met à jour statut transaction (SUCCESS / FAILED)
+   - Met à jour le wallet
+
+3. Authentification :
+   - Inscription + Login
+   - Hash password (bcrypt)
+   - JWT sécurisé
+
+4. Sécurité :
+   - Validation des inputs
+   - Gestion des erreurs propre
+
+FONCTIONNALITÉS FRONTEND :
+1. Dashboard :
+   - Affiche 3 soldes : XAF, XOF, CDF
+   - UI moderne (dark mode fintech)
+   - Boutons dépôt / retrait
+
+2. Formulaire dépôt :
+   - Sélection pays (Cameroun, Sénégal, RDC)
+   - Sélection opérateur (MTN, Orange, Moov)
+   - Champ téléphone
+   - Champ montant
+   - Bouton envoyer avec loader
+
+3. API Calls :
+   - Axios vers backend
+   - Gestion loading + erreurs
+
+BONNES PRATIQUES :
+- Utiliser async/await partout
+- Séparer routes, controllers, services
+- Ne jamais exposer les clés API côté frontend
+- Utiliser .env pour config
+- Ajouter logs des transactions
+
+OPTION BONUS :
+- Ajouter historique des transactions
+- Ajouter système de frais (%)
+- Ajouter conversion entre devises
+
+FORMAT ATTENDU :
+- Code complet backend + frontend
+- Explication rapide pour lancer le projet
+- Scripts npm (start, dev)
+
+IMPORTANT :
+Le code doit être propre, structuré, prêt pour production, et facilement extensible à plusieurs pays africains.
