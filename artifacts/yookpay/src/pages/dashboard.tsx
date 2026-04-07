@@ -109,9 +109,9 @@ export default function Dashboard() {
           icon: string;
         }> = {
           XAF: {
-            label: "Franc CFA",
-            country: "Cameroun",
-            flag: "🇨🇲",
+            label: "Afrique Centrale",
+            country: "Afrique Centrale",
+            flag: "",
             gradient: "from-violet-600 via-indigo-600 to-indigo-700",
             border: "border-indigo-400/30",
             badge: "bg-white/15 text-white",
@@ -119,9 +119,9 @@ export default function Dashboard() {
             icon: "FCFA",
           },
           XOF: {
-            label: "Franc CFA",
-            country: "Sénégal",
-            flag: "🇸🇳",
+            label: "Afrique de l'Ouest",
+            country: "Afrique de l'Ouest",
+            flag: "",
             gradient: "from-emerald-500 via-teal-600 to-teal-700",
             border: "border-emerald-400/30",
             badge: "bg-white/15 text-white",
@@ -129,9 +129,9 @@ export default function Dashboard() {
             icon: "CFA",
           },
           CDF: {
-            label: "Franc Congolais",
-            country: "RD Congo",
-            flag: "🇨🇩",
+            label: "Afrique Centrale",
+            country: "Congo RDC",
+            flag: "",
             gradient: "from-amber-500 via-orange-500 to-orange-600",
             border: "border-amber-400/30",
             badge: "bg-white/15 text-white",
@@ -163,23 +163,20 @@ export default function Dashboard() {
                   <div className="absolute -top-6 -right-6 w-28 h-28 rounded-full bg-white/10" />
                   <div className="absolute -bottom-8 -right-2 w-20 h-20 rounded-full bg-white/5" />
 
-                  {/* Top row: flag + country badge */}
+                  {/* Top row: currency code badge + active dot */}
                   <div className="relative flex items-center justify-between mb-4">
-                    <div className="flex items-center gap-2">
-                      <span className="text-2xl leading-none">{meta.flag}</span>
-                      <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${meta.badge} backdrop-blur-sm`}>
-                        {meta.country}
-                      </span>
-                    </div>
+                    <span className={`text-sm font-bold px-3 py-1 rounded-full ${meta.badge} backdrop-blur-sm tracking-widest`}>
+                      {wallet.currency}
+                    </span>
                     <div className="flex items-center gap-1.5">
                       <div className={`w-2 h-2 rounded-full ${meta.dot} animate-pulse`} />
                       <span className="text-xs text-white/70 font-medium">Actif</span>
                     </div>
                   </div>
 
-                  {/* Currency label */}
+                  {/* Region label */}
                   <p className="relative text-xs font-medium text-white/60 uppercase tracking-widest mb-1">
-                    {wallet.currency} · {meta.label}
+                    {meta.label}
                   </p>
 
                   {/* Balance amount */}
