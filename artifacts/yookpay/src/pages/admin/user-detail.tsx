@@ -503,16 +503,15 @@ export default function AdminUserDetail() {
                     <AccordionContent className="p-0">
                       <div className="border-t">
                         {/* Column headers */}
-                        <div className="grid grid-cols-4 px-4 py-2 bg-muted/20 text-xs font-medium text-muted-foreground uppercase tracking-wide">
+                        <div className="grid grid-cols-3 px-4 py-2 bg-muted/20 text-xs font-medium text-muted-foreground uppercase tracking-wide">
                           <div>Opérateur</div>
                           <div className="text-right">Dépôt</div>
                           <div className="text-right">Retrait</div>
-                          <div className="text-right">Transfert</div>
                         </div>
                         {countryData.operators.map((op, idx) => (
                           <div
                             key={op.name}
-                            className={`grid grid-cols-4 gap-2 px-4 py-3 items-center hover:bg-muted/10 ${
+                            className={`grid grid-cols-3 gap-2 px-4 py-3 items-center hover:bg-muted/10 ${
                               idx !== countryData.operators.length - 1 ? "border-b" : ""
                             }`}
                           >
@@ -536,14 +535,6 @@ export default function AdminUserDetail() {
                               country={country.code}
                               operator={op.name}
                               txType="WITHDRAWAL"
-                              onSaved={refresh}
-                            />
-                            <EditableCell
-                              cell={op.transfer}
-                              userId={userId}
-                              country={country.code}
-                              operator={op.name}
-                              txType="TRANSFER"
                               onSaved={refresh}
                             />
                           </div>

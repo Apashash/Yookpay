@@ -20,6 +20,7 @@ import AdminDashboard from "@/pages/admin/index";
 import AdminUsers from "@/pages/admin/users";
 import AdminUserDetail from "@/pages/admin/user-detail";
 import AdminKycQueue from "@/pages/admin/kyc-queue";
+import AdminConversion from "@/pages/admin/conversion";
 import NotFound from "@/pages/not-found";
 
 const queryClient = new QueryClient();
@@ -82,6 +83,7 @@ function Router() {
       <Route path="/admin/users"      component={() => <AdminRoute component={AdminUsers} />} />
       <Route path="/admin/users/:id"  component={() => <AdminRoute component={AdminUserDetail} />} />
       <Route path="/admin/kyc"        component={() => <AdminRoute component={AdminKycQueue} />} />
+      <Route path="/admin/conversion" component={() => <AdminRoute component={AdminConversion} />} />
       
       <Route component={NotFound} />
     </Switch>

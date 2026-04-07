@@ -438,8 +438,16 @@ router.post("/transfer", authMiddleware, transactionRateLimit, async (req: AuthR
   const countryMap: Record<string, Country> = { XAF: "CM", XOF: "SN", CDF: "CD" };
   const fromCountry = countryMap[fromCurrency] as Country;
 
-  // Transfer fee: user-specific global rate or default 1.9%
-  const globalTransferRate = await getUserFeeRate(req.userId!, GLOBAL_COUNTRY, GLOBAL_OPERATOR, "TRANSFER") ?? 0.019;
+  // Transfer fee: user-specific override > platform conversion fee > default 1.9%
+  let platformRate = 0.019;
+  try {
+    const pairs = [fromCurrency, toCurrency].sort().join(":");
+    const res = await db.execute(sql`SELECT rate FROM conversion_fees WHERE pair = ${pairs} LIMIT 1`);
+    if (res.rows.length > 0) {
+      platformRate = parseFloat(String((res.rows[0] as any).rate));
+    }
+  } catch { /* ignore, use default */ }
+  const globalTransferRate = await getUserFeeRate(req.userId!, GLOBAL_COUNTRY, GLOBAL_OPERATOR, "TRANSFER") ?? platformRate;
   const fee = Math.round(amount * globalTransferRate);
   const netAmount = amount - fee;
 

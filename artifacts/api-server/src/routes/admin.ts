@@ -503,6 +503,52 @@ router.patch("/users/:id/role", async (req: AuthRequest, res) => {
   }
 });
 
+// GET /admin/conversion — get platform-wide conversion fee settings
+router.get("/conversion", async (req: AuthRequest, res) => {
+  try {
+    const rows = await db.execute(sql`SELECT * FROM conversion_fees ORDER BY pair`);
+    res.json({ conversions: rows.rows });
+  } catch (err) {
+    req.log.error({ err }, "Admin get conversion error");
+    res.status(500).json({ error: "InternalError", message: "Failed to fetch conversion fees" });
+  }
+});
+
+// PUT /admin/conversion/:pair — update conversion fee for a pair
+router.put("/conversion/:pair", async (req: AuthRequest, res) => {
+  const pair = req.params.pair; // e.g. "XAF:XOF"
+  const VALID_PAIRS = ["XAF:XOF", "XAF:CDF", "XOF:CDF"];
+  if (!VALID_PAIRS.includes(pair)) {
+    res.status(400).json({ error: "ValidationError", message: "Paire invalide. Valeurs acceptées : XAF:XOF, XAF:CDF, XOF:CDF" });
+    return;
+  }
+
+  const schema = z.object({
+    rate: z.number().min(0).max(100),
+    minAmount: z.number().int().min(0),
+  });
+
+  const parse = schema.safeParse(req.body);
+  if (!parse.success) {
+    res.status(400).json({ error: "ValidationError", message: parse.error.errors[0]?.message ?? "Données invalides" });
+    return;
+  }
+
+  const { rate, minAmount } = parse.data;
+  try {
+    await db.execute(sql`
+      UPDATE conversion_fees
+      SET rate = ${(rate / 100).toFixed(4)}, min_amount = ${minAmount}, updated_at = NOW()
+      WHERE pair = ${pair}
+    `);
+    req.log.info({ adminId: req.userId, pair, rate, minAmount }, "Conversion fee updated");
+    res.json({ success: true, pair, rate: rate / 100, minAmount, message: `Frais de conversion ${pair} mis à jour` });
+  } catch (err) {
+    req.log.error({ err }, "Admin update conversion error");
+    res.status(500).json({ error: "InternalError", message: "Impossible de mettre à jour les frais de conversion" });
+  }
+});
+
 // PATCH /admin/users/:id/ban — ban or unban a user
 router.patch("/users/:id/ban", async (req: AuthRequest, res) => {
   const userId = parseInt(req.params.id);

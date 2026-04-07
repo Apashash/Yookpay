@@ -61,7 +61,28 @@ export async function runStartupMigrations(): Promise<void> {
       )
     `);
 
-    // 3. Set admin roles for designated emails
+    // 3. Create conversion_fees table (platform-wide exchange settings)
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS conversion_fees (
+        id SERIAL PRIMARY KEY,
+        pair VARCHAR(10) NOT NULL UNIQUE,
+        rate NUMERIC(6, 4) NOT NULL DEFAULT 0.0190,
+        min_amount INTEGER NOT NULL DEFAULT 1000,
+        created_at TIMESTAMP DEFAULT NOW() NOT NULL,
+        updated_at TIMESTAMP DEFAULT NOW() NOT NULL
+      )
+    `);
+
+    // Seed default conversion fee rows if absent
+    await client.query(`
+      INSERT INTO conversion_fees (pair, rate, min_amount)
+      VALUES ('XAF:XOF', 0.0190, 1000),
+             ('XAF:CDF', 0.0190, 1000),
+             ('XOF:CDF', 0.0190, 1000)
+      ON CONFLICT (pair) DO NOTHING
+    `);
+
+    // 4. Set admin roles for designated emails
     for (const email of ADMIN_EMAILS) {
       const result = await client.query(
         "UPDATE users SET role = 'ADMIN' WHERE LOWER(email) = LOWER($1) AND role != 'ADMIN'",
