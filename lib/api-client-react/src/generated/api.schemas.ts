@@ -153,31 +153,17 @@ export interface DepositBody {
   phone: string;
 }
 
-export type WithdrawBodyCurrency =
-  (typeof WithdrawBodyCurrency)[keyof typeof WithdrawBodyCurrency];
+export type WithdrawBodyCurrency = string;
 
-export const WithdrawBodyCurrency = {
-  XAF: "XAF",
-  XOF: "XOF",
-  CDF: "CDF",
-} as const;
-
-export type WithdrawBodyOperator =
-  (typeof WithdrawBodyOperator)[keyof typeof WithdrawBodyOperator];
-
-export const WithdrawBodyOperator = {
-  MTN: "MTN",
-  ORANGE: "ORANGE",
-  MOOV: "MOOV",
-  WAVE: "WAVE",
-} as const;
+export type WithdrawBodyOperator = string;
 
 export interface WithdrawBody {
   /** @minimum 100 */
   amount: number;
-  currency: WithdrawBodyCurrency;
+  currency: string;
+  country: string;
   phone: string;
-  operator: WithdrawBodyOperator;
+  operator: string;
 }
 
 export type TransferBodyFromCurrency =

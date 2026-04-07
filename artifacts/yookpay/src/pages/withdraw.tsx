@@ -85,7 +85,7 @@ export default function Withdraw() {
   const onSubmit = (data: WithdrawFormValues) => {
     const currency = selectedCountry?.currency ?? "XAF";
     withdrawMutation.mutate(
-      { data: { amount: data.amount, currency, operator: data.operator, phone: data.phone } },
+      { data: { amount: data.amount, currency, country: data.country, operator: data.operator, phone: data.phone } },
       {
         onSuccess: (res) => {
           toast({
@@ -94,11 +94,15 @@ export default function Withdraw() {
           });
           setLocation("/dashboard");
         },
-        onError: (err: { error?: { message?: string } }) => {
+        onError: (err: unknown) => {
+          const msg =
+            (err as { error?: { message?: string } })?.error?.message ||
+            (err as { message?: string })?.message ||
+            "Une erreur s'est produite lors du traitement.";
           toast({
             variant: "destructive",
             title: "Échec du retrait",
-            description: err.error?.message || "Une erreur s'est produite lors du traitement.",
+            description: msg,
           });
         },
       }

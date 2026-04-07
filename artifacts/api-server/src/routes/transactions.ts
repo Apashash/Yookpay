@@ -229,8 +229,9 @@ router.post("/deposit", authMiddleware, transactionRateLimit, async (req: AuthRe
 router.post("/withdraw", authMiddleware, transactionRateLimit, async (req: AuthRequest, res) => {
   const schema = z.object({
     amount: z.number().min(100),
-    currency: z.enum(["XAF", "XOF", "CDF"]),
-    phone: z.string().min(8),
+    currency: z.string().min(3),
+    country: z.string().min(2),
+    phone: z.string().min(6),
     operator: z.string().min(2),
   });
 
@@ -240,9 +241,7 @@ router.post("/withdraw", authMiddleware, transactionRateLimit, async (req: AuthR
     return;
   }
 
-  const { amount, currency, phone, operator } = parse.data;
-  const countryMap: Record<string, Country> = { XAF: "CM", XOF: "SN", CDF: "CD" };
-  const country = countryMap[currency] as Country;
+  const { amount, currency, country, phone, operator } = parse.data;
   const reference = generateReference();
 
   try {
@@ -252,15 +251,38 @@ router.post("/withdraw", authMiddleware, transactionRateLimit, async (req: AuthR
       .where(and(eq(walletsTable.userId, req.userId!), eq(walletsTable.currency, currency)))
       .limit(1);
 
-    if (!wallet || parseFloat(wallet.balance) < amount) {
-      res.status(400).json({ error: "InsufficientFunds", message: "Insufficient wallet balance" });
+    const balance = wallet ? parseFloat(wallet.balance) : 0;
+
+    if (!wallet || balance < amount) {
+      res.status(400).json({
+        error: "InsufficientFunds",
+        message: `Solde du portefeuille ${currency} insuffisant (solde actuel : ${balance.toLocaleString("fr-FR")} ${currency})`,
+      });
       return;
     }
 
-    const feeBreakdown = calculateFee(amount, country, operator as Operator, "WITHDRAWAL");
+    let feeBreakdown;
+    try {
+      feeBreakdown = calculateFee(amount, country as Country, operator as Operator, "WITHDRAWAL");
+    } catch {
+      // Fallback: use a default fee of 2% if no specific config exists
+      const fee = Math.round(amount * 0.02);
+      feeBreakdown = {
+        grossAmount: amount,
+        feeRate: 0.02,
+        feeAmount: fee,
+        netAmount: amount + fee,
+        currency,
+        operator,
+        country,
+      };
+    }
 
-    if (parseFloat(wallet.balance) < feeBreakdown.netAmount) {
-      res.status(400).json({ error: "InsufficientFunds", message: "Insufficient balance including fees" });
+    if (balance < feeBreakdown.netAmount) {
+      res.status(400).json({
+        error: "InsufficientFunds",
+        message: `Solde du portefeuille ${currency} insuffisant pour couvrir le montant et les frais (nécessaire : ${feeBreakdown.netAmount.toLocaleString("fr-FR")} ${currency}, disponible : ${balance.toLocaleString("fr-FR")} ${currency})`,
+      });
       return;
     }
 
