@@ -4,11 +4,15 @@ import { customFetch } from "@workspace/api-client-react";
 import { Link, useParams } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from "@/components/ui/accordion";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -22,7 +26,29 @@ import {
 } from "@/components/ui/alert-dialog";
 import { useToast } from "@/hooks/use-toast";
 import { COUNTRIES, OPERATOR_LABELS } from "@/lib/countries";
-import { ArrowLeft, Trash2, Plus, CheckCircle2, XCircle, Clock, ShieldCheck, Pencil, RotateCcw, Check, X } from "lucide-react";
+import {
+  ArrowLeft, CheckCircle2, XCircle, Clock, ShieldCheck,
+  Pencil, RotateCcw, Check, X, Star,
+} from "lucide-react";
+
+interface RateCell {
+  rate: number;
+  isCustom: boolean;
+  source: "default" | "global" | "specific";
+  feeId: number | null;
+}
+
+interface OperatorRow {
+  name: string;
+  deposit: RateCell;
+  withdrawal: RateCell;
+  transfer: RateCell;
+}
+
+interface CountryFeeTable {
+  currency: string;
+  operators: OperatorRow[];
+}
 
 interface EffectiveRate {
   transactionType: "DEPOSIT" | "WITHDRAWAL" | "TRANSFER";
@@ -35,6 +61,7 @@ interface UserDetail {
   user: { id: number; email: string; name: string; phone: string | null; country: string | null; role: string; createdAt: string };
   wallets: Array<{ currency: string; balance: string }>;
   effectiveRates: EffectiveRate[];
+  fullFeeTable: Record<string, CountryFeeTable>;
   fees: Array<{ id: number; country: string; operator: string; transactionType: string; rate: string; minFee: number; maxFee: number | null }>;
   kycDocuments: Array<{ id: number; type: string; status: string; fileName: string | null; notes: string | null; createdAt: string }>;
   recentTransactions: Array<{ id: number; type: string; amount: string; currency: string; status: string; createdAt: string }>;
@@ -44,16 +71,8 @@ const DOC_LABELS: Record<string, string> = {
   CNI: "CNI", PASSEPORT: "Passeport", RCCM: "RCCM", JUSTIF_DOMICILE: "Justif. Domicile", PHOTO_SELFIE: "Selfie",
 };
 
-const TX_TYPE_LABELS: Record<string, string> = {
-  DEPOSIT: "Dépôt",
-  WITHDRAWAL: "Retrait",
-  TRANSFER: "Transfert",
-};
-
-const TX_TYPE_COLORS: Record<string, string> = {
-  DEPOSIT: "text-green-700 bg-green-50 border-green-200",
-  WITHDRAWAL: "text-red-700 bg-red-50 border-red-200",
-  TRANSFER: "text-blue-700 bg-blue-50 border-blue-200",
+const TX_LABELS: Record<string, string> = {
+  DEPOSIT: "Dépôt", WITHDRAWAL: "Retrait", TRANSFER: "Transfert",
 };
 
 function fmtDate(d: string) {
@@ -64,93 +83,105 @@ function getFlag(code: string | null) {
   return COUNTRIES.find((c) => c.code === code)?.flag ?? "🌍";
 }
 
-function FeeRow({ rate, userId, onSaved }: { rate: EffectiveRate; userId: number; onSaved: () => void }) {
+// Inline editable rate cell for the full table
+function EditableCell({
+  cell,
+  userId,
+  country,
+  operator,
+  txType,
+  onSaved,
+}: {
+  cell: RateCell;
+  userId: number;
+  country: string;
+  operator: string;
+  txType: "DEPOSIT" | "WITHDRAWAL" | "TRANSFER";
+  onSaved: () => void;
+}) {
   const [editing, setEditing] = useState(false);
-  const [value, setValue] = useState((rate.rate * 100).toFixed(2));
+  const [value, setValue] = useState((cell.rate * 100).toFixed(2));
   const { toast } = useToast();
 
   const saveMutation = useMutation({
-    mutationFn: () => customFetch(`/api/admin/users/${userId}/global-fees`, {
-      method: "PUT",
-      body: JSON.stringify({ transactionType: rate.transactionType, rate: parseFloat(value) }),
-    }),
+    mutationFn: () =>
+      customFetch(`/api/admin/users/${userId}/fees`, {
+        method: "PUT",
+        body: JSON.stringify({
+          country,
+          operator,
+          transactionType: txType,
+          rate: parseFloat(value) / 100,
+          minFee: 0,
+          maxFee: null,
+        }),
+      }),
     onSuccess: () => {
       toast({ title: "Taux mis à jour" });
       setEditing(false);
       onSaved();
     },
-    onError: () => toast({ title: "Erreur", description: "Impossible de sauvegarder", variant: "destructive" }),
+    onError: () => toast({ title: "Erreur", variant: "destructive" }),
   });
 
   const resetMutation = useMutation({
-    mutationFn: () => customFetch(`/api/admin/users/${userId}/global-fees/${rate.transactionType}`, { method: "DELETE" }),
+    mutationFn: () =>
+      customFetch(`/api/admin/users/${userId}/fees/${cell.feeId}`, { method: "DELETE" }),
     onSuccess: () => {
-      toast({ title: "Taux réinitialisé au défaut" });
+      toast({ title: "Taux réinitialisé" });
       onSaved();
     },
     onError: () => toast({ title: "Erreur", variant: "destructive" }),
   });
 
-  const colorClass = TX_TYPE_COLORS[rate.transactionType] ?? "text-gray-700 bg-gray-50 border-gray-200";
+  if (editing) {
+    return (
+      <div className="flex items-center gap-1 justify-end">
+        <div className="relative">
+          <Input
+            type="number"
+            step="0.01"
+            min="0"
+            max="100"
+            value={value}
+            onChange={(e) => setValue(e.target.value)}
+            className="w-20 pr-5 text-xs h-7 text-right"
+            autoFocus
+            onKeyDown={(e) => {
+              if (e.key === "Enter") saveMutation.mutate();
+              if (e.key === "Escape") { setEditing(false); setValue((cell.rate * 100).toFixed(2)); }
+            }}
+          />
+          <span className="absolute right-1.5 top-1/2 -translate-y-1/2 text-muted-foreground text-xs">%</span>
+        </div>
+        <Button size="icon" variant="ghost" className="h-7 w-7 text-green-600" onClick={() => saveMutation.mutate()} disabled={saveMutation.isPending}>
+          <Check className="h-3.5 w-3.5" />
+        </Button>
+        <Button size="icon" variant="ghost" className="h-7 w-7 text-muted-foreground" onClick={() => { setEditing(false); setValue((cell.rate * 100).toFixed(2)); }}>
+          <X className="h-3.5 w-3.5" />
+        </Button>
+      </div>
+    );
+  }
 
   return (
-    <div className="flex items-center gap-3 p-3 rounded-lg border bg-card">
-      <Badge variant="outline" className={`text-xs font-semibold w-24 justify-center ${colorClass}`}>
-        {TX_TYPE_LABELS[rate.transactionType]}
-      </Badge>
-
-      {editing ? (
-        <div className="flex items-center gap-2 flex-1">
-          <div className="relative flex items-center">
-            <Input
-              type="number"
-              step="0.01"
-              min="0"
-              max="100"
-              value={value}
-              onChange={(e) => setValue(e.target.value)}
-              className="w-24 pr-6 text-sm h-8"
-              autoFocus
-            />
-            <span className="absolute right-2 text-muted-foreground text-sm">%</span>
-          </div>
-          <Button size="icon" variant="ghost" className="h-8 w-8 text-green-600 hover:bg-green-50"
-            onClick={() => saveMutation.mutate()} disabled={saveMutation.isPending}>
-            <Check className="h-4 w-4" />
+    <div className="flex items-center justify-end gap-1 group">
+      <span className={`text-sm font-semibold tabular-nums ${cell.source === "specific" ? "text-amber-600" : cell.source === "global" ? "text-blue-600" : "text-foreground"}`}>
+        {(cell.rate * 100).toFixed(2)}%
+      </span>
+      {cell.source === "specific" && <Star className="h-2.5 w-2.5 text-amber-500 fill-amber-400 flex-shrink-0" />}
+      <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
+        <Button size="icon" variant="ghost" className="h-6 w-6 text-muted-foreground hover:text-foreground"
+          onClick={() => { setValue((cell.rate * 100).toFixed(2)); setEditing(true); }}>
+          <Pencil className="h-3 w-3" />
+        </Button>
+        {cell.source === "specific" && cell.feeId && (
+          <Button size="icon" variant="ghost" className="h-6 w-6 text-muted-foreground hover:text-amber-600"
+            onClick={() => resetMutation.mutate()} disabled={resetMutation.isPending}>
+            <RotateCcw className="h-3 w-3" />
           </Button>
-          <Button size="icon" variant="ghost" className="h-8 w-8 text-muted-foreground"
-            onClick={() => { setEditing(false); setValue((rate.rate * 100).toFixed(2)); }}>
-            <X className="h-4 w-4" />
-          </Button>
-        </div>
-      ) : (
-        <div className="flex items-center gap-2 flex-1">
-          <span className={`text-lg font-bold ${rate.isCustom ? "text-amber-600" : "text-foreground"}`}>
-            {(rate.rate * 100).toFixed(2)}%
-          </span>
-          {rate.isCustom ? (
-            <Badge variant="outline" className="text-xs text-amber-700 border-amber-200 bg-amber-50">personnalisé</Badge>
-          ) : (
-            <Badge variant="outline" className="text-xs text-muted-foreground">défaut</Badge>
-          )}
-        </div>
-      )}
-
-      {!editing && (
-        <div className="flex items-center gap-1 ml-auto">
-          <Button size="icon" variant="ghost" className="h-8 w-8 text-muted-foreground hover:text-foreground"
-            onClick={() => { setValue((rate.rate * 100).toFixed(2)); setEditing(true); }}>
-            <Pencil className="h-3.5 w-3.5" />
-          </Button>
-          {rate.isCustom && (
-            <Button size="icon" variant="ghost" className="h-8 w-8 text-muted-foreground hover:text-amber-600"
-              onClick={() => resetMutation.mutate()} disabled={resetMutation.isPending}
-              title="Réinitialiser au défaut">
-              <RotateCcw className="h-3.5 w-3.5" />
-            </Button>
-          )}
-        </div>
-      )}
+        )}
+      </div>
     </div>
   );
 }
@@ -160,9 +191,7 @@ export default function AdminUserDetail() {
   const userId = parseInt(params.id ?? "0");
   const qc = useQueryClient();
   const { toast } = useToast();
-
-  const [feeForm, setFeeForm] = useState({ country: "", operator: "", transactionType: "DEPOSIT" as "DEPOSIT" | "WITHDRAWAL" | "TRANSFER", rate: "", minFee: "", maxFee: "" });
-  const [showFeeForm, setShowFeeForm] = useState(false);
+  const [openCountries, setOpenCountries] = useState<string[]>(["CM"]);
 
   const { data, isLoading } = useQuery<UserDetail>({
     queryKey: ["admin-user", userId],
@@ -170,37 +199,9 @@ export default function AdminUserDetail() {
     enabled: !isNaN(userId) && userId > 0,
   });
 
-  const setFeeMutation = useMutation({
-    mutationFn: () => customFetch(`/api/admin/users/${userId}/fees`, {
-      method: "PUT",
-      body: JSON.stringify({
-        country: feeForm.country,
-        operator: feeForm.operator,
-        transactionType: feeForm.transactionType,
-        rate: parseFloat(feeForm.rate) / 100,
-        minFee: parseInt(feeForm.minFee),
-        maxFee: feeForm.maxFee ? parseInt(feeForm.maxFee) : null,
-      }),
-    }),
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["admin-user", userId] });
-      toast({ title: "Frais spécifique enregistré" });
-      setShowFeeForm(false);
-      setFeeForm({ country: "", operator: "", transactionType: "DEPOSIT", rate: "", minFee: "", maxFee: "" });
-    },
-    onError: () => toast({ title: "Erreur", description: "Impossible de sauvegarder les frais", variant: "destructive" }),
-  });
-
-  const deleteFeeMutation = useMutation({
-    mutationFn: (feeId: number) => customFetch(`/api/admin/users/${userId}/fees/${feeId}`, { method: "DELETE" }),
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["admin-user", userId] });
-      toast({ title: "Frais spécifique supprimé" });
-    },
-  });
-
   const roleMutation = useMutation({
-    mutationFn: (role: string) => customFetch(`/api/admin/users/${userId}/role`, { method: "PATCH", body: JSON.stringify({ role }) }),
+    mutationFn: (role: string) =>
+      customFetch(`/api/admin/users/${userId}/role`, { method: "PATCH", body: JSON.stringify({ role }) }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["admin-user", userId] });
       qc.invalidateQueries({ queryKey: ["admin-users"] });
@@ -208,24 +209,38 @@ export default function AdminUserDetail() {
     },
   });
 
-  const selectedCountry = COUNTRIES.find((c) => c.code === feeForm.country);
+  const resetGlobalMutation = useMutation({
+    mutationFn: (type: string) =>
+      customFetch(`/api/admin/users/${userId}/global-fees/${type}`, { method: "DELETE" }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["admin-user", userId] });
+      toast({ title: "Taux global réinitialisé" });
+    },
+  });
 
   if (isLoading) {
     return (
-      <div className="max-w-4xl mx-auto space-y-4">
+      <div className="max-w-5xl mx-auto space-y-4">
         <Skeleton className="h-8 w-40" />
         <Skeleton className="h-32 w-full rounded-lg" />
-        <Skeleton className="h-48 w-full rounded-lg" />
+        <Skeleton className="h-64 w-full rounded-lg" />
       </div>
     );
   }
 
   if (!data) return <div className="text-center py-12 text-muted-foreground">Utilisateur introuvable.</div>;
 
-  const { user, wallets, effectiveRates, fees, kycDocuments, recentTransactions } = data;
+  const { user, wallets, effectiveRates, fullFeeTable, kycDocuments, recentTransactions } = data;
+
+  const refresh = () => qc.invalidateQueries({ queryKey: ["admin-user", userId] });
+
+  const hasAnyCustom = effectiveRates.some((r) => r.isCustom) ||
+    Object.values(fullFeeTable ?? {}).some((c) =>
+      c.operators.some((o) => o.deposit.source === "specific" || o.withdrawal.source === "specific" || o.transfer.source === "specific")
+    );
 
   return (
-    <div className="max-w-4xl mx-auto space-y-6">
+    <div className="max-w-5xl mx-auto space-y-6">
       {/* Back + header */}
       <div>
         <Link href="/admin/users">
@@ -248,15 +263,19 @@ export default function AdminUserDetail() {
               )}
             </div>
             <p className="text-muted-foreground">{user.email}</p>
-            <p className="text-sm text-muted-foreground">{getFlag(user.country)} {user.country ?? "—"} · Inscrit le {fmtDate(user.createdAt)}</p>
+            <p className="text-sm text-muted-foreground">
+              {getFlag(user.country)} {user.country ?? "—"} · Inscrit le {fmtDate(user.createdAt)}
+            </p>
           </div>
         </div>
       </div>
 
-      {/* Wallets + role */}
+      {/* Wallets + Role */}
       <div className="grid grid-cols-2 gap-4">
         <Card>
-          <CardHeader className="pb-2"><CardTitle className="text-sm font-medium text-muted-foreground">Portefeuilles</CardTitle></CardHeader>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium text-muted-foreground">Portefeuilles</CardTitle>
+          </CardHeader>
           <CardContent>
             {wallets.length === 0 ? (
               <p className="text-sm text-muted-foreground">Aucun portefeuille</p>
@@ -274,7 +293,9 @@ export default function AdminUserDetail() {
         </Card>
 
         <Card>
-          <CardHeader className="pb-2"><CardTitle className="text-sm font-medium text-muted-foreground">Rôle du compte</CardTitle></CardHeader>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium text-muted-foreground">Rôle du compte</CardTitle>
+          </CardHeader>
           <CardContent className="space-y-3">
             <p className="text-sm">Rôle actuel : <strong>{user.role === "ADMIN" ? "Administrateur" : "Utilisateur"}</strong></p>
             <AlertDialog>
@@ -304,117 +325,162 @@ export default function AdminUserDetail() {
         </Card>
       </div>
 
-      {/* Effective global fees */}
+      {/* Global rates (quick summary) */}
       <Card>
         <CardHeader>
           <div className="flex items-center justify-between">
             <div>
-              <CardTitle className="text-base">Frais appliqués à cet utilisateur</CardTitle>
+              <CardTitle className="text-base">Taux globaux appliqués</CardTitle>
               <p className="text-xs text-muted-foreground mt-0.5">
-                Taux appliqués sur toutes les transactions, tous opérateurs confondus.
-                Cliquez sur <Pencil className="h-3 w-3 inline" /> pour modifier.
+                S'appliquent à tous les opérateurs sauf surcharge spécifique ci-dessous.
               </p>
             </div>
           </div>
         </CardHeader>
-        <CardContent className="space-y-2">
-          {(effectiveRates ?? []).map((rate) => (
-            <FeeRow
-              key={rate.transactionType}
-              rate={rate}
-              userId={userId}
-              onSaved={() => qc.invalidateQueries({ queryKey: ["admin-user", userId] })}
-            />
-          ))}
+        <CardContent>
+          <div className="grid grid-cols-3 gap-3">
+            {(effectiveRates ?? []).map((r) => {
+              const colors: Record<string, string> = {
+                DEPOSIT: "text-green-700 bg-green-50 border-green-200",
+                WITHDRAWAL: "text-red-700 bg-red-50 border-red-200",
+                TRANSFER: "text-blue-700 bg-blue-50 border-blue-200",
+              };
+              return (
+                <div key={r.transactionType} className={`rounded-lg border p-3 ${colors[r.transactionType]}`}>
+                  <p className="text-xs font-medium opacity-70">{TX_LABELS[r.transactionType]}</p>
+                  <p className="text-2xl font-bold mt-1">{(r.rate * 100).toFixed(2)}%</p>
+                  {r.isCustom ? (
+                    <div className="flex items-center justify-between mt-1">
+                      <span className="text-xs opacity-70">personnalisé</span>
+                      <Button variant="ghost" size="icon" className="h-5 w-5 opacity-60 hover:opacity-100"
+                        onClick={() => resetGlobalMutation.mutate(r.transactionType)}>
+                        <RotateCcw className="h-3 w-3" />
+                      </Button>
+                    </div>
+                  ) : (
+                    <p className="text-xs opacity-70 mt-1">taux par défaut</p>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+          <p className="text-xs text-muted-foreground mt-3 flex items-center gap-1">
+            <Pencil className="h-3 w-3" />
+            Survolez un taux dans le tableau ci-dessous pour le modifier individuellement.
+          </p>
         </CardContent>
       </Card>
 
-      {/* Country/operator-specific overrides */}
+      {/* Legend */}
+      {hasAnyCustom && (
+        <div className="flex items-center gap-2 p-2.5 bg-amber-50 border border-amber-200 rounded-lg text-xs text-amber-800">
+          <Star className="h-3.5 w-3.5 fill-amber-400 text-amber-500 flex-shrink-0" />
+          <span>
+            <span className="text-amber-600 font-semibold">★ Amber</span> = surcharge spécifique ·{" "}
+            <span className="text-blue-600 font-semibold">Bleu</span> = taux global personnalisé ·{" "}
+            <span className="font-semibold">Noir</span> = taux par défaut
+          </span>
+        </div>
+      )}
+
+      {/* Full fee table by country */}
       <Card>
         <CardHeader>
-          <div className="flex items-center justify-between">
-            <div>
-              <CardTitle className="text-base">Frais spécifiques par pays / opérateur</CardTitle>
-              <p className="text-xs text-muted-foreground mt-0.5">Surcharge les taux ci-dessus pour un pays/opérateur précis.</p>
-            </div>
-            <Button size="sm" variant="outline" className="gap-2" onClick={() => setShowFeeForm(!showFeeForm)}>
-              <Plus className="h-3.5 w-3.5" />
-              Ajouter
-            </Button>
-          </div>
+          <CardTitle className="text-base">Frais par pays et opérateur</CardTitle>
+          <p className="text-xs text-muted-foreground">
+            Survolez un taux pour modifier. ↺ réinitialise la surcharge spécifique.
+          </p>
         </CardHeader>
-        <CardContent className="space-y-4">
-          {showFeeForm && (
-            <div className="border rounded-lg p-4 bg-muted/30 space-y-3">
-              <p className="text-sm font-medium">Nouveau frais spécifique</p>
-              <div className="grid grid-cols-2 gap-3">
-                <div className="space-y-1">
-                  <Label className="text-xs">Pays</Label>
-                  <Select value={feeForm.country} onValueChange={(v) => setFeeForm((f) => ({ ...f, country: v, operator: "" }))}>
-                    <SelectTrigger><SelectValue placeholder="Pays" /></SelectTrigger>
-                    <SelectContent>{COUNTRIES.map((c) => <SelectItem key={c.code} value={c.code}>{c.flag} {c.name}</SelectItem>)}</SelectContent>
-                  </Select>
-                </div>
-                <div className="space-y-1">
-                  <Label className="text-xs">Opérateur</Label>
-                  <Select value={feeForm.operator} onValueChange={(v) => setFeeForm((f) => ({ ...f, operator: v }))} disabled={!selectedCountry}>
-                    <SelectTrigger><SelectValue placeholder="Opérateur" /></SelectTrigger>
-                    <SelectContent>{(selectedCountry?.operators ?? []).map((op) => <SelectItem key={op} value={op}>{OPERATOR_LABELS[op] ?? op}</SelectItem>)}</SelectContent>
-                  </Select>
-                </div>
-                <div className="space-y-1">
-                  <Label className="text-xs">Type</Label>
-                  <Select value={feeForm.transactionType} onValueChange={(v) => setFeeForm((f) => ({ ...f, transactionType: v as "DEPOSIT" | "WITHDRAWAL" | "TRANSFER" }))}>
-                    <SelectTrigger><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="DEPOSIT">Dépôt</SelectItem>
-                      <SelectItem value="WITHDRAWAL">Retrait</SelectItem>
-                      <SelectItem value="TRANSFER">Transfert</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="space-y-1">
-                  <Label className="text-xs">Taux (%)</Label>
-                  <Input placeholder="ex: 1.5" value={feeForm.rate} onChange={(e) => setFeeForm((f) => ({ ...f, rate: e.target.value }))} type="number" step="0.01" min="0" max="100" />
-                </div>
-                <div className="space-y-1">
-                  <Label className="text-xs">Frais min</Label>
-                  <Input placeholder="ex: 100" value={feeForm.minFee} onChange={(e) => setFeeForm((f) => ({ ...f, minFee: e.target.value }))} type="number" min="0" />
-                </div>
-                <div className="space-y-1">
-                  <Label className="text-xs">Frais max (optionnel)</Label>
-                  <Input placeholder="ex: 5000" value={feeForm.maxFee} onChange={(e) => setFeeForm((f) => ({ ...f, maxFee: e.target.value }))} type="number" min="0" />
-                </div>
-              </div>
-              <div className="flex gap-2 justify-end">
-                <Button variant="outline" size="sm" onClick={() => setShowFeeForm(false)}>Annuler</Button>
-                <Button size="sm" onClick={() => setFeeMutation.mutate()} disabled={!feeForm.country || !feeForm.operator || !feeForm.rate || !feeForm.minFee || setFeeMutation.isPending}>
-                  Enregistrer
-                </Button>
-              </div>
-            </div>
-          )}
+        <CardContent className="p-0">
+          {fullFeeTable && (
+            <Accordion
+              type="multiple"
+              value={openCountries}
+              onValueChange={setOpenCountries}
+              className="divide-y"
+            >
+              {COUNTRIES.map((country) => {
+                const countryData = fullFeeTable[country.code];
+                if (!countryData) return null;
 
-          {fees.length === 0 && !showFeeForm ? (
-            <p className="text-sm text-muted-foreground">Aucun frais spécifique — les taux ci-dessus s'appliquent à tous les opérateurs.</p>
-          ) : (
-            <div className="space-y-2">
-              {fees.map((fee) => (
-                <div key={fee.id} className="flex items-center gap-3 p-2.5 bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800 rounded-lg">
-                  <div className="flex-1 text-sm">
-                    <span className="font-medium">{fee.country} · {fee.operator} · {TX_TYPE_LABELS[fee.transactionType] ?? fee.transactionType}</span>
-                    <span className="ml-3 text-muted-foreground">
-                      {(parseFloat(fee.rate) * 100).toFixed(2)}% · min {fee.minFee.toLocaleString("fr-FR")}
-                      {fee.maxFee ? ` · max ${fee.maxFee.toLocaleString("fr-FR")}` : ""}
-                    </span>
-                  </div>
-                  <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive hover:bg-destructive/10 flex-shrink-0"
-                    onClick={() => deleteFeeMutation.mutate(fee.id)}>
-                    <Trash2 className="h-3.5 w-3.5" />
-                  </Button>
-                </div>
-              ))}
-            </div>
+                const hasSpecific = countryData.operators.some(
+                  (op) => op.deposit.source === "specific" || op.withdrawal.source === "specific" || op.transfer.source === "specific"
+                );
+
+                return (
+                  <AccordionItem key={country.code} value={country.code} className="border-0">
+                    <AccordionTrigger className="px-4 py-3 hover:no-underline hover:bg-muted/20 [&[data-state=open]]:bg-muted/30">
+                      <div className="flex items-center gap-3">
+                        <span className="text-xl">{country.flag}</span>
+                        <div className="text-left">
+                          <div className="flex items-center gap-2">
+                            <span className="font-semibold text-sm">{country.name}</span>
+                            {hasSpecific && <Star className="h-3 w-3 text-amber-500 fill-amber-400" />}
+                          </div>
+                          <div className="flex items-center gap-2 mt-0.5">
+                            <span className="text-xs font-mono text-muted-foreground">{countryData.currency}</span>
+                            <span className="text-xs text-muted-foreground">
+                              {countryData.operators.length} opérateur{countryData.operators.length > 1 ? "s" : ""}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                    </AccordionTrigger>
+
+                    <AccordionContent className="p-0">
+                      <div className="border-t">
+                        {/* Column headers */}
+                        <div className="grid grid-cols-4 px-4 py-2 bg-muted/20 text-xs font-medium text-muted-foreground uppercase tracking-wide">
+                          <div>Opérateur</div>
+                          <div className="text-right">Dépôt</div>
+                          <div className="text-right">Retrait</div>
+                          <div className="text-right">Transfert</div>
+                        </div>
+                        {countryData.operators.map((op, idx) => (
+                          <div
+                            key={op.name}
+                            className={`grid grid-cols-4 gap-2 px-4 py-3 items-center hover:bg-muted/10 ${
+                              idx !== countryData.operators.length - 1 ? "border-b" : ""
+                            }`}
+                          >
+                            <div>
+                              <p className="text-sm font-medium">{op.name}</p>
+                              <p className="text-xs text-muted-foreground leading-tight">
+                                {OPERATOR_LABELS[op.name] ?? op.name}
+                              </p>
+                            </div>
+                            <EditableCell
+                              cell={op.deposit}
+                              userId={userId}
+                              country={country.code}
+                              operator={op.name}
+                              txType="DEPOSIT"
+                              onSaved={refresh}
+                            />
+                            <EditableCell
+                              cell={op.withdrawal}
+                              userId={userId}
+                              country={country.code}
+                              operator={op.name}
+                              txType="WITHDRAWAL"
+                              onSaved={refresh}
+                            />
+                            <EditableCell
+                              cell={op.transfer}
+                              userId={userId}
+                              country={country.code}
+                              operator={op.name}
+                              txType="TRANSFER"
+                              onSaved={refresh}
+                            />
+                          </div>
+                        ))}
+                      </div>
+                    </AccordionContent>
+                  </AccordionItem>
+                );
+              })}
+            </Accordion>
           )}
         </CardContent>
       </Card>
@@ -454,7 +520,7 @@ export default function AdminUserDetail() {
             <div className="space-y-2">
               {recentTransactions.slice(0, 5).map((tx) => (
                 <div key={tx.id} className="flex items-center justify-between text-sm">
-                  <span className="text-muted-foreground">{TX_TYPE_LABELS[tx.type] ?? tx.type}</span>
+                  <span className="text-muted-foreground">{TX_LABELS[tx.type] ?? tx.type}</span>
                   <span className="font-mono font-semibold">{parseFloat(tx.amount).toLocaleString("fr-FR")} {tx.currency}</span>
                   <Badge variant="outline" className="text-xs">{tx.status}</Badge>
                   <span className="text-xs text-muted-foreground">{fmtDate(tx.createdAt)}</span>

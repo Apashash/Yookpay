@@ -5,6 +5,7 @@ import { eq, desc, sql, and } from "drizzle-orm";
 import { authMiddleware, type AuthRequest } from "../middlewares/authMiddleware";
 import { adminMiddleware } from "../middlewares/adminMiddleware";
 import { z } from "zod";
+import { FEE_TABLE, CURRENCY_MAP } from "../services/feeService";
 
 const router = Router();
 
@@ -135,25 +136,80 @@ router.get("/users/:id", async (req: AuthRequest, res) => {
       .orderBy(desc(transactionsTable.createdAt))
       .limit(10);
 
-    // Build effective global rates (3 types, default or custom)
+    // Build override maps
     const globalFees = fees.filter((f) => f.country === GLOBAL_COUNTRY && f.operator === GLOBAL_OPERATOR);
+    const specificFees = fees.filter((f) => !(f.country === GLOBAL_COUNTRY && f.operator === GLOBAL_OPERATOR));
+
+    // Global rate per transaction type
+    const globalRateMap: Record<string, { rate: number; feeId: number }> = {};
+    for (const f of globalFees) {
+      globalRateMap[f.transactionType] = { rate: parseFloat(f.rate), feeId: f.id };
+    }
+
+    // Specific override map: "country:operator:type" → override
+    const specificMap: Record<string, { rate: number; minFee: number; maxFee: number | null; feeId: number }> = {};
+    for (const f of specificFees) {
+      specificMap[`${f.country}:${f.operator}:${f.transactionType}`] = {
+        rate: parseFloat(f.rate),
+        minFee: f.minFee,
+        maxFee: f.maxFee ?? null,
+        feeId: f.id,
+      };
+    }
+
+    // Effective global rates (3 types) for quick display
     const effectiveRates = (["DEPOSIT", "WITHDRAWAL", "TRANSFER"] as const).map((type) => {
-      const custom = globalFees.find((f) => f.transactionType === type);
+      const g = globalRateMap[type];
       return {
         transactionType: type,
-        rate: custom ? parseFloat(custom.rate) : DEFAULT_RATES[type],
-        isCustom: !!custom,
-        feeId: custom?.id ?? null,
+        rate: g ? g.rate : DEFAULT_RATES[type],
+        isCustom: !!g,
+        feeId: g?.feeId ?? null,
       };
     });
 
-    // Specific overrides (non-global)
-    const specificFees = fees.filter((f) => !(f.country === GLOBAL_COUNTRY && f.operator === GLOBAL_OPERATOR));
+    // Full fee table: all countries × operators with effective rates
+    const fullFeeTable: Record<string, {
+      currency: string;
+      operators: Array<{
+        name: string;
+        deposit:    { rate: number; isCustom: boolean; source: string; feeId: number | null };
+        withdrawal: { rate: number; isCustom: boolean; source: string; feeId: number | null };
+        transfer:   { rate: number; isCustom: boolean; source: string; feeId: number | null };
+      }>;
+    }> = {};
+
+    for (const [country, table] of Object.entries(FEE_TABLE)) {
+      const operators = [];
+      for (const [operator] of Object.entries(table)) {
+        const resolve = (type: "DEPOSIT" | "WITHDRAWAL" | "TRANSFER") => {
+          const specificKey = `${country}:${operator}:${type}`;
+          if (specificMap[specificKey]) {
+            return { rate: specificMap[specificKey].rate, isCustom: true, source: "specific", feeId: specificMap[specificKey].feeId };
+          }
+          if (globalRateMap[type]) {
+            return { rate: globalRateMap[type].rate, isCustom: true, source: "global", feeId: null };
+          }
+          return { rate: DEFAULT_RATES[type], isCustom: false, source: "default", feeId: null };
+        };
+        operators.push({
+          name: operator,
+          deposit:    resolve("DEPOSIT"),
+          withdrawal: resolve("WITHDRAWAL"),
+          transfer:   resolve("TRANSFER"),
+        });
+      }
+      fullFeeTable[country] = {
+        currency: CURRENCY_MAP[country as keyof typeof CURRENCY_MAP],
+        operators,
+      };
+    }
 
     res.json({
       user: { id: user.id, email: user.email, name: user.name, phone: user.phone, country: user.country, role: user.role, createdAt: user.createdAt },
       wallets,
       effectiveRates,
+      fullFeeTable,
       fees: specificFees,
       kycDocuments: kycDocs,
       recentTransactions: recentTx,
