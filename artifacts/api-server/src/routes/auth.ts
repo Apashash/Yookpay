@@ -13,7 +13,8 @@ const registerSchema = z.object({
   email: z.string().email(),
   password: z.string().min(8),
   name: z.string().min(1),
-  phone: z.string().optional(),
+  phone: z.string().min(6, "Numéro invalide"),
+  country: z.enum(["CM", "SN", "CD"]),
 });
 
 const loginSchema = z.object({
@@ -28,7 +29,7 @@ router.post("/register", authRateLimit, async (req, res) => {
     return;
   }
 
-  const { email, password, name, phone } = parse.data;
+  const { email, password, name, phone, country } = parse.data;
 
   try {
     const existing = await db.select().from(usersTable).where(eq(usersTable.email, email)).limit(1);
@@ -40,7 +41,7 @@ router.post("/register", authRateLimit, async (req, res) => {
     const passwordHash = await bcrypt.hash(password, 12);
     const [user] = await db
       .insert(usersTable)
-      .values({ email, passwordHash, name, phone })
+      .values({ email, passwordHash, name, phone, country })
       .returning();
 
     // Create wallets for all three currencies
