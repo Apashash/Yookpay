@@ -19,6 +19,8 @@ interface AdminUser {
   createdAt: string;
   wallets: Array<{ currency: string; balance: string }>;
   kycStatus: "NONE" | "PENDING" | "PARTIAL";
+  effectiveRates: { DEPOSIT: number; WITHDRAWAL: number; TRANSFER: number };
+  hasCustomFees: boolean;
 }
 
 function getCountryFlag(code: string | null) {
@@ -103,6 +105,11 @@ export default function AdminUsers() {
                         <Badge variant="outline" className={`text-xs ${KYC_BADGE[user.kycStatus].className}`}>
                           {KYC_BADGE[user.kycStatus].label}
                         </Badge>
+                        {user.hasCustomFees && (
+                          <Badge variant="outline" className="text-xs text-amber-700 border-amber-200 bg-amber-50">
+                            Frais personnalisés
+                          </Badge>
+                        )}
                       </div>
                       <p className="text-sm text-muted-foreground truncate">{user.email}</p>
                       <div className="flex items-center gap-3 mt-1 text-xs text-muted-foreground flex-wrap">
@@ -120,6 +127,20 @@ export default function AdminUsers() {
                           </>
                         )}
                       </div>
+                      {/* Fee rates row */}
+                      {user.effectiveRates && (
+                        <div className="flex items-center gap-2 mt-1.5 flex-wrap">
+                          <span className={`text-xs px-1.5 py-0.5 rounded font-mono ${user.hasCustomFees ? "bg-green-50 text-green-700" : "bg-muted text-muted-foreground"}`}>
+                            Dépôt {(user.effectiveRates.DEPOSIT * 100).toFixed(2)}%
+                          </span>
+                          <span className={`text-xs px-1.5 py-0.5 rounded font-mono ${user.hasCustomFees ? "bg-red-50 text-red-700" : "bg-muted text-muted-foreground"}`}>
+                            Retrait {(user.effectiveRates.WITHDRAWAL * 100).toFixed(2)}%
+                          </span>
+                          <span className={`text-xs px-1.5 py-0.5 rounded font-mono ${user.hasCustomFees ? "bg-blue-50 text-blue-700" : "bg-muted text-muted-foreground"}`}>
+                            Transfert {(user.effectiveRates.TRANSFER * 100).toFixed(2)}%
+                          </span>
+                        </div>
+                      )}
                     </div>
 
                     <ChevronRight className="h-5 w-5 text-muted-foreground flex-shrink-0" />

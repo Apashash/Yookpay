@@ -11,6 +11,15 @@ const router = Router();
 router.use(authMiddleware);
 router.use(adminMiddleware);
 
+// Default rates (must mirror feeService.ts)
+const DEFAULT_RATES: Record<string, number> = {
+  DEPOSIT: 0.018,
+  WITHDRAWAL: 0.023,
+  TRANSFER: 0.019,
+};
+const GLOBAL_COUNTRY = "ZZ";
+const GLOBAL_OPERATOR = "GLOBAL";
+
 // GET /admin/stats — dashboard stats
 router.get("/stats", async (req: AuthRequest, res) => {
   try {
@@ -29,7 +38,7 @@ router.get("/stats", async (req: AuthRequest, res) => {
   }
 });
 
-// GET /admin/users — list all users with wallet balances
+// GET /admin/users — list all users with wallet balances and effective rates
 router.get("/users", async (req: AuthRequest, res) => {
   try {
     const users = await db
@@ -62,15 +71,35 @@ router.get("/users", async (req: AuthRequest, res) => {
       kycMap[k.userId][k.status] = k.count;
     }
 
+    // Fetch all global fee overrides
+    const globalFees = await db
+      .select()
+      .from(userFeesTable)
+      .where(and(eq(userFeesTable.country, GLOBAL_COUNTRY), eq(userFeesTable.operator, GLOBAL_OPERATOR)));
+    const feeMap: Record<number, Record<string, number>> = {};
+    for (const f of globalFees) {
+      if (!feeMap[f.userId]) feeMap[f.userId] = {};
+      feeMap[f.userId][f.transactionType] = parseFloat(f.rate);
+    }
+
     res.json({
-      users: users.map((u) => ({
-        ...u,
-        wallets: walletMap[u.id] ?? [],
-        kycStatus:
-          (kycMap[u.id]?.PENDING ?? 0) > 0 ? "PENDING" :
-          (kycMap[u.id]?.VERIFIED ?? 0) > 0 ? "PARTIAL" :
-          "NONE",
-      })),
+      users: users.map((u) => {
+        const userFees = feeMap[u.id] ?? {};
+        return {
+          ...u,
+          wallets: walletMap[u.id] ?? [],
+          kycStatus:
+            (kycMap[u.id]?.PENDING ?? 0) > 0 ? "PENDING" :
+            (kycMap[u.id]?.VERIFIED ?? 0) > 0 ? "PARTIAL" :
+            "NONE",
+          effectiveRates: {
+            DEPOSIT: userFees.DEPOSIT ?? DEFAULT_RATES.DEPOSIT,
+            WITHDRAWAL: userFees.WITHDRAWAL ?? DEFAULT_RATES.WITHDRAWAL,
+            TRANSFER: userFees.TRANSFER ?? DEFAULT_RATES.TRANSFER,
+          },
+          hasCustomFees: Object.keys(userFees).length > 0,
+        };
+      }),
     });
   } catch (err) {
     req.log.error({ err }, "Admin list users error");
@@ -106,16 +135,114 @@ router.get("/users/:id", async (req: AuthRequest, res) => {
       .orderBy(desc(transactionsTable.createdAt))
       .limit(10);
 
+    // Build effective global rates (3 types, default or custom)
+    const globalFees = fees.filter((f) => f.country === GLOBAL_COUNTRY && f.operator === GLOBAL_OPERATOR);
+    const effectiveRates = (["DEPOSIT", "WITHDRAWAL", "TRANSFER"] as const).map((type) => {
+      const custom = globalFees.find((f) => f.transactionType === type);
+      return {
+        transactionType: type,
+        rate: custom ? parseFloat(custom.rate) : DEFAULT_RATES[type],
+        isCustom: !!custom,
+        feeId: custom?.id ?? null,
+      };
+    });
+
+    // Specific overrides (non-global)
+    const specificFees = fees.filter((f) => !(f.country === GLOBAL_COUNTRY && f.operator === GLOBAL_OPERATOR));
+
     res.json({
       user: { id: user.id, email: user.email, name: user.name, phone: user.phone, country: user.country, role: user.role, createdAt: user.createdAt },
       wallets,
-      fees,
+      effectiveRates,
+      fees: specificFees,
       kycDocuments: kycDocs,
       recentTransactions: recentTx,
     });
   } catch (err) {
     req.log.error({ err }, "Admin get user error");
     res.status(500).json({ error: "InternalError", message: "Failed to fetch user" });
+  }
+});
+
+// PUT /admin/users/:id/global-fees — set global rate override (all countries/operators)
+router.put("/users/:id/global-fees", async (req: AuthRequest, res) => {
+  const userId = parseInt(req.params.id);
+  if (isNaN(userId)) {
+    res.status(400).json({ error: "ValidationError", message: "Invalid user ID" });
+    return;
+  }
+
+  const schema = z.object({
+    transactionType: z.enum(["DEPOSIT", "WITHDRAWAL", "TRANSFER"]),
+    rate: z.number().min(0).max(100),
+  });
+
+  const parse = schema.safeParse(req.body);
+  if (!parse.success) {
+    res.status(400).json({ error: "ValidationError", message: "Données invalides" });
+    return;
+  }
+
+  const { transactionType, rate } = parse.data;
+  const rateDecimal = rate / 100;
+
+  try {
+    const existing = await db
+      .select({ id: userFeesTable.id })
+      .from(userFeesTable)
+      .where(and(
+        eq(userFeesTable.userId, userId),
+        eq(userFeesTable.country, GLOBAL_COUNTRY),
+        eq(userFeesTable.operator, GLOBAL_OPERATOR),
+        eq(userFeesTable.transactionType, transactionType),
+      ))
+      .limit(1);
+
+    if (existing.length > 0) {
+      await db.update(userFeesTable)
+        .set({ rate: String(rateDecimal), updatedAt: new Date() })
+        .where(eq(userFeesTable.id, existing[0].id));
+    } else {
+      await db.insert(userFeesTable).values({
+        userId,
+        country: GLOBAL_COUNTRY,
+        operator: GLOBAL_OPERATOR,
+        transactionType,
+        rate: String(rateDecimal),
+        minFee: 0,
+        maxFee: null,
+      });
+    }
+
+    req.log.info({ adminId: req.userId, targetUserId: userId, transactionType, rate }, "Global fee set");
+    res.json({ success: true, message: "Taux mis à jour" });
+  } catch (err) {
+    req.log.error({ err }, "Admin set global fee error");
+    res.status(500).json({ error: "InternalError", message: "Failed to set global fee" });
+  }
+});
+
+// DELETE /admin/users/:id/global-fees/:type — reset a global fee to default
+router.delete("/users/:id/global-fees/:type", async (req: AuthRequest, res) => {
+  const userId = parseInt(req.params.id);
+  const type = req.params.type;
+  if (isNaN(userId)) {
+    res.status(400).json({ error: "ValidationError", message: "Invalid user ID" });
+    return;
+  }
+
+  try {
+    await db.delete(userFeesTable).where(and(
+      eq(userFeesTable.userId, userId),
+      eq(userFeesTable.country, GLOBAL_COUNTRY),
+      eq(userFeesTable.operator, GLOBAL_OPERATOR),
+      eq(userFeesTable.transactionType, type),
+    ));
+    req.log.info({ adminId: req.userId, userId, type }, "Global fee reset to default");
+    res.json({ success: true, message: "Taux réinitialisé au défaut" });
+  } catch (err) {
+    req.log.error({ err }, "Admin delete global fee error");
+    res.status(500).json({ error: "InternalError", message: "Failed to reset fee" });
   }
 });
 
