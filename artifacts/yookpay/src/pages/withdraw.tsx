@@ -98,7 +98,7 @@ export default function Withdraw() {
     const feeAmount = Math.max(Math.round(amount * feePreview.feeRate), 1);
     const netAmount = Math.max(amount + feeAmount, 0);
     setFeePreview((prev) =>
-      prev ? { ...prev, grossAmount: amount, feeAmount, netAmount } : null
+      prev ? { ...prev, grossAmount: Number(amount), feeAmount: Number(feeAmount), netAmount: Number(netAmount) } : null
     );
   }, [amount]); // eslint-disable-line react-hooks/exhaustive-deps
 
