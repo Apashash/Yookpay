@@ -113,6 +113,42 @@ export function calculateFee(
   };
 }
 
+/**
+ * Calculate fee with optional rate override (from admin-set user fees).
+ * If overrideRate is provided, it replaces the FEE_TABLE rate.
+ */
+export function calculateFeeWithRate(
+  amount: number,
+  country: Country,
+  operator: Operator,
+  type: TransactionType,
+  overrideRate?: number,
+): ReturnType<typeof calculateFee> {
+  const config = FEE_TABLE[country]?.[operator]?.[type];
+  if (!config) {
+    throw new Error(`No fee config for ${country}/${operator}/${type}`);
+  }
+
+  const rate = overrideRate ?? config.rate;
+  let feeAmount = Math.round(amount * rate);
+  feeAmount = Math.max(feeAmount, config.minFee);
+  if (config.maxFee !== null) {
+    feeAmount = Math.min(feeAmount, config.maxFee);
+  }
+
+  const netAmount = type === "DEPOSIT" ? amount - feeAmount : amount + feeAmount;
+
+  return {
+    grossAmount: amount,
+    feeRate: rate,
+    feeAmount,
+    netAmount: Math.max(netAmount, 0),
+    currency: CURRENCY_MAP[country],
+    operator,
+    country,
+  };
+}
+
 export function generateReference(): string {
   const timestamp = Date.now().toString(36).toUpperCase();
   const random = Math.random().toString(36).substring(2, 8).toUpperCase();

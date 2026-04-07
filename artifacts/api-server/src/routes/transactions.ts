@@ -1,11 +1,12 @@
 import { Router } from "express";
 import { db } from "@workspace/db";
-import { transactionsTable, walletsTable } from "@workspace/db/schema";
-import { eq, and, desc, count, sql } from "drizzle-orm";
+import { transactionsTable, walletsTable, userFeesTable } from "@workspace/db/schema";
+import { eq, and, desc, count } from "drizzle-orm";
 import { authMiddleware, type AuthRequest } from "../middlewares/authMiddleware";
 import { transactionRateLimit } from "../middlewares/rateLimitMiddleware";
 import {
   calculateFee,
+  calculateFeeWithRate,
   generateReference,
   CURRENCY_MAP,
   type Country,
@@ -14,6 +15,36 @@ import {
 } from "../services/feeService";
 import { initiatePayment } from "../services/providerService";
 import { z } from "zod";
+
+const GLOBAL_COUNTRY = "ZZ";
+const GLOBAL_OPERATOR = "GLOBAL";
+
+// Look up the effective fee rate for a user (specific > global > undefined=default)
+async function getUserFeeRate(
+  userId: number,
+  country: string,
+  operator: string,
+  type: TransactionType,
+): Promise<number | undefined> {
+  const overrides = await db
+    .select()
+    .from(userFeesTable)
+    .where(eq(userFeesTable.userId, userId));
+
+  let specific: number | undefined;
+  let global: number | undefined;
+
+  for (const o of overrides) {
+    if (o.transactionType !== type) continue;
+    if (o.country === country && o.operator === operator) {
+      specific = parseFloat(o.rate);
+    } else if (o.country === GLOBAL_COUNTRY && o.operator === GLOBAL_OPERATOR) {
+      global = parseFloat(o.rate);
+    }
+  }
+
+  return specific ?? global;
+}
 
 const router = Router();
 
@@ -111,7 +142,10 @@ router.post("/fee-preview", authMiddleware, async (req: AuthRequest, res) => {
 
   const { amount, country, operator, type } = parse.data;
   try {
-    const breakdown = calculateFee(amount, country as Country, operator as Operator, type as TransactionType);
+    const userRate = await getUserFeeRate(req.userId!, country, operator, type as TransactionType);
+    const breakdown = userRate !== undefined
+      ? calculateFeeWithRate(amount, country as Country, operator as Operator, type as TransactionType, userRate)
+      : calculateFee(amount, country as Country, operator as Operator, type as TransactionType);
     res.json(breakdown);
   } catch (err) {
     req.log.error({ err }, "Fee preview error");
@@ -140,7 +174,10 @@ router.post("/deposit", authMiddleware, transactionRateLimit, async (req: AuthRe
   const reference = generateReference();
 
   try {
-    const feeBreakdown = calculateFee(amount, country as Country, operator as Operator, "DEPOSIT");
+    const userRate = await getUserFeeRate(req.userId!, country, operator, "DEPOSIT");
+    const feeBreakdown = userRate !== undefined
+      ? calculateFeeWithRate(amount, country as Country, operator as Operator, "DEPOSIT", userRate)
+      : calculateFee(amount, country as Country, operator as Operator, "DEPOSIT");
 
     const [tx] = await db
       .insert(transactionsTable)
@@ -271,7 +308,10 @@ router.post("/withdraw", authMiddleware, transactionRateLimit, async (req: AuthR
 
     let feeBreakdown;
     try {
-      feeBreakdown = calculateFee(amount, country as Country, operator as Operator, "WITHDRAWAL");
+      const userRate = await getUserFeeRate(req.userId!, country, operator, "WITHDRAWAL");
+      feeBreakdown = userRate !== undefined
+        ? calculateFeeWithRate(amount, country as Country, operator as Operator, "WITHDRAWAL", userRate)
+        : calculateFee(amount, country as Country, operator as Operator, "WITHDRAWAL");
     } catch {
       // Fallback: use a default fee of 2% if no specific config exists
       const fee = Math.round(amount * 0.02);
@@ -398,8 +438,9 @@ router.post("/transfer", authMiddleware, transactionRateLimit, async (req: AuthR
   const countryMap: Record<string, Country> = { XAF: "CM", XOF: "SN", CDF: "CD" };
   const fromCountry = countryMap[fromCurrency] as Country;
 
-  // Transfer fee: flat 1.5%
-  const fee = Math.round(amount * 0.015);
+  // Transfer fee: user-specific global rate or default 1.9%
+  const globalTransferRate = await getUserFeeRate(req.userId!, GLOBAL_COUNTRY, GLOBAL_OPERATOR, "TRANSFER") ?? 0.019;
+  const fee = Math.round(amount * globalTransferRate);
   const netAmount = amount - fee;
 
   try {
@@ -437,7 +478,7 @@ router.post("/transfer", authMiddleware, transactionRateLimit, async (req: AuthR
         currency: fromCurrency,
         country: fromCountry,
         reference,
-        feeRate: "0.015",
+        feeRate: globalTransferRate.toString(),
         metadata: { fromCurrency, toCurrency, initiatedAt: new Date().toISOString() },
       })
       .returning();
@@ -475,7 +516,7 @@ router.post("/transfer", authMiddleware, transactionRateLimit, async (req: AuthR
       transaction: formatTx(updatedTx),
       feeBreakdown: {
         grossAmount: amount,
-        feeRate: 0.015,
+        feeRate: globalTransferRate,
         feeAmount: fee,
         netAmount,
         currency: fromCurrency,
