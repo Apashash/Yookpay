@@ -98,8 +98,8 @@ router.get("/", authMiddleware, async (req: AuthRequest, res) => {
 router.post("/fee-preview", authMiddleware, async (req: AuthRequest, res) => {
   const schema = z.object({
     amount: z.number().positive(),
-    country: z.enum(["CM", "SN", "CD"]),
-    operator: z.enum(["MTN", "ORANGE", "MOOV", "WAVE"]),
+    country: z.string().min(2),
+    operator: z.string().min(2),
     type: z.enum(["DEPOSIT", "WITHDRAWAL", "TRANSFER"]),
   });
 
@@ -123,8 +123,8 @@ router.post("/fee-preview", authMiddleware, async (req: AuthRequest, res) => {
 router.post("/deposit", authMiddleware, transactionRateLimit, async (req: AuthRequest, res) => {
   const schema = z.object({
     amount: z.number().min(100),
-    country: z.enum(["CM", "SN", "CD"]),
-    operator: z.enum(["MTN", "ORANGE", "MOOV", "WAVE"]),
+    country: z.string().min(2),
+    operator: z.string().min(2),
     phone: z.string().min(8),
   });
 
@@ -231,7 +231,7 @@ router.post("/withdraw", authMiddleware, transactionRateLimit, async (req: AuthR
     amount: z.number().min(100),
     currency: z.enum(["XAF", "XOF", "CDF"]),
     phone: z.string().min(8),
-    operator: z.enum(["MTN", "ORANGE", "MOOV", "WAVE"]),
+    operator: z.string().min(2),
   });
 
   const parse = schema.safeParse(req.body);

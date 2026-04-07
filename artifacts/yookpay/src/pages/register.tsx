@@ -26,19 +26,13 @@ import { YookPayLogo } from "@/components/yookpay-logo";
 import { useEffect, useState } from "react";
 import { useToast } from "@/hooks/use-toast";
 
-const COUNTRIES = [
-  { code: "CM", name: "Cameroun", dialCode: "+237", flag: "🇨🇲" },
-  { code: "SN", name: "Sénégal",  dialCode: "+221", flag: "🇸🇳" },
-  { code: "CD", name: "RD Congo", dialCode: "+243", flag: "🇨🇩" },
-] as const;
-
-type CountryCode = "CM" | "SN" | "CD";
+import { COUNTRIES } from "@/lib/countries";
 
 const registerSchema = z
   .object({
     name:            z.string().min(2, "Le nom doit contenir au moins 2 caractères"),
     email:           z.string().email("Adresse email invalide"),
-    country:         z.enum(["CM", "SN", "CD"], { message: "Veuillez sélectionner un pays" }),
+    country:         z.string().min(2, "Veuillez sélectionner un pays"),
     phone:           z.string().min(6, "Numéro de téléphone invalide"),
     password:        z.string().min(8, "Le mot de passe doit contenir au moins 8 caractères"),
     confirmPassword: z.string(),

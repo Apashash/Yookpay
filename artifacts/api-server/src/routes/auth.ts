@@ -14,7 +14,7 @@ const registerSchema = z.object({
   password: z.string().min(8),
   name: z.string().min(1),
   phone: z.string().min(6, "Numéro invalide"),
-  country: z.enum(["CM", "SN", "CD"]),
+  country: z.enum(["CM", "SN", "CD", "BJ", "BF", "CG", "CI", "GA", "GM", "GN", "ML", "TG"]),
 });
 
 const loginSchema = z.object({

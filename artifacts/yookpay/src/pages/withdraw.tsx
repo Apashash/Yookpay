@@ -2,20 +2,18 @@ import { useState, useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { 
-  useCreateWithdrawal, 
-  useGetFeePreview 
-} from "@workspace/api-client-react";
+import { useCreateWithdrawal } from "@workspace/api-client-react";
 import { formatCurrency } from "@/lib/format";
 import { useToast } from "@/hooks/use-toast";
 import { useLocation } from "wouter";
+import { COUNTRIES, OPERATOR_LABELS } from "@/lib/countries";
 
-import { 
-  Card, 
-  CardContent, 
-  CardDescription, 
-  CardHeader, 
-  CardTitle 
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
 } from "@/components/ui/card";
 import {
   Form,
@@ -38,10 +36,10 @@ import {
 import { Separator } from "@/components/ui/separator";
 
 const withdrawSchema = z.object({
-  amount: z.coerce.number().min(100, "Amount must be at least 100"),
-  currency: z.enum(["XAF", "XOF", "CDF"]),
-  operator: z.enum(["MTN", "ORANGE", "MOOV", "WAVE"]),
-  phone: z.string().min(8, "Valid phone number required"),
+  amount:   z.coerce.number().min(100, "Montant minimum : 100"),
+  country:  z.string().min(2, "Veuillez sélectionner un pays"),
+  operator: z.string().min(2, "Veuillez sélectionner un opérateur"),
+  phone:    z.string().min(6, "Numéro de téléphone invalide"),
 });
 
 type WithdrawFormValues = z.infer<typeof withdrawSchema>;
@@ -50,77 +48,57 @@ export default function Withdraw() {
   const { toast } = useToast();
   const [, setLocation] = useLocation();
   const withdrawMutation = useCreateWithdrawal();
-  const [feePreview, setFeePreview] = useState<any>(null);
+  const [feePreview, setFeePreview] = useState<{
+    grossAmount: number; feeRate: number; feeAmount: number; netAmount: number; currency: string;
+  } | null>(null);
 
   const form = useForm<WithdrawFormValues>({
     resolver: zodResolver(withdrawSchema),
-    defaultValues: {
-      amount: 1000,
-      currency: "XAF",
-      operator: "MTN",
-      phone: "",
-    },
+    defaultValues: { amount: 1000, country: "", operator: "", phone: "" },
   });
 
-  const amount = form.watch("amount");
-  const currency = form.watch("currency");
+  const amount   = form.watch("amount");
+  const country  = form.watch("country");
   const operator = form.watch("operator");
 
-  // Map currency to country for fee preview
-  const getCountryForCurrency = (curr: string) => {
-    if (curr === "XOF") return "SN";
-    if (curr === "CDF") return "CD";
-    return "CM"; // XAF
-  };
+  const selectedCountry = COUNTRIES.find((c) => c.code === country);
+  const operators = selectedCountry?.operators ?? [];
 
   useEffect(() => {
+    form.setValue("operator", "");
+    setFeePreview(null);
+  }, [country]);
+
+  useEffect(() => {
+    if (!amount || amount < 100 || !country || !operator) return;
     let active = true;
-    
-    async function fetchFee() {
-      if (amount >= 100 && currency && operator) {
-        try {
-          const { getFeePreview } = await import("@workspace/api-client-react");
-          const res = await getFeePreview({
-            amount,
-            country: getCountryForCurrency(currency) as "CM" | "SN" | "CD",
-            operator,
-            type: "WITHDRAWAL",
-          });
-          if (active) {
-            setFeePreview(res);
-          }
-        } catch (error) {
-          console.error("Fee preview error:", error);
-        }
-      }
-    }
-
-    const timeoutId = setTimeout(() => {
-      fetchFee();
+    const id = setTimeout(async () => {
+      try {
+        const { getFeePreview } = await import("@workspace/api-client-react");
+        const res = await getFeePreview({ amount, country, operator, type: "WITHDRAWAL" });
+        if (active) setFeePreview(res as typeof feePreview);
+      } catch { /* silent */ }
     }, 500);
-
-    return () => {
-      active = false;
-      clearTimeout(timeoutId);
-    };
-  }, [amount, currency, operator]);
+    return () => { active = false; clearTimeout(id); };
+  }, [amount, country, operator]);
 
   const onSubmit = (data: WithdrawFormValues) => {
+    const currency = selectedCountry?.currency ?? "XAF";
     withdrawMutation.mutate(
-      { data },
+      { data: { amount: data.amount, currency, operator: data.operator, phone: data.phone } },
       {
         onSuccess: (res) => {
           toast({
-            title: "Withdrawal Initiated",
-            description: `Your withdrawal of ${formatCurrency(res.transaction.amount, res.transaction.currency)} is pending.`,
+            title: "Retrait initié",
+            description: `Votre retrait de ${formatCurrency(res.transaction.amount, res.transaction.currency)} est en cours.`,
           });
           setLocation("/dashboard");
         },
-        onError: (err) => {
+        onError: (err: { error?: { message?: string } }) => {
           toast({
             variant: "destructive",
-            title: "Withdrawal Failed",
-            description: err.error?.message || "There was an error processing your withdrawal.",
+            title: "Échec du retrait",
+            description: err.error?.message || "Une erreur s'est produite lors du traitement.",
           });
         },
       }
@@ -131,109 +109,135 @@ export default function Withdraw() {
     <div className="max-w-2xl mx-auto">
       <Card>
         <CardHeader>
-          <CardTitle>Withdraw Funds</CardTitle>
+          <CardTitle>Retrait de fonds</CardTitle>
           <CardDescription>
-            Withdraw funds from your wallet to a Mobile Money account.
+            Retirez des fonds de votre portefeuille vers un compte Mobile Money.
           </CardDescription>
         </CardHeader>
         <CardContent>
           <Form {...form}>
             <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-              <div className="grid gap-6 md:grid-cols-2">
-                <FormField
-                  control={form.control}
-                  name="currency"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Wallet Currency</FormLabel>
-                      <Select onValueChange={field.onChange} defaultValue={field.value}>
-                        <FormControl>
-                          <SelectTrigger data-testid="select-currency">
-                            <SelectValue placeholder="Select currency" />
-                          </SelectTrigger>
-                        </FormControl>
-                        <SelectContent>
-                          <SelectItem value="XAF">XAF (Central African CFA)</SelectItem>
-                          <SelectItem value="XOF">XOF (West African CFA)</SelectItem>
-                          <SelectItem value="CDF">CDF (Congolese Franc)</SelectItem>
-                        </SelectContent>
-                      </Select>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
 
+              {/* Pays */}
+              <FormField
+                control={form.control}
+                name="country"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Pays</FormLabel>
+                    <Select onValueChange={field.onChange} value={field.value}>
+                      <FormControl>
+                        <SelectTrigger data-testid="select-country">
+                          <SelectValue placeholder="Sélectionner un pays" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        {COUNTRIES.map((c) => (
+                          <SelectItem key={c.code} value={c.code}>
+                            <span className="flex items-center gap-2">
+                              <span>{c.flag}</span>
+                              <span>{c.name}</span>
+                              <span className="text-muted-foreground text-xs">{c.currency}</span>
+                            </span>
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              {/* Opérateur */}
+              {operators.length > 0 && (
                 <FormField
                   control={form.control}
                   name="operator"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Receiving Operator</FormLabel>
-                      <Select onValueChange={field.onChange} defaultValue={field.value}>
+                      <FormLabel>Opérateur destinataire</FormLabel>
+                      <Select onValueChange={field.onChange} value={field.value}>
                         <FormControl>
                           <SelectTrigger data-testid="select-operator">
-                            <SelectValue placeholder="Select an operator" />
+                            <SelectValue placeholder="Sélectionner un opérateur" />
                           </SelectTrigger>
                         </FormControl>
                         <SelectContent>
-                          <SelectItem value="MTN">MTN Mobile Money</SelectItem>
-                          <SelectItem value="ORANGE">Orange Money</SelectItem>
-                          <SelectItem value="MOOV">Moov Money</SelectItem>
-                          <SelectItem value="WAVE">Wave</SelectItem>
+                          {operators.map((op) => (
+                            <SelectItem key={op} value={op}>
+                              {OPERATOR_LABELS[op] ?? op}
+                            </SelectItem>
+                          ))}
                         </SelectContent>
                       </Select>
                       <FormMessage />
                     </FormItem>
                   )}
                 />
-              </div>
+              )}
 
+              {/* Téléphone */}
               <FormField
                 control={form.control}
                 name="phone"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Recipient Phone Number</FormLabel>
+                    <FormLabel>Numéro Mobile Money destinataire</FormLabel>
                     <FormControl>
-                      <Input placeholder="e.g. 600000000" {...field} data-testid="input-phone" />
+                      <div className="flex">
+                        {selectedCountry && (
+                          <div className="flex items-center px-3 border border-r-0 border-input rounded-l-md bg-muted text-sm text-muted-foreground font-medium select-none">
+                            {selectedCountry.dialCode}
+                          </div>
+                        )}
+                        <Input
+                          type="tel"
+                          placeholder="600 000 000"
+                          className={selectedCountry ? "rounded-l-none" : ""}
+                          data-testid="input-phone"
+                          {...field}
+                        />
+                      </div>
                     </FormControl>
-                    <FormDescription>
-                      The mobile money number to receive the funds.
-                    </FormDescription>
+                    <FormDescription>Le numéro qui recevra les fonds.</FormDescription>
                     <FormMessage />
                   </FormItem>
                 )}
               />
 
+              {/* Montant */}
               <FormField
                 control={form.control}
                 name="amount"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Amount to Withdraw</FormLabel>
+                    <FormLabel>
+                      Montant à retirer{selectedCountry ? ` (${selectedCountry.currency})` : ""}
+                    </FormLabel>
                     <FormControl>
-                      <Input type="number" placeholder="1000" {...field} data-testid="input-amount" />
+                      <Input type="number" placeholder="1000" data-testid="input-amount" {...field} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
                 )}
               />
 
+              {/* Résumé frais */}
               {feePreview && (
-                <div className="bg-muted rounded-md p-4 space-y-2 mt-6">
-                  <h4 className="text-sm font-medium mb-3">Transaction Summary</h4>
+                <div className="bg-muted rounded-lg p-4 space-y-2 border border-border">
+                  <h4 className="text-sm font-semibold mb-3">Résumé de la transaction</h4>
                   <div className="flex justify-between text-sm">
-                    <span className="text-muted-foreground">Withdrawal Amount</span>
+                    <span className="text-muted-foreground">Montant du retrait</span>
                     <span>{formatCurrency(feePreview.grossAmount, feePreview.currency)}</span>
                   </div>
                   <div className="flex justify-between text-sm">
-                    <span className="text-muted-foreground">Fee ({feePreview.feeRate}%)</span>
-                    <span>{formatCurrency(feePreview.feeAmount, feePreview.currency)}</span>
+                    <span className="text-muted-foreground">Frais ({(feePreview.feeRate * 100).toFixed(1)}%)</span>
+                    <span className="text-rose-500">+ {formatCurrency(feePreview.feeAmount, feePreview.currency)}</span>
                   </div>
                   <Separator className="my-2" />
-                  <div className="flex justify-between font-medium">
-                    <span>Total Deduction from Wallet</span>
-                    <span className="text-destructive">{formatCurrency(feePreview.netAmount, feePreview.currency)}</span>
+                  <div className="flex justify-between font-semibold">
+                    <span>Total débité du portefeuille</span>
+                    <span className="text-rose-600">{formatCurrency(feePreview.netAmount, feePreview.currency)}</span>
                   </div>
                 </div>
               )}
@@ -241,10 +245,10 @@ export default function Withdraw() {
               <Button
                 type="submit"
                 className="w-full"
-                disabled={withdrawMutation.isPending}
+                disabled={withdrawMutation.isPending || !country || !operator}
                 data-testid="button-submit-withdraw"
               >
-                {withdrawMutation.isPending ? "Processing..." : "Initiate Withdrawal"}
+                {withdrawMutation.isPending ? "Traitement en cours..." : "Initier le retrait"}
               </Button>
             </form>
           </Form>
