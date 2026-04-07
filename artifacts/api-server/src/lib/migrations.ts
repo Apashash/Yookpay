@@ -88,11 +88,12 @@ export async function runStartupMigrations(): Promise<void> {
       ADD COLUMN IF NOT EXISTS pix_transaction_id VARCHAR(100)
     `);
 
-    // 6. Create pixpay_services table (service_id per operator+currency+type)
+    // 6. Create pixpay_services table (service_id per operator+country+currency+type)
     await client.query(`
       CREATE TABLE IF NOT EXISTS pixpay_services (
         id SERIAL PRIMARY KEY,
         operator VARCHAR(30) NOT NULL,
+        country VARCHAR(5),
         currency VARCHAR(10) NOT NULL,
         type VARCHAR(20) NOT NULL,
         service_id INTEGER NOT NULL DEFAULT 0,
@@ -100,8 +101,21 @@ export async function runStartupMigrations(): Promise<void> {
         notes TEXT,
         created_at TIMESTAMP DEFAULT NOW() NOT NULL,
         updated_at TIMESTAMP DEFAULT NOW() NOT NULL,
-        UNIQUE(operator, currency, type)
+        UNIQUE(operator, country, currency, type)
       )
+    `);
+
+    // 6b. Add country column to pixpay_services if table already existed without it
+    await client.query(`
+      DO $$
+      BEGIN
+        IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'pixpay_services')
+           AND NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'pixpay_services' AND column_name = 'country') THEN
+          ALTER TABLE pixpay_services ADD COLUMN country VARCHAR(5);
+          ALTER TABLE pixpay_services DROP CONSTRAINT IF EXISTS pixpay_services_operator_currency_type_key;
+          ALTER TABLE pixpay_services ADD CONSTRAINT pixpay_services_operator_country_currency_type_key UNIQUE(operator, country, currency, type);
+        END IF;
+      END$$
     `);
 
     // 7. Create platform_config table (key-value for Wave business_name_id, etc.)

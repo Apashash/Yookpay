@@ -2,7 +2,7 @@ export const COUNTRIES = [
   { code: "BJ", name: "Bénin",            flag: "🇧🇯", dialCode: "+229", currency: "XOF", operators: ["MTN", "MOOV"] },
   { code: "BF", name: "Burkina Faso",      flag: "🇧🇫", dialCode: "+226", currency: "XOF", operators: ["ORANGE", "MOOV"] },
   { code: "CM", name: "Cameroun",          flag: "🇨🇲", dialCode: "+237", currency: "XAF", operators: ["MTN", "ORANGE"] },
-  { code: "CD", name: "Congo (RDC)",       flag: "🇨🇩", dialCode: "+243", currency: "CDF", operators: ["VODACOM", "AIRTEL", "ORANGE"] },
+  { code: "CD", name: "Congo (RDC)",       flag: "🇨🇩", dialCode: "+243", currency: "CDF", operators: ["VODACOM", "AIRTEL", "ORANGE", "AFRICELL"] },
   { code: "CG", name: "Congo-Brazzaville", flag: "🇨🇬", dialCode: "+242", currency: "XAF", operators: ["MTN", "AIRTEL"] },
   { code: "CI", name: "Côte d'Ivoire",     flag: "🇨🇮", dialCode: "+225", currency: "XOF", operators: ["MTN", "ORANGE", "MOOV", "WAVE"] },
   { code: "GA", name: "Gabon",             flag: "🇬🇦", dialCode: "+241", currency: "XAF", operators: ["AIRTEL", "MTN"] },

@@ -168,11 +168,13 @@ router.post("/fee-preview", authMiddleware, async (req: AuthRequest, res) => {
   }
 });
 
-// Helper: get PixPay service_id for operator+currency+type
+// Helper: get PixPay service_id for operator+country+currency+type
+// Country-specific entry takes priority over NULL (global) entries.
 async function getPixPayServiceId(
   operator: string,
   currency: string,
   type: "DEPOSIT" | "WITHDRAWAL",
+  country?: string,
 ): Promise<number | null> {
   try {
     const result = await db.execute(
@@ -181,6 +183,8 @@ async function getPixPayServiceId(
             AND currency = ${currency.toUpperCase()}
             AND type = ${type}
             AND active = true
+            AND (country = ${country?.toUpperCase() ?? null} OR country IS NULL)
+          ORDER BY (country IS NOT NULL) DESC
           LIMIT 1`,
     );
     if (result.rows.length > 0) {
@@ -244,7 +248,7 @@ router.post("/deposit", authMiddleware, transactionRateLimit, async (req: AuthRe
       : calculateFee(amount, country as Country, operator as Operator, "DEPOSIT");
 
     // Check service availability BEFORE creating the transaction
-    const serviceId = await getPixPayServiceId(operator, currency, "DEPOSIT");
+    const serviceId = await getPixPayServiceId(operator, currency, "DEPOSIT", country);
     if (serviceId === null) {
       res.status(503).json({
         error: "ServiceNotAvailable",
@@ -408,7 +412,7 @@ router.post("/withdraw", authMiddleware, transactionRateLimit, async (req: AuthR
     const flow = getOperatorFlow(operator);
 
     // Check service availability BEFORE touching the wallet
-    const serviceId = await getPixPayServiceId(operator, currency, "WITHDRAWAL");
+    const serviceId = await getPixPayServiceId(operator, currency, "WITHDRAWAL", country);
     if (serviceId === null) {
       res.status(503).json({
         error: "ServiceNotAvailable",

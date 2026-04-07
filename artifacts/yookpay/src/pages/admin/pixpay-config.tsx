@@ -35,6 +35,7 @@ import { Settings2, Plus, Save } from "lucide-react";
 type PixPayService = {
   id: number;
   operator: string;
+  country: string | null;
   currency: string;
   type: string;
   service_id: number;
@@ -55,18 +56,21 @@ const WAVE_CONFIG_KEYS = [
   { key: "WAVE_REDIRECT_ERROR_URL", label: "Wave Redirect Error URL (échec)" },
 ];
 
-// Collect unique operators across all countries
 const ALL_OPERATORS = Array.from(
   new Set(COUNTRIES.flatMap((c) => [...c.operators]))
 ).sort();
+
+const COUNTRY_FLAG: Record<string, string> = Object.fromEntries(
+  COUNTRIES.map((c) => [c.code, `${c.flag} ${c.code}`])
+);
 
 export default function PixPayConfig() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
-  // Form state for adding/editing a service
   const [form, setForm] = useState({
     operator: "",
+    country: "" as string,
     currency: "XAF" as "XAF" | "XOF" | "CDF",
     type: "DEPOSIT" as "DEPOSIT" | "WITHDRAWAL",
     serviceId: "",
@@ -74,16 +78,14 @@ export default function PixPayConfig() {
     notes: "",
   });
 
-  // Platform config values
   const [configValues, setConfigValues] = useState<Record<string, string>>({});
 
-  // ─── Queries ──────────────────────────────────────────────────────────────────
   const { data: servicesData, isLoading: loadingServices } = useQuery({
     queryKey: ["admin", "pixpay-services"],
     queryFn: () => customFetch("/api/admin/pixpay/services") as Promise<{ services: PixPayService[] }>,
   });
 
-  const { data: configData } = useQuery({
+  useQuery({
     queryKey: ["admin", "pixpay-config"],
     queryFn: async () => {
       const res = await customFetch("/api/admin/pixpay/config") as { config: PlatformConfig[] };
@@ -94,14 +96,13 @@ export default function PixPayConfig() {
     },
   });
 
-  // ─── Mutations ────────────────────────────────────────────────────────────────
   const upsertService = useMutation({
     mutationFn: (data: object) =>
       customFetch("/api/admin/pixpay/services", { method: "PUT", body: JSON.stringify(data) }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["admin", "pixpay-services"] });
-      toast({ title: "Service mis à jour", description: `Service PixPay enregistré avec succès.` });
-      setForm({ operator: "", currency: "XAF", type: "DEPOSIT", serviceId: "", active: true, notes: "" });
+      toast({ title: "Service mis à jour", description: "Service PixPay enregistré avec succès." });
+      setForm({ operator: "", country: "", currency: "XAF", type: "DEPOSIT", serviceId: "", active: true, notes: "" });
     },
     onError: (err: unknown) => {
       const msg = (err as { message?: string })?.message ?? "Erreur inconnue";
@@ -129,6 +130,7 @@ export default function PixPayConfig() {
     }
     upsertService.mutate({
       operator: form.operator,
+      country: form.country || null,
       currency: form.currency,
       type: form.type,
       serviceId: parseInt(form.serviceId),
@@ -140,6 +142,7 @@ export default function PixPayConfig() {
   const handleToggleService = (svc: PixPayService) => {
     upsertService.mutate({
       operator: svc.operator,
+      country: svc.country ?? null,
       currency: svc.currency,
       type: svc.type,
       serviceId: svc.service_id,
@@ -151,6 +154,7 @@ export default function PixPayConfig() {
   const handleEditService = (svc: PixPayService) => {
     setForm({
       operator: svc.operator,
+      country: svc.country ?? "",
       currency: svc.currency as "XAF" | "XOF" | "CDF",
       type: svc.type as "DEPOSIT" | "WITHDRAWAL",
       serviceId: String(svc.service_id),
@@ -162,12 +166,19 @@ export default function PixPayConfig() {
 
   const services = servicesData?.services ?? [];
 
+  // Group by currency for display
+  const grouped = services.reduce<Record<string, PixPayService[]>>((acc, s) => {
+    if (!acc[s.currency]) acc[s.currency] = [];
+    acc[s.currency].push(s);
+    return acc;
+  }, {});
+
   return (
     <div className="space-y-8 max-w-5xl mx-auto">
       <div>
         <h1 className="text-2xl font-bold tracking-tight">Configuration PixPay</h1>
         <p className="text-muted-foreground mt-1">
-          Configurez les service_id PixPay par opérateur, devise et type de transaction.
+          Service IDs PixPay par opérateur, pays, devise et type de transaction.
         </p>
       </div>
 
@@ -194,6 +205,22 @@ export default function PixPayConfig() {
                 <SelectContent>
                   {ALL_OPERATORS.map((op) => (
                     <SelectItem key={op} value={op}>{OPERATOR_LABELS[op] ?? op}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Country */}
+            <div className="space-y-1.5">
+              <Label>Pays (optionnel)</Label>
+              <Select value={form.country || "__global__"} onValueChange={(v) => setForm((f) => ({ ...f, country: v === "__global__" ? "" : v }))}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Global (tous)" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="__global__">🌍 Global (tous les pays)</SelectItem>
+                  {COUNTRIES.map((c) => (
+                    <SelectItem key={c.code} value={c.code}>{c.flag} {c.name} ({c.code})</SelectItem>
                   ))}
                 </SelectContent>
               </Select>
@@ -234,17 +261,17 @@ export default function PixPayConfig() {
               <Input
                 type="number"
                 min={0}
-                placeholder="ex : 42"
+                placeholder="ex : 336"
                 value={form.serviceId}
                 onChange={(e) => setForm((f) => ({ ...f, serviceId: e.target.value }))}
               />
             </div>
 
             {/* Notes */}
-            <div className="space-y-1.5 sm:col-span-1">
+            <div className="space-y-1.5">
               <Label>Notes (optionnel)</Label>
               <Input
-                placeholder="ex : Orange Money CI dépôt"
+                placeholder="ex : ORANGE_CM CASH IN"
                 value={form.notes}
                 onChange={(e) => setForm((f) => ({ ...f, notes: e.target.value }))}
               />
@@ -274,71 +301,78 @@ export default function PixPayConfig() {
         </CardContent>
       </Card>
 
-      {/* Services Table */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Services configurés</CardTitle>
-          <CardDescription>{services.length} service(s) enregistré(s)</CardDescription>
-        </CardHeader>
-        <CardContent>
-          {loadingServices ? (
-            <p className="text-muted-foreground text-sm">Chargement...</p>
-          ) : services.length === 0 ? (
-            <p className="text-muted-foreground text-sm text-center py-8">Aucun service configuré. Ajoutez-en un ci-dessus.</p>
-          ) : (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Opérateur</TableHead>
-                  <TableHead>Devise</TableHead>
-                  <TableHead>Type</TableHead>
-                  <TableHead>Service ID</TableHead>
-                  <TableHead>Statut</TableHead>
-                  <TableHead>Notes</TableHead>
-                  <TableHead className="text-right">Actions</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {services.map((svc) => (
-                  <TableRow key={svc.id}>
-                    <TableCell className="font-medium">{OPERATOR_LABELS[svc.operator] ?? svc.operator}</TableCell>
-                    <TableCell>
-                      <Badge variant="outline">{svc.currency}</Badge>
-                    </TableCell>
-                    <TableCell>
-                      <Badge variant={svc.type === "DEPOSIT" ? "default" : "secondary"}>
-                        {svc.type === "DEPOSIT" ? "Dépôt" : "Retrait"}
-                      </Badge>
-                    </TableCell>
-                    <TableCell>
-                      <code className="bg-muted px-1.5 py-0.5 rounded text-xs">{svc.service_id}</code>
-                    </TableCell>
-                    <TableCell>
-                      <Switch
-                        checked={svc.active}
-                        onCheckedChange={() => handleToggleService(svc)}
-                        disabled={upsertService.isPending}
-                      />
-                    </TableCell>
-                    <TableCell className="text-muted-foreground text-sm max-w-[150px] truncate">
-                      {svc.notes ?? "—"}
-                    </TableCell>
-                    <TableCell className="text-right">
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => handleEditService(svc)}
-                      >
-                        Modifier
-                      </Button>
-                    </TableCell>
+      {/* Services grouped by currency */}
+      {loadingServices ? (
+        <p className="text-muted-foreground text-sm">Chargement...</p>
+      ) : services.length === 0 ? (
+        <Card>
+          <CardContent className="py-8 text-center text-muted-foreground text-sm">
+            Aucun service configuré.
+          </CardContent>
+        </Card>
+      ) : (
+        Object.entries(grouped).map(([currency, rows]) => (
+          <Card key={currency}>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2 text-base">
+                <Badge variant="outline" className="text-sm">{currency}</Badge>
+                Services {currency}
+                <span className="ml-auto text-sm font-normal text-muted-foreground">{rows.length} service(s)</span>
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="p-0">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Opérateur</TableHead>
+                    <TableHead>Pays</TableHead>
+                    <TableHead>Type</TableHead>
+                    <TableHead>Service ID</TableHead>
+                    <TableHead>Actif</TableHead>
+                    <TableHead>Référence PixPay</TableHead>
+                    <TableHead className="text-right">Actions</TableHead>
                   </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          )}
-        </CardContent>
-      </Card>
+                </TableHeader>
+                <TableBody>
+                  {rows.map((svc) => (
+                    <TableRow key={svc.id}>
+                      <TableCell className="font-medium">{OPERATOR_LABELS[svc.operator] ?? svc.operator}</TableCell>
+                      <TableCell>
+                        {svc.country ? (
+                          <Badge variant="secondary">{COUNTRY_FLAG[svc.country] ?? svc.country}</Badge>
+                        ) : (
+                          <span className="text-muted-foreground text-xs">Global</span>
+                        )}
+                      </TableCell>
+                      <TableCell>
+                        <Badge variant={svc.type === "DEPOSIT" ? "default" : "secondary"}>
+                          {svc.type === "DEPOSIT" ? "Dépôt" : "Retrait"}
+                        </Badge>
+                      </TableCell>
+                      <TableCell>
+                        <code className="bg-muted px-1.5 py-0.5 rounded text-xs font-mono">{svc.service_id}</code>
+                      </TableCell>
+                      <TableCell>
+                        <Switch
+                          checked={svc.active}
+                          onCheckedChange={() => handleToggleService(svc)}
+                          disabled={upsertService.isPending}
+                        />
+                      </TableCell>
+                      <TableCell className="text-muted-foreground text-xs">{svc.notes ?? "—"}</TableCell>
+                      <TableCell className="text-right">
+                        <Button variant="ghost" size="sm" onClick={() => handleEditService(svc)}>
+                          Modifier
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </CardContent>
+          </Card>
+        ))
+      )}
 
       {/* Wave Configuration */}
       <Card>

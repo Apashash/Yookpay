@@ -14,58 +14,64 @@ interface FeeConfig {
 type FeeTable = Partial<Record<Operator, Record<TransactionType, FeeConfig>>>;
 
 export const FEE_TABLE: Record<Country, FeeTable> = {
+  // ─── XAF — commission PixPay 1.5% ─────────────────────────────────────────
   CM: {
-    MTN:    { DEPOSIT: { rate: 0.018, minFee: 100, maxFee: 5000 }, WITHDRAWAL: { rate: 0.023, minFee: 150, maxFee: 8000 }, TRANSFER: { rate: 0.019, minFee: 50, maxFee: 3000 } },
-    ORANGE: { DEPOSIT: { rate: 0.018, minFee: 100, maxFee: 5000 }, WITHDRAWAL: { rate: 0.023, minFee: 150, maxFee: 8000 }, TRANSFER: { rate: 0.019, minFee: 50, maxFee: 3000 } },
-  },
-  SN: {
-    ORANGE: { DEPOSIT: { rate: 0.018, minFee: 50, maxFee: 4500 }, WITHDRAWAL: { rate: 0.023, minFee: 100, maxFee: 7500 }, TRANSFER: { rate: 0.019, minFee: 25, maxFee: 2500 } },
-    FREE:   { DEPOSIT: { rate: 0.018, minFee: 50, maxFee: 4000 }, WITHDRAWAL: { rate: 0.023, minFee: 100, maxFee: 7000 }, TRANSFER: { rate: 0.019, minFee: 25, maxFee: 2000 } },
-    WAVE:   { DEPOSIT: { rate: 0.018, minFee: 25, maxFee: 2500 }, WITHDRAWAL: { rate: 0.023, minFee: 50,  maxFee: 4000 }, TRANSFER: { rate: 0.019, minFee: 10, maxFee: 1500 } },
-  },
-  CD: {
-    VODACOM: { DEPOSIT: { rate: 0.018, minFee: 200, maxFee: 9000  }, WITHDRAWAL: { rate: 0.023, minFee: 300, maxFee: 11000 }, TRANSFER: { rate: 0.019, minFee: 100, maxFee: 4500 } },
-    AIRTEL:  { DEPOSIT: { rate: 0.018, minFee: 200, maxFee: 10000 }, WITHDRAWAL: { rate: 0.023, minFee: 300, maxFee: 12000 }, TRANSFER: { rate: 0.019, minFee: 100, maxFee: 5000 } },
-    ORANGE:  { DEPOSIT: { rate: 0.018, minFee: 200, maxFee: 10000 }, WITHDRAWAL: { rate: 0.023, minFee: 300, maxFee: 12000 }, TRANSFER: { rate: 0.019, minFee: 100, maxFee: 5000 } },
-  },
-  BJ: {
-    MTN:  { DEPOSIT: { rate: 0.018, minFee: 50, maxFee: 4500 }, WITHDRAWAL: { rate: 0.023, minFee: 100, maxFee: 7500 }, TRANSFER: { rate: 0.019, minFee: 25, maxFee: 2500 } },
-    MOOV: { DEPOSIT: { rate: 0.018, minFee: 50, maxFee: 5000 }, WITHDRAWAL: { rate: 0.023, minFee: 100, maxFee: 8000 }, TRANSFER: { rate: 0.019, minFee: 25, maxFee: 3000 } },
-  },
-  BF: {
-    ORANGE: { DEPOSIT: { rate: 0.018, minFee: 50, maxFee: 4500 }, WITHDRAWAL: { rate: 0.023, minFee: 100, maxFee: 7500 }, TRANSFER: { rate: 0.019, minFee: 25, maxFee: 2500 } },
-    MOOV:   { DEPOSIT: { rate: 0.018, minFee: 50, maxFee: 5000 }, WITHDRAWAL: { rate: 0.023, minFee: 100, maxFee: 8000 }, TRANSFER: { rate: 0.019, minFee: 25, maxFee: 3000 } },
+    MTN:    { DEPOSIT: { rate: 0.015, minFee: 100, maxFee: null }, WITHDRAWAL: { rate: 0.015, minFee: 100, maxFee: null }, TRANSFER: { rate: 0.015, minFee: 50, maxFee: null } },
+    ORANGE: { DEPOSIT: { rate: 0.015, minFee: 100, maxFee: null }, WITHDRAWAL: { rate: 0.015, minFee: 100, maxFee: null }, TRANSFER: { rate: 0.015, minFee: 50, maxFee: null } },
   },
   CG: {
-    MTN:    { DEPOSIT: { rate: 0.018, minFee: 100, maxFee: 5000 }, WITHDRAWAL: { rate: 0.023, minFee: 150, maxFee: 8000 }, TRANSFER: { rate: 0.019, minFee: 50, maxFee: 3000 } },
-    AIRTEL: { DEPOSIT: { rate: 0.018, minFee: 100, maxFee: 5000 }, WITHDRAWAL: { rate: 0.023, minFee: 150, maxFee: 8000 }, TRANSFER: { rate: 0.019, minFee: 50, maxFee: 3000 } },
-  },
-  CI: {
-    MTN:    { DEPOSIT: { rate: 0.018, minFee: 50, maxFee: 4500 }, WITHDRAWAL: { rate: 0.023, minFee: 100, maxFee: 7500 }, TRANSFER: { rate: 0.019, minFee: 25, maxFee: 2500 } },
-    ORANGE: { DEPOSIT: { rate: 0.018, minFee: 50, maxFee: 5000 }, WITHDRAWAL: { rate: 0.023, minFee: 100, maxFee: 8000 }, TRANSFER: { rate: 0.019, minFee: 25, maxFee: 3000 } },
-    MOOV:   { DEPOSIT: { rate: 0.018, minFee: 50, maxFee: 5000 }, WITHDRAWAL: { rate: 0.023, minFee: 100, maxFee: 8000 }, TRANSFER: { rate: 0.019, minFee: 25, maxFee: 3000 } },
-    WAVE:   { DEPOSIT: { rate: 0.018, minFee: 25, maxFee: 2500 }, WITHDRAWAL: { rate: 0.023, minFee: 50,  maxFee: 4000 }, TRANSFER: { rate: 0.019, minFee: 10, maxFee: 1500 } },
+    MTN:    { DEPOSIT: { rate: 0.015, minFee: 100, maxFee: null }, WITHDRAWAL: { rate: 0.015, minFee: 100, maxFee: null }, TRANSFER: { rate: 0.015, minFee: 50, maxFee: null } },
+    AIRTEL: { DEPOSIT: { rate: 0.015, minFee: 100, maxFee: null }, WITHDRAWAL: { rate: 0.015, minFee: 100, maxFee: null }, TRANSFER: { rate: 0.015, minFee: 50, maxFee: null } },
   },
   GA: {
-    AIRTEL: { DEPOSIT: { rate: 0.018, minFee: 100, maxFee: 5000 }, WITHDRAWAL: { rate: 0.023, minFee: 150, maxFee: 8000 }, TRANSFER: { rate: 0.019, minFee: 50, maxFee: 3000 } },
-    MTN:    { DEPOSIT: { rate: 0.018, minFee: 100, maxFee: 5000 }, WITHDRAWAL: { rate: 0.023, minFee: 150, maxFee: 8000 }, TRANSFER: { rate: 0.019, minFee: 50, maxFee: 3000 } },
+    AIRTEL: { DEPOSIT: { rate: 0.015, minFee: 100, maxFee: null }, WITHDRAWAL: { rate: 0.015, minFee: 100, maxFee: null }, TRANSFER: { rate: 0.015, minFee: 50, maxFee: null } },
+    MTN:    { DEPOSIT: { rate: 0.015, minFee: 100, maxFee: null }, WITHDRAWAL: { rate: 0.015, minFee: 100, maxFee: null }, TRANSFER: { rate: 0.015, minFee: 50, maxFee: null } },
+  },
+
+  // ─── XOF — commission PixPay 1.9% ─────────────────────────────────────────
+  CI: {
+    MTN:    { DEPOSIT: { rate: 0.019, minFee: 50, maxFee: null }, WITHDRAWAL: { rate: 0.019, minFee: 50, maxFee: null }, TRANSFER: { rate: 0.019, minFee: 25, maxFee: null } },
+    ORANGE: { DEPOSIT: { rate: 0.019, minFee: 50, maxFee: null }, WITHDRAWAL: { rate: 0.019, minFee: 50, maxFee: null }, TRANSFER: { rate: 0.019, minFee: 25, maxFee: null } },
+    MOOV:   { DEPOSIT: { rate: 0.019, minFee: 50, maxFee: null }, WITHDRAWAL: { rate: 0.019, minFee: 50, maxFee: null }, TRANSFER: { rate: 0.019, minFee: 25, maxFee: null } },
+    WAVE:   { DEPOSIT: { rate: 0.019, minFee: 25, maxFee: null }, WITHDRAWAL: { rate: 0.019, minFee: 25, maxFee: null }, TRANSFER: { rate: 0.019, minFee: 10, maxFee: null } },
+  },
+  SN: {
+    ORANGE: { DEPOSIT: { rate: 0.019, minFee: 50, maxFee: null }, WITHDRAWAL: { rate: 0.019, minFee: 50, maxFee: null }, TRANSFER: { rate: 0.019, minFee: 25, maxFee: null } },
+    FREE:   { DEPOSIT: { rate: 0.019, minFee: 50, maxFee: null }, WITHDRAWAL: { rate: 0.019, minFee: 50, maxFee: null }, TRANSFER: { rate: 0.019, minFee: 25, maxFee: null } },
+    WAVE:   { DEPOSIT: { rate: 0.019, minFee: 25, maxFee: null }, WITHDRAWAL: { rate: 0.019, minFee: 25, maxFee: null }, TRANSFER: { rate: 0.019, minFee: 10, maxFee: null } },
+  },
+  BF: {
+    ORANGE: { DEPOSIT: { rate: 0.019, minFee: 50, maxFee: null }, WITHDRAWAL: { rate: 0.019, minFee: 50, maxFee: null }, TRANSFER: { rate: 0.019, minFee: 25, maxFee: null } },
+    MOOV:   { DEPOSIT: { rate: 0.019, minFee: 50, maxFee: null }, WITHDRAWAL: { rate: 0.019, minFee: 50, maxFee: null }, TRANSFER: { rate: 0.019, minFee: 25, maxFee: null } },
+  },
+  BJ: {
+    MTN:  { DEPOSIT: { rate: 0.019, minFee: 50, maxFee: null }, WITHDRAWAL: { rate: 0.019, minFee: 50, maxFee: null }, TRANSFER: { rate: 0.019, minFee: 25, maxFee: null } },
+    MOOV: { DEPOSIT: { rate: 0.019, minFee: 50, maxFee: null }, WITHDRAWAL: { rate: 0.019, minFee: 50, maxFee: null }, TRANSFER: { rate: 0.019, minFee: 25, maxFee: null } },
   },
   GM: {
-    AFRICELL: { DEPOSIT: { rate: 0.018, minFee: 50, maxFee: 4000 }, WITHDRAWAL: { rate: 0.023, minFee: 100, maxFee: 7000 }, TRANSFER: { rate: 0.019, minFee: 25, maxFee: 3000 } },
-    QMONEY:   { DEPOSIT: { rate: 0.018, minFee: 50, maxFee: 4500 }, WITHDRAWAL: { rate: 0.023, minFee: 100, maxFee: 7500 }, TRANSFER: { rate: 0.019, minFee: 25, maxFee: 3500 } },
+    AFRICELL: { DEPOSIT: { rate: 0.019, minFee: 50, maxFee: null }, WITHDRAWAL: { rate: 0.019, minFee: 50, maxFee: null }, TRANSFER: { rate: 0.019, minFee: 25, maxFee: null } },
+    QMONEY:   { DEPOSIT: { rate: 0.019, minFee: 50, maxFee: null }, WITHDRAWAL: { rate: 0.019, minFee: 50, maxFee: null }, TRANSFER: { rate: 0.019, minFee: 25, maxFee: null } },
   },
   GN: {
-    MTN:     { DEPOSIT: { rate: 0.018, minFee: 50, maxFee: 5000 }, WITHDRAWAL: { rate: 0.023, minFee: 100, maxFee: 8000 }, TRANSFER: { rate: 0.019, minFee: 25, maxFee: 3000 } },
-    ORANGE:  { DEPOSIT: { rate: 0.018, minFee: 50, maxFee: 5000 }, WITHDRAWAL: { rate: 0.023, minFee: 100, maxFee: 8000 }, TRANSFER: { rate: 0.019, minFee: 25, maxFee: 3000 } },
-    CELLCOM: { DEPOSIT: { rate: 0.018, minFee: 50, maxFee: 5500 }, WITHDRAWAL: { rate: 0.023, minFee: 100, maxFee: 9000 }, TRANSFER: { rate: 0.019, minFee: 25, maxFee: 3500 } },
+    MTN:     { DEPOSIT: { rate: 0.019, minFee: 50, maxFee: null }, WITHDRAWAL: { rate: 0.019, minFee: 50, maxFee: null }, TRANSFER: { rate: 0.019, minFee: 25, maxFee: null } },
+    ORANGE:  { DEPOSIT: { rate: 0.019, minFee: 50, maxFee: null }, WITHDRAWAL: { rate: 0.019, minFee: 50, maxFee: null }, TRANSFER: { rate: 0.019, minFee: 25, maxFee: null } },
+    CELLCOM: { DEPOSIT: { rate: 0.019, minFee: 50, maxFee: null }, WITHDRAWAL: { rate: 0.019, minFee: 50, maxFee: null }, TRANSFER: { rate: 0.019, minFee: 25, maxFee: null } },
   },
   ML: {
-    ORANGE: { DEPOSIT: { rate: 0.018, minFee: 50, maxFee: 4500 }, WITHDRAWAL: { rate: 0.023, minFee: 100, maxFee: 7500 }, TRANSFER: { rate: 0.019, minFee: 25, maxFee: 2500 } },
-    MOOV:   { DEPOSIT: { rate: 0.018, minFee: 50, maxFee: 5000 }, WITHDRAWAL: { rate: 0.023, minFee: 100, maxFee: 8000 }, TRANSFER: { rate: 0.019, minFee: 25, maxFee: 3000 } },
+    ORANGE: { DEPOSIT: { rate: 0.019, minFee: 50, maxFee: null }, WITHDRAWAL: { rate: 0.019, minFee: 50, maxFee: null }, TRANSFER: { rate: 0.019, minFee: 25, maxFee: null } },
+    MOOV:   { DEPOSIT: { rate: 0.019, minFee: 50, maxFee: null }, WITHDRAWAL: { rate: 0.019, minFee: 50, maxFee: null }, TRANSFER: { rate: 0.019, minFee: 25, maxFee: null } },
   },
   TG: {
-    TOGOCEL: { DEPOSIT: { rate: 0.018, minFee: 50, maxFee: 4500 }, WITHDRAWAL: { rate: 0.023, minFee: 100, maxFee: 7500 }, TRANSFER: { rate: 0.019, minFee: 25, maxFee: 3000 } },
-    MOOV:    { DEPOSIT: { rate: 0.018, minFee: 50, maxFee: 5000 }, WITHDRAWAL: { rate: 0.023, minFee: 100, maxFee: 8000 }, TRANSFER: { rate: 0.019, minFee: 25, maxFee: 3000 } },
+    TOGOCEL: { DEPOSIT: { rate: 0.019, minFee: 50, maxFee: null }, WITHDRAWAL: { rate: 0.019, minFee: 50, maxFee: null }, TRANSFER: { rate: 0.019, minFee: 25, maxFee: null } },
+    MOOV:    { DEPOSIT: { rate: 0.019, minFee: 50, maxFee: null }, WITHDRAWAL: { rate: 0.019, minFee: 50, maxFee: null }, TRANSFER: { rate: 0.019, minFee: 25, maxFee: null } },
+  },
+
+  // ─── CDF — commission PixPay 3.0% dépôt / 3.5% retrait ───────────────────
+  CD: {
+    VODACOM:  { DEPOSIT: { rate: 0.030, minFee: 200, maxFee: null }, WITHDRAWAL: { rate: 0.035, minFee: 200, maxFee: null }, TRANSFER: { rate: 0.019, minFee: 100, maxFee: null } },
+    AIRTEL:   { DEPOSIT: { rate: 0.030, minFee: 200, maxFee: null }, WITHDRAWAL: { rate: 0.035, minFee: 200, maxFee: null }, TRANSFER: { rate: 0.019, minFee: 100, maxFee: null } },
+    ORANGE:   { DEPOSIT: { rate: 0.030, minFee: 200, maxFee: null }, WITHDRAWAL: { rate: 0.035, minFee: 200, maxFee: null }, TRANSFER: { rate: 0.019, minFee: 100, maxFee: null } },
+    AFRICELL: { DEPOSIT: { rate: 0.030, minFee: 200, maxFee: null }, WITHDRAWAL: { rate: 0.035, minFee: 200, maxFee: null }, TRANSFER: { rate: 0.019, minFee: 100, maxFee: null } },
   },
 };
 

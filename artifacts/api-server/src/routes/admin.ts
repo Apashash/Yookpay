@@ -657,9 +657,9 @@ router.put("/users/:id/wallets/:currency", async (req: AuthRequest, res) => {
 router.get("/pixpay/services", async (_req, res) => {
   try {
     const result = await db.execute(sql`
-      SELECT id, operator, currency, type, service_id, active, notes, updated_at
+      SELECT id, operator, country, currency, type, service_id, active, notes, updated_at
       FROM pixpay_services
-      ORDER BY currency, operator, type
+      ORDER BY currency, country, operator, type
     `);
     res.json({ services: result.rows });
   } catch (err) {
@@ -667,10 +667,11 @@ router.get("/pixpay/services", async (_req, res) => {
   }
 });
 
-// PUT /admin/pixpay/services — upsert a row (operator+currency+type)
+// PUT /admin/pixpay/services — upsert a row (operator+country+currency+type)
 router.put("/pixpay/services", async (req: AuthRequest, res) => {
   const schema = z.object({
     operator: z.string().min(2).toUpperCase(),
+    country: z.string().length(2).toUpperCase().optional().nullable(),
     currency: z.enum(["XAF", "XOF", "CDF"]),
     type: z.enum(["DEPOSIT", "WITHDRAWAL"]),
     serviceId: z.number().int().min(0),
@@ -684,18 +685,18 @@ router.put("/pixpay/services", async (req: AuthRequest, res) => {
     return;
   }
 
-  const { operator, currency, type, serviceId, active, notes } = parse.data;
+  const { operator, country, currency, type, serviceId, active, notes } = parse.data;
 
   try {
     await db.execute(sql`
-      INSERT INTO pixpay_services (operator, currency, type, service_id, active, notes, updated_at)
-      VALUES (${operator}, ${currency}, ${type}, ${serviceId}, ${active}, ${notes ?? null}, NOW())
-      ON CONFLICT (operator, currency, type)
+      INSERT INTO pixpay_services (operator, country, currency, type, service_id, active, notes, updated_at)
+      VALUES (${operator}, ${country ?? null}, ${currency}, ${type}, ${serviceId}, ${active}, ${notes ?? null}, NOW())
+      ON CONFLICT (operator, country, currency, type)
       DO UPDATE SET service_id = ${serviceId}, active = ${active}, notes = ${notes ?? null}, updated_at = NOW()
     `);
 
-    req.log.info({ adminId: req.userId, operator, currency, type, serviceId, active }, "PixPay service upserted");
-    res.json({ success: true, message: `Service PixPay ${operator} ${currency} ${type} mis à jour` });
+    req.log.info({ adminId: req.userId, operator, country, currency, type, serviceId, active }, "PixPay service upserted");
+    res.json({ success: true, message: `Service PixPay ${operator} (${country ?? "global"}) ${currency} ${type} mis à jour` });
   } catch (err) {
     req.log.error({ err }, "Admin upsert pixpay service error");
     res.status(500).json({ error: "InternalError", message: "Impossible de mettre à jour le service PixPay" });
