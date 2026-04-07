@@ -96,13 +96,6 @@ export default function Dashboard() {
 
   return (
     <div className="space-y-8">
-      <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-        <div>
-          <h2 className="text-3xl font-bold tracking-tight">Welcome back, {user?.name}</h2>
-          <p className="text-muted-foreground mt-1">Here's what's happening with your business today.</p>
-        </div>
-      </div>
-
       {/* Wallet Balances */}
       <div className="grid gap-4 md:grid-cols-3">
         {summary.wallets.map((wallet) => (
