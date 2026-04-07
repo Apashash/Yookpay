@@ -13,7 +13,7 @@ interface FeeConfig {
 
 type FeeTable = Partial<Record<Operator, Record<TransactionType, FeeConfig>>>;
 
-const FEE_TABLE: Record<Country, FeeTable> = {
+export const FEE_TABLE: Record<Country, FeeTable> = {
   CM: {
     MTN:    { DEPOSIT: { rate: 0.015, minFee: 100, maxFee: 5000 }, WITHDRAWAL: { rate: 0.02,  minFee: 150, maxFee: 8000 }, TRANSFER: { rate: 0.01,  minFee: 50, maxFee: 3000 } },
     ORANGE: { DEPOSIT: { rate: 0.018, minFee: 100, maxFee: 5000 }, WITHDRAWAL: { rate: 0.022, minFee: 150, maxFee: 8000 }, TRANSFER: { rate: 0.012, minFee: 50, maxFee: 3000 } },

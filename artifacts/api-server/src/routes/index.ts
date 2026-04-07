@@ -4,6 +4,9 @@ import authRouter from "./auth";
 import walletsRouter from "./wallets";
 import transactionsRouter from "./transactions";
 import dashboardRouter from "./dashboard";
+import servicesRouter from "./services";
+import apiKeysRouter from "./apikeys";
+import kycRouter from "./kyc";
 
 const router: IRouter = Router();
 
@@ -12,5 +15,8 @@ router.use("/auth", authRouter);
 router.use("/wallets", walletsRouter);
 router.use("/transactions", transactionsRouter);
 router.use("/dashboard", dashboardRouter);
+router.use("/services", servicesRouter);
+router.use("/api-keys", apiKeysRouter);
+router.use("/kyc", kycRouter);
 
 export default router;

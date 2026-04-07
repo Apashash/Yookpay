@@ -11,6 +11,9 @@ import {
   Menu,
   X,
   Settings,
+  Briefcase,
+  KeyRound,
+  ShieldCheck,
 } from "lucide-react";
 import { YookPayLogo } from "@/components/yookpay-logo";
 import { Button } from "@/components/ui/button";
@@ -45,6 +48,9 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
     { href: "/transfer",     label: "Transfert",      icon: ArrowRightLeft },
     { href: "/transactions", label: "Transactions",   icon: ListOrdered },
     { href: "/settings",     label: "Paramètres",     icon: Settings },
+    { href: "/services",     label: "Mes Services",   icon: Briefcase },
+    { href: "/api-keys",     label: "Clé API",        icon: KeyRound },
+    { href: "/kyc",          label: "KYC / KYB",      icon: ShieldCheck },
   ];
 
   const pageTitle = location.split("/")[1] || "Dashboard";

@@ -13,6 +13,9 @@ import Withdraw from "@/pages/withdraw";
 import Transfer from "@/pages/transfer";
 import Transactions from "@/pages/transactions";
 import Settings from "@/pages/settings";
+import Services from "@/pages/services";
+import ApiKeys from "@/pages/api-keys";
+import Kyc from "@/pages/kyc";
 import NotFound from "@/pages/not-found";
 
 const queryClient = new QueryClient();
@@ -48,7 +51,10 @@ function Router() {
       <Route path="/withdraw" component={() => <ProtectedRoute component={Withdraw} />} />
       <Route path="/transfer" component={() => <ProtectedRoute component={Transfer} />} />
       <Route path="/transactions" component={() => <ProtectedRoute component={Transactions} />} />
-      <Route path="/settings" component={() => <ProtectedRoute component={Settings} />} />
+      <Route path="/settings"  component={() => <ProtectedRoute component={Settings} />} />
+      <Route path="/services"  component={() => <ProtectedRoute component={Services} />} />
+      <Route path="/api-keys"  component={() => <ProtectedRoute component={ApiKeys} />} />
+      <Route path="/kyc"       component={() => <ProtectedRoute component={Kyc} />} />
       
       <Route component={NotFound} />
     </Switch>
