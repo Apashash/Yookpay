@@ -837,4 +837,123 @@ router.put("/pixpay/config", async (req: AuthRequest, res) => {
   }
 });
 
+// ── Admin Transactions ────────────────────────────────────────────────────────
+
+// GET /admin/transactions?page=1&limit=50&status=SUCCESS&type=DEPOSIT&search=xxx
+router.get("/transactions", async (req: AuthRequest, res) => {
+  const page   = Math.max(1, parseInt(req.query.page  as string) || 1);
+  const limit  = Math.min(100, parseInt(req.query.limit as string) || 50);
+  const offset = (page - 1) * limit;
+  const status = (req.query.status as string) || "";
+  const type   = (req.query.type   as string) || "";
+  const search = (req.query.search as string) || "";
+
+  const params: unknown[] = [];
+  const conditions: string[] = [];
+
+  if (status) { params.push(status); conditions.push(`t.status = $${params.length}`); }
+  if (type)   { params.push(type);   conditions.push(`t.type = $${params.length}`); }
+  if (search) {
+    params.push(`%${search}%`);
+    const idx = params.length;
+    conditions.push(`(t.reference ILIKE $${idx} OR u.email ILIKE $${idx} OR u.name ILIKE $${idx})`);
+  }
+
+  const where = conditions.length ? `WHERE ${conditions.join(" AND ")}` : "";
+
+  try {
+    const countRes = await pool.query(
+      `SELECT COUNT(*)::int AS total FROM transactions t JOIN users u ON t.user_id = u.id ${where}`,
+      params
+    );
+    const total = countRes.rows[0]?.total ?? 0;
+
+    params.push(limit, offset);
+    const rows = await pool.query(
+      `SELECT t.id, t.type, t.status, t.amount, t.fee, t.net_amount,
+              t.currency, t.country, t.operator, t.phone, t.reference,
+              t.fee_rate, t.metadata, t.created_at, t.updated_at,
+              u.id AS user_id, u.email AS user_email, u.name AS user_name
+       FROM transactions t
+       JOIN users u ON t.user_id = u.id
+       ${where}
+       ORDER BY t.created_at DESC
+       LIMIT $${params.length - 1} OFFSET $${params.length}`,
+      params
+    );
+
+    res.json({
+      total,
+      page,
+      limit,
+      pages: Math.ceil(total / limit),
+      transactions: rows.rows.map((r) => ({
+        id:         r.id,
+        type:       r.type,
+        status:     r.status,
+        amount:     parseFloat(r.amount),
+        fee:        parseFloat(r.fee),
+        netAmount:  parseFloat(r.net_amount),
+        currency:   r.currency,
+        country:    r.country,
+        operator:   r.operator,
+        phone:      r.phone,
+        reference:  r.reference,
+        feeRate:    r.fee_rate ? parseFloat(r.fee_rate) : null,
+        metadata:   r.metadata,
+        createdAt:  r.created_at,
+        updatedAt:  r.updated_at,
+        userId:     r.user_id,
+        userEmail:  r.user_email,
+        userName:   r.user_name,
+      })),
+    });
+  } catch (err) {
+    req.log.error({ err }, "Admin get transactions error");
+    res.status(500).json({ error: "InternalError", message: "Erreur lors de la récupération des transactions" });
+  }
+});
+
+// GET /admin/transactions/:id
+router.get("/transactions/:id", async (req: AuthRequest, res) => {
+  const id = parseInt(req.params.id);
+  if (isNaN(id)) { res.status(400).json({ error: "BadRequest", message: "ID invalide" }); return; }
+
+  try {
+    const result = await pool.query(
+      `SELECT t.*, u.id AS user_id, u.email AS user_email, u.name AS user_name
+       FROM transactions t
+       JOIN users u ON t.user_id = u.id
+       WHERE t.id = $1 LIMIT 1`,
+      [id]
+    );
+    if (!result.rows[0]) { res.status(404).json({ error: "NotFound", message: "Transaction introuvable" }); return; }
+    const r = result.rows[0];
+    res.json({
+      id:         r.id,
+      type:       r.type,
+      status:     r.status,
+      amount:     parseFloat(r.amount),
+      fee:        parseFloat(r.fee),
+      netAmount:  parseFloat(r.net_amount),
+      currency:   r.currency,
+      country:    r.country,
+      operator:   r.operator,
+      phone:      r.phone,
+      reference:  r.reference,
+      feeRate:    r.fee_rate ? parseFloat(r.fee_rate) : null,
+      metadata:   r.metadata,
+      createdAt:  r.created_at,
+      updatedAt:  r.updated_at,
+      userId:     r.user_id,
+      userEmail:  r.user_email,
+      userName:   r.user_name,
+    });
+  } catch (err) {
+    req.log.error({ err }, "Admin get transaction detail error");
+    res.status(500).json({ error: "InternalError", message: "Erreur lors de la récupération" });
+  }
+});
+
 export default router;
+

@@ -4,7 +4,7 @@ import { Link } from "wouter";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   Users, FileCheck, ArrowRightLeft, ShieldCheck,
-  ChevronRight, TrendingUp, BadgeDollarSign, CheckCircle2,
+  ChevronRight, TrendingUp, BadgeDollarSign, CheckCircle2, History,
 } from "lucide-react";
 
 interface AdminStats {
@@ -178,6 +178,7 @@ export default function AdminDashboard() {
             icon={ArrowRightLeft}
             colorClass="bg-sky-50 text-sky-600"
             isLoading={isLoading}
+            href="/admin/transactions"
           />
           <StatCard
             label="Documents KYC en attente"
@@ -195,8 +196,9 @@ export default function AdminDashboard() {
         <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground mb-3">Accès rapide</p>
         <div className="bg-card border rounded-2xl overflow-hidden divide-y">
           {[
-            { href: "/admin/users", label: "Gérer les utilisateurs", desc: "Voir, modifier les frais et les rôles", icon: Users },
-            { href: "/admin/kyc",   label: "File KYC / KYB",         desc: "Valider ou rejeter les documents soumis", icon: FileCheck },
+            { href: "/admin/users",        label: "Gérer les utilisateurs",     desc: "Voir, modifier les frais et les rôles",    icon: Users },
+            { href: "/admin/kyc",          label: "File KYC / KYB",             desc: "Valider ou rejeter les documents soumis",  icon: FileCheck },
+            { href: "/admin/transactions", label: "Historique des transactions", desc: "Consulter et filtrer toutes les transactions", icon: History },
           ].map((item) => (
             <Link key={item.href} href={item.href}>
               <div className="flex items-center gap-4 px-5 py-4 hover:bg-muted/40 cursor-pointer transition-colors group">
