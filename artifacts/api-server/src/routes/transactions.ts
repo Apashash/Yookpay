@@ -143,6 +143,17 @@ router.get("/", authMiddleware, async (req: AuthRequest, res) => {
   }
 });
 
+// GET /transactions/crypto-min-amount — public, no auth needed
+router.get("/crypto-min-amount", async (_req, res) => {
+  try {
+    const minAmount = await getNpMinAmount("usdttrc20", "usdttrc20");
+    const rounded = Math.ceil(minAmount);
+    res.json({ minAmount: rounded, currency: "USDT", network: "TRC-20" });
+  } catch {
+    res.json({ minAmount: 20, currency: "USDT", network: "TRC-20" });
+  }
+});
+
 // GET /transactions/:id  — status polling endpoint
 router.get("/:id", authMiddleware, async (req: AuthRequest, res) => {
   const id = parseInt(req.params.id, 10);
@@ -762,20 +773,6 @@ router.get("/fx-rate", authMiddleware, async (req: AuthRequest, res) => {
     res.json({ from, to, amount: amt, converted, rate: effectiveRate, usdRate, minAmount, feeRate });
   } catch (err) {
     res.status(500).json({ error: "InternalError", message: "FX rate unavailable" });
-  }
-});
-
-// GET /transactions/crypto-min-amount
-// Returns the minimum USDT deposit amount from NowPayments
-router.get("/crypto-min-amount", authMiddleware, async (req: AuthRequest, res) => {
-  try {
-    const minAmount = await getNpMinAmount("usdttrc20", "usdttrc20");
-    // Round up to nearest integer for a clean UX (e.g. 10.826... → 11)
-    const rounded = Math.ceil(minAmount);
-    res.json({ minAmount: rounded, currency: "USDT", network: "TRC-20" });
-  } catch (err: any) {
-    // Fallback to 20 USDT if NowPayments is unreachable
-    res.json({ minAmount: 20, currency: "USDT", network: "TRC-20" });
   }
 });
 

@@ -101,14 +101,17 @@ export default function Deposit() {
   const [cryptoLoading, setCryptoLoading] = useState(false);
   const [copied, setCopied] = useState(false);
 
-  // Fetch minimum deposit amount from NowPayments
+  // Fetch minimum deposit amount from NowPayments (public endpoint, no auth needed)
   useEffect(() => {
-    customFetch<{ minAmount: number }>("/api/transactions/crypto-min-amount")
-      .then((data) => {
-        setCryptoMinAmount(data.minAmount);
-        setCryptoAmountUsdt(data.minAmount.toString());
+    fetch("/api/transactions/crypto-min-amount")
+      .then((r) => r.json())
+      .then((data: { minAmount: number }) => {
+        if (data.minAmount) {
+          setCryptoMinAmount(data.minAmount);
+          setCryptoAmountUsdt(data.minAmount.toString());
+        }
       })
-      .catch(() => { /* keep default 20 */ });
+      .catch(console.error);
   }, []);
 
   const handleCopyAddress = (text: string) => {
