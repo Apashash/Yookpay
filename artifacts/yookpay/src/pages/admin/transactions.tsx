@@ -74,12 +74,6 @@ interface Exchange {
 
 type ActionDialog = { type: "approve" | "reject"; exchange: Exchange } | null;
 
-const EX_STATUS_BADGE: Record<string, React.ReactElement> = {
-  STEP1_DONE:    <Badge className="bg-cyan-500/15 text-cyan-600 border-cyan-300/40 whitespace-nowrap text-[10px] px-1.5 py-0">Étape 1 ✓</Badge>,
-  PENDING_ADMIN: <Badge className="bg-amber-500/15 text-amber-600 border-amber-300/40 whitespace-nowrap text-[10px] px-1.5 py-0">En attente</Badge>,
-  COMPLETED:     <Badge className="bg-emerald-500/15 text-emerald-600 border-emerald-300/40 whitespace-nowrap text-[10px] px-1.5 py-0">Complété</Badge>,
-  REJECTED:      <Badge className="bg-rose-500/15 text-rose-600 border-rose-300/40 whitespace-nowrap text-[10px] px-1.5 py-0">Rejeté</Badge>,
-};
 
 function fmt(n: number, currency: string) {
   const dec = currency === "USDT" ? 4 : 0;
@@ -276,7 +270,7 @@ export default function AdminTransactions() {
     placeholderData: (prev: TxPage | undefined) => prev,
   });
 
-  const { data: exchanges = [], isLoading: exLoading } = useQuery<Exchange[]>({
+  const { data: exchanges = [] } = useQuery<Exchange[]>({
     queryKey: ["admin-exchanges"],
     queryFn: () => customFetch<Exchange[]>("/api/admin/exchanges"),
     refetchInterval: 15000,
@@ -318,7 +312,6 @@ export default function AdminTransactions() {
   const isPendingAction = approveMutation.isPending || rejectMutation.isPending;
 
   const pendingExchanges = exchanges.filter(e => e.status === "PENDING_ADMIN");
-  const otherExchanges   = exchanges.filter(e => e.status !== "PENDING_ADMIN");
 
   function handleOpenDialog(type: "approve" | "reject", exchange: Exchange) {
     setNotes("");
@@ -404,41 +397,6 @@ export default function AdminTransactions() {
                 )}
               </div>
             ))}
-          </CardContent>
-        </Card>
-      )}
-
-      {/* ── Exchange History ── */}
-      {(exLoading || otherExchanges.length > 0) && (
-        <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-base">Historique des échanges USDT</CardTitle>
-            <CardDescription>Échanges complétés ou rejetés.</CardDescription>
-          </CardHeader>
-          <CardContent>
-            {exLoading ? (
-              <div className="flex items-center gap-2 text-muted-foreground py-4 justify-center text-sm">
-                <Loader2 className="h-4 w-4 animate-spin" /> Chargement...
-              </div>
-            ) : (
-              <div className="space-y-1.5">
-                {otherExchanges.map((ex) => (
-                  <div key={ex.id} className="flex items-center gap-3 p-2.5 border rounded-lg text-sm hover:bg-muted/30 transition-colors">
-                    <div className="min-w-0 flex-1">
-                      <p className="font-semibold text-xs truncate">{ex.userName} <span className="font-normal text-muted-foreground">· {ex.userEmail}</span></p>
-                      <p className="text-xs text-muted-foreground mt-0.5">
-                        {ex.fromCurrency} → USDT → {ex.toCurrency} · {formatDate(ex.createdAt)}
-                      </p>
-                      {ex.adminNotes && <p className="text-xs text-muted-foreground italic mt-0.5">"{ex.adminNotes}"</p>}
-                    </div>
-                    <div className="flex flex-col items-end gap-1 shrink-0">
-                      <span className="font-mono text-xs text-cyan-600">{ex.usdtAmount.toFixed(4)} USDT</span>
-                      {EX_STATUS_BADGE[ex.status] ?? <Badge variant="outline" className="text-[10px]">{ex.status}</Badge>}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
           </CardContent>
         </Card>
       )}
