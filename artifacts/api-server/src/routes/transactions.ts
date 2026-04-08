@@ -5,7 +5,7 @@ import { eq, and, desc, count } from "drizzle-orm";
 import { sql } from "drizzle-orm";
 import { authMiddleware, type AuthRequest } from "../middlewares/authMiddleware";
 import { transactionRateLimit } from "../middlewares/rateLimitMiddleware";
-import { createNpPayment, createNpPayout } from "../lib/nowpayments";
+import { createNpPayment, createNpPayout, getNpMinAmount } from "../lib/nowpayments";
 import { convertCurrency, getRateFromUsd, getMinExchangeAmount } from "../lib/fxRates";
 import { convertWithAdminRate, getEffectiveRate, getExchangeFeeRate } from "../lib/adminRates";
 import {
@@ -765,6 +765,20 @@ router.get("/fx-rate", authMiddleware, async (req: AuthRequest, res) => {
   }
 });
 
+// GET /transactions/crypto-min-amount
+// Returns the minimum USDT deposit amount from NowPayments
+router.get("/crypto-min-amount", authMiddleware, async (req: AuthRequest, res) => {
+  try {
+    const minAmount = await getNpMinAmount("usd", "usdttrc20");
+    // Round up to nearest 0.5 for a clean UX
+    const rounded = Math.ceil(minAmount * 2) / 2;
+    res.json({ minAmount: rounded, currency: "USDT", network: "TRC-20" });
+  } catch (err: any) {
+    // Fallback to 20 USDT if NowPayments is unreachable
+    res.json({ minAmount: 20, currency: "USDT", network: "TRC-20" });
+  }
+});
+
 // POST /transactions/crypto-deposit
 // Creates a NowPayments USDT deposit address for the user
 router.post("/crypto-deposit", authMiddleware, transactionRateLimit, async (req: AuthRequest, res) => {
@@ -777,6 +791,29 @@ router.post("/crypto-deposit", authMiddleware, transactionRateLimit, async (req:
     return;
   }
   const { amountUsdt } = parse.data;
+
+  // Validate against NowPayments minimum before creating anything
+  try {
+    const minAmount = await getNpMinAmount("usd", "usdttrc20");
+    const minRounded = Math.ceil(minAmount * 2) / 2;
+    if (amountUsdt < minRounded) {
+      res.status(400).json({
+        error: "BelowMinimum",
+        message: `Montant minimum de dépôt : ${minRounded} USDT`
+      });
+      return;
+    }
+  } catch {
+    // If we can't reach NowPayments min-amount API, apply a safe fallback of 20 USDT
+    if (amountUsdt < 20) {
+      res.status(400).json({
+        error: "BelowMinimum",
+        message: "Montant minimum de dépôt : 20 USDT"
+      });
+      return;
+    }
+  }
+
   const reference = generateReference();
 
   try {

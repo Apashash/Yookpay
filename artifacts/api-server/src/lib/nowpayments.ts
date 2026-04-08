@@ -76,6 +76,14 @@ export async function getNpPaymentStatus(paymentId: string): Promise<NpPaymentSt
   return npFetch<NpPaymentStatus>(`/payment/${paymentId}`);
 }
 
+// ── Minimum payment amount ────────────────────────────────────────────────────
+export async function getNpMinAmount(currencyFrom: string, currencyTo: string): Promise<number> {
+  const data = await npFetch<{ min_amount: number }>(
+    `/min-amount?currency_from=${currencyFrom}&currency_to=${currencyTo}`
+  );
+  return data.min_amount;
+}
+
 // ── Estimate: how much crypto for N USD ───────────────────────────────────────
 export interface NpEstimate {
   currency_from: string;

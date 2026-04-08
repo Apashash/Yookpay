@@ -93,12 +93,23 @@ export default function Deposit() {
 
   // ─── Crypto deposit mode ──────────────────────────────────────────────────
   const [depositMode, setDepositMode] = useState<"mobile" | "crypto">("mobile");
-  const [cryptoAmountUsdt, setCryptoAmountUsdt] = useState("10");
+  const [cryptoMinAmount, setCryptoMinAmount] = useState<number>(20);
+  const [cryptoAmountUsdt, setCryptoAmountUsdt] = useState("20");
   const [cryptoResult, setCryptoResult] = useState<{
     payAddress: string | null; npPaymentId: string | null; payAmount: number; payCurrency: string; network: string; message: string;
   } | null>(null);
   const [cryptoLoading, setCryptoLoading] = useState(false);
   const [copied, setCopied] = useState(false);
+
+  // Fetch minimum deposit amount from NowPayments
+  useEffect(() => {
+    customFetch<{ minAmount: number }>("/api/transactions/crypto-min-amount")
+      .then((data) => {
+        setCryptoMinAmount(data.minAmount);
+        setCryptoAmountUsdt(data.minAmount.toString());
+      })
+      .catch(() => { /* keep default 20 */ });
+  }, []);
 
   const handleCopyAddress = (text: string) => {
     navigator.clipboard.writeText(text);
@@ -108,7 +119,10 @@ export default function Deposit() {
 
   const handleCryptoDeposit = async () => {
     const amt = parseFloat(cryptoAmountUsdt);
-    if (!amt || amt < 1) { toast({ variant: "destructive", title: "Montant invalide", description: "Minimum 1 USDT" }); return; }
+    if (!amt || amt < cryptoMinAmount) {
+      toast({ variant: "destructive", title: "Montant invalide", description: `Minimum ${cryptoMinAmount} USDT` });
+      return;
+    }
     setCryptoLoading(true);
     try {
       const res = await customFetch<{ payAddress: string | null; npPaymentId: string | null; payAmount: number; payCurrency: string; network: string; message: string }>(
@@ -445,15 +459,16 @@ export default function Deposit() {
             {!cryptoResult ? (
               <>
                 <div>
-                  <label className="text-sm font-medium block mb-1.5">Montant USDT à déposer</label>
+                  <label className="text-sm font-medium block mb-1">Montant USDT à déposer</label>
+                  <p className="text-xs text-muted-foreground mb-1.5">Minimum : <span className="font-semibold text-amber-600">{cryptoMinAmount} USDT</span></p>
                   <input
                     type="number"
-                    min="1"
-                    step="0.01"
+                    min={cryptoMinAmount}
+                    step="0.5"
                     className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                     value={cryptoAmountUsdt}
                     onChange={(e) => setCryptoAmountUsdt(e.target.value)}
-                    placeholder="10"
+                    placeholder={cryptoMinAmount.toString()}
                   />
                 </div>
                 <Alert className="border-cyan-200 bg-cyan-50 dark:bg-cyan-900/20">
