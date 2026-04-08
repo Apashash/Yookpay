@@ -7,6 +7,7 @@ import { authMiddleware, type AuthRequest } from "../middlewares/authMiddleware"
 import { transactionRateLimit } from "../middlewares/rateLimitMiddleware";
 import { createNpPayment, createNpPayout } from "../lib/nowpayments";
 import { convertCurrency, getRateFromUsd, getMinExchangeAmount } from "../lib/fxRates";
+import { convertWithAdminRate, getEffectiveRate } from "../lib/adminRates";
 import {
   calculateFee,
   calculateFeeWithRate,
@@ -753,10 +754,11 @@ router.get("/fx-rate", authMiddleware, async (req: AuthRequest, res) => {
   }
   try {
     const amt = parseFloat(amount ?? "1");
-    const converted = await convertCurrency(amt, from, to);
+    const converted = await convertWithAdminRate(amt, from, to);
     const usdRate = await getRateFromUsd(from);
     const minAmount = await getMinExchangeAmount(from);
-    res.json({ from, to, amount: amt, converted, rate: converted / amt, usdRate, minAmount });
+    const effectiveRate = await getEffectiveRate(from, to);
+    res.json({ from, to, amount: amt, converted, rate: effectiveRate, usdRate, minAmount });
   } catch (err) {
     res.status(500).json({ error: "InternalError", message: "FX rate unavailable" });
   }
@@ -1004,9 +1006,9 @@ router.post("/exchange-step1", authMiddleware, transactionRateLimit, async (req:
     const fee = Math.round(amount * feeRate);
     const netAmount = amount - fee;
 
-    // Convert to USDT via FX rates
-    const usdtAmount = await convertCurrency(netAmount, fromCurrency, "USDT");
-    const rate = usdtAmount / netAmount;
+    // Convert to USDT via admin rate (or live FX fallback)
+    const usdtAmount = await convertWithAdminRate(netAmount, fromCurrency, "USDT");
+    const rate = await getEffectiveRate(fromCurrency, "USDT");
 
     const reference = generateReference();
     const countryMap: Record<string, string> = { XAF: "CM", XOF: "SN", CDF: "CD" };
@@ -1118,9 +1120,9 @@ router.post("/exchange-step2", authMiddleware, transactionRateLimit, async (req:
     const fee = parseFloat((amountUsdt * feeRate).toFixed(8));
     const netUsdt = amountUsdt - fee;
 
-    // Estimated fiat amount
-    const estimatedFiat = await convertCurrency(netUsdt, "USDT", toCurrency);
-    const rate = estimatedFiat / netUsdt;
+    // Estimated fiat amount via admin rate (or live FX fallback)
+    const estimatedFiat = await convertWithAdminRate(netUsdt, "USDT", toCurrency);
+    const rate = await getEffectiveRate("USDT", toCurrency);
 
     const reference = generateReference();
     const countryMap: Record<string, string> = { XAF: "CM", XOF: "SN", CDF: "CD" };

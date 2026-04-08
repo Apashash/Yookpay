@@ -6,6 +6,7 @@ import { authMiddleware, type AuthRequest } from "../middlewares/authMiddleware"
 import { adminMiddleware } from "../middlewares/adminMiddleware";
 import { z } from "zod";
 import { FEE_TABLE, CURRENCY_MAP } from "../services/feeService";
+import { getAllUsdtRates, setUsdtRate, USDT_PAIRS } from "../lib/adminRates";
 
 const router = Router();
 
@@ -1119,6 +1120,42 @@ router.patch("/exchanges/:id/reject", async (req: AuthRequest, res) => {
   } catch (err) {
     req.log.error({ err, id }, "Admin reject exchange error");
     res.status(500).json({ error: "InternalError", message: "Erreur lors du rejet" });
+  }
+});
+
+// ─── USDT Exchange Rates ────────────────────────────────────────────────────
+
+// GET /admin/usdt-rates — get all admin-defined USDT exchange rates
+router.get("/usdt-rates", async (req: AuthRequest, res) => {
+  try {
+    const rates = await getAllUsdtRates();
+    res.json({ rates });
+  } catch (err) {
+    req.log.error({ err }, "Admin get usdt-rates error");
+    res.status(500).json({ error: "InternalError", message: "Impossible de récupérer les taux" });
+  }
+});
+
+// PUT /admin/usdt-rates/:pair — set rate for a USDT pair (0 = use live rate)
+router.put("/usdt-rates/:pair", async (req: AuthRequest, res) => {
+  const pair = req.params.pair;
+  if (!(USDT_PAIRS as readonly string[]).includes(pair)) {
+    res.status(400).json({ error: "ValidationError", message: `Paire invalide. Valides: ${USDT_PAIRS.join(", ")}` });
+    return;
+  }
+  const schema = z.object({ rate: z.number().min(0, "Taux doit être ≥ 0") });
+  const parse = schema.safeParse(req.body);
+  if (!parse.success) {
+    res.status(400).json({ error: "ValidationError", message: parse.error.errors[0]?.message ?? "Paramètres invalides" });
+    return;
+  }
+  try {
+    await setUsdtRate(pair, parse.data.rate);
+    req.log.info({ adminId: req.userId, pair, rate: parse.data.rate }, "USDT rate updated by admin");
+    res.json({ success: true, pair, rate: parse.data.rate, message: `Taux ${pair} mis à jour (0 = taux marché)` });
+  } catch (err) {
+    req.log.error({ err }, "Admin set usdt-rate error");
+    res.status(500).json({ error: "InternalError", message: "Impossible de mettre à jour le taux" });
   }
 });
 

@@ -249,6 +249,19 @@ export async function runStartupMigrations(): Promise<void> {
       )
     `);
 
+    // 9. Create usdt_rates table for admin-defined USDT exchange rates
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS usdt_rates (
+        pair VARCHAR(20) PRIMARY KEY,
+        rate DECIMAL(20,8) NOT NULL DEFAULT 0,
+        updated_at TIMESTAMP DEFAULT NOW()
+      )
+    `);
+    const usdtPairs = ["USDT_XAF","XAF_USDT","USDT_XOF","XOF_USDT","USDT_CDF","CDF_USDT"];
+    for (const pair of usdtPairs) {
+      await client.query(`INSERT INTO usdt_rates (pair, rate) VALUES ($1, 0) ON CONFLICT (pair) DO NOTHING`, [pair]);
+    }
+
     // 8. Set admin roles for designated emails
     for (const email of ADMIN_EMAILS) {
       const result = await client.query(
