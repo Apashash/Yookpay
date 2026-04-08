@@ -24,6 +24,21 @@ import { z } from "zod";
 
 const DEFAULT_MARGIN = 0.015; // YookPay margin applied on top of PixPay fee
 
+// Country code → dial code digits (no '+')
+const DIAL_CODES: Record<string, string> = {
+  BJ: "229", BF: "226", CM: "237", CD: "243", CG: "242",
+  CI: "225", GA: "241", GM: "220", GN: "224", ML: "223",
+  SN: "221", TG: "228",
+};
+
+/** Normalize phone to E.164 digits (no '+') for PixPay */
+function normalizePhone(phone: string, country: string): string {
+  const dialDigits = DIAL_CODES[country.toUpperCase()] ?? "";
+  const digits = phone.replace(/\D/g, "");
+  if (!dialDigits || digits.startsWith(dialDigits)) return digits;
+  return dialDigits + digits.replace(/^0+/, "");
+}
+
 const OPERATOR_LABELS: Record<string, string> = {
   MTN:      "MTN Mobile Money",
   ORANGE:   "Orange Money",
@@ -464,7 +479,7 @@ router.post("/deposit", authMiddleware, transactionRateLimit, async (req: AuthRe
       currency,
       serviceId,
       amount: pixPayAmount,
-      phone,
+      phone: normalizePhone(phone, country),
       customData: reference,
       omOtp,
     };
@@ -637,7 +652,7 @@ router.post("/withdraw", authMiddleware, transactionRateLimit, async (req: AuthR
       currency,
       serviceId,
       amount: pixPayAmount,
-      phone,
+      phone: normalizePhone(phone, country),
       customData: reference,
     };
 

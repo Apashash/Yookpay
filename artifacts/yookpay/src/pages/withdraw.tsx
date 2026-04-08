@@ -7,7 +7,7 @@ import { formatCurrency } from "@/lib/format";
 import { useToast } from "@/hooks/use-toast";
 import { useLocation } from "wouter";
 import { useQueryClient } from "@tanstack/react-query";
-import { COUNTRIES, OPERATOR_LABELS } from "@/lib/countries";
+import { COUNTRIES, OPERATOR_LABELS, normalizePhone } from "@/lib/countries";
 import { getOperatorFlow } from "@/lib/operator-flow";
 
 import {
@@ -181,7 +181,7 @@ export default function Withdraw() {
   const onSubmit = (data: WithdrawFormValues) => {
     const currency = selectedCountry?.currency ?? "XAF";
     withdrawMutation.mutate(
-      { data: { amount: data.amount, currency, country: data.country, operator: data.operator, phone: data.phone, feeBearer } },
+      { data: { amount: data.amount, currency, country: data.country, operator: data.operator, phone: normalizePhone(data.phone, data.country), feeBearer } },
       {
         onSuccess: (res) => {
           const result = res as WithdrawResult;

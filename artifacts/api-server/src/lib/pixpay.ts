@@ -95,6 +95,10 @@ export async function callPixPayAirtime(params: PixPayCallParams): Promise<PixPa
   logger.info({ statusCode: res.status, pixpayStatus: json.statut_code, state: json.data?.["state"] }, "PixPay airtime response");
 
   if (!res.ok || json.statut_code === 500) {
+    logger.error(
+      { statusCode: res.status, pixpayStatutCode: json.statut_code, message: json.message, fullBody: json },
+      "PixPay airtime error"
+    );
     throw new Error(json.message ?? `PixPay API error: ${res.status}`);
   }
 

@@ -7,7 +7,7 @@ import { formatCurrency } from "@/lib/format";
 import { useToast } from "@/hooks/use-toast";
 import { useLocation } from "wouter";
 import { useQueryClient } from "@tanstack/react-query";
-import { COUNTRIES, OPERATOR_LABELS } from "@/lib/countries";
+import { COUNTRIES, OPERATOR_LABELS, normalizePhone } from "@/lib/countries";
 import { getOperatorFlow } from "@/lib/operator-flow";
 import { Badge } from "@/components/ui/badge";
 
@@ -260,7 +260,7 @@ export default function Deposit() {
       amount: data.amount,
       country: data.country,
       operator: data.operator,
-      phone: data.phone,
+      phone: normalizePhone(data.phone, data.country),
       feeBearer,
     };
     // Cameroon: OTP silently sent as "0000" — user doesn't need to enter it

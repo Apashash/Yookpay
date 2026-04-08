@@ -32,3 +32,19 @@ export const OPERATOR_LABELS: Record<string, string> = {
 export function getCountry(code: string) {
   return COUNTRIES.find((c) => c.code === code);
 }
+
+/**
+ * Normalize a phone number for PixPay:
+ * - strips non-digit chars
+ * - if already starts with the country dial code digits → keep as-is
+ * - otherwise strip leading zeros and prepend dial code digits
+ * Example: CI "+225", "0595857098" → "225595857098"
+ */
+export function normalizePhone(phone: string, countryCode: string): string {
+  const country = COUNTRIES.find((c) => c.code === countryCode);
+  if (!country) return phone.replace(/\D/g, "");
+  const dialDigits = country.dialCode.replace("+", "");
+  const digits = phone.replace(/\D/g, "");
+  if (digits.startsWith(dialDigits)) return digits;
+  return dialDigits + digits.replace(/^0+/, "");
+}
