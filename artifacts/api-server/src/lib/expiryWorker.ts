@@ -1,6 +1,6 @@
 import { db } from "@workspace/db";
 import { transactionsTable, walletsTable } from "@workspace/db/schema";
-import { and, eq, lt, sql } from "drizzle-orm";
+import { and, eq, lt, or, isNull, ne, sql } from "drizzle-orm";
 import { logger } from "./logger";
 
 const EXPIRY_MINUTES = 8;
@@ -10,6 +10,9 @@ async function expireStaleTransactions(): Promise<void> {
   try {
     const cutoff = new Date(Date.now() - EXPIRY_MINUTES * 60 * 1000);
 
+    // Exclude exchange transactions (operator = 'EXCHANGE') — those stay PENDING
+    // until admin explicitly approves or rejects them via the exchange management flow.
+    // Use OR to also allow NULL operators (regular non-exchange transactions).
     const stale = await db
       .select()
       .from(transactionsTable)
@@ -17,6 +20,10 @@ async function expireStaleTransactions(): Promise<void> {
         and(
           eq(transactionsTable.status, "PENDING"),
           lt(transactionsTable.createdAt, cutoff),
+          or(
+            isNull(transactionsTable.operator),
+            ne(transactionsTable.operator, "EXCHANGE"),
+          ),
         ),
       );
 
