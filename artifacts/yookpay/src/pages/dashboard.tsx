@@ -189,16 +189,17 @@ export default function Dashboard() {
   const walletMeta: Record<string, {
     label: string; gradient: string; border: string; badge: string; dot: string;
   }> = {
-    XAF: { label: "Afrique Centrale",   gradient: "from-violet-600 via-indigo-600 to-indigo-700", border: "border-indigo-400/30", badge: "bg-white/15 text-white", dot: "bg-violet-300" },
-    XOF: { label: "Afrique de l'Ouest", gradient: "from-emerald-500 via-teal-600 to-teal-700",    border: "border-emerald-400/30", badge: "bg-white/15 text-white", dot: "bg-emerald-300" },
-    CDF: { label: "Afrique Centrale",   gradient: "from-amber-500 via-orange-500 to-orange-600",  border: "border-amber-400/30", badge: "bg-white/15 text-white", dot: "bg-amber-300" },
+    XAF:  { label: "Afrique Centrale",   gradient: "from-violet-600 via-indigo-600 to-indigo-700",  border: "border-indigo-400/30",  badge: "bg-white/15 text-white", dot: "bg-violet-300" },
+    XOF:  { label: "Afrique de l'Ouest", gradient: "from-emerald-500 via-teal-600 to-teal-700",     border: "border-emerald-400/30", badge: "bg-white/15 text-white", dot: "bg-emerald-300" },
+    CDF:  { label: "Afrique Centrale",   gradient: "from-amber-500 via-orange-500 to-orange-600",   border: "border-amber-400/30",   badge: "bg-white/15 text-white", dot: "bg-amber-300" },
+    USDT: { label: "Crypto / USDT",      gradient: "from-cyan-600 via-sky-600 to-blue-700",         border: "border-cyan-400/30",    badge: "bg-white/15 text-white", dot: "bg-cyan-300" },
   };
 
   return (
     <div className="space-y-6">
 
       {/* ── Wallet Balance Cards ── */}
-      <div className="grid gap-4 md:grid-cols-3">
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
         {sortedWallets.map((wallet) => {
           const meta = walletMeta[wallet.currency] ?? {
             label: wallet.currency,

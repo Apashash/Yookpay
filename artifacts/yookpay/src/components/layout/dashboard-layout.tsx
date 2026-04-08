@@ -18,6 +18,8 @@ import {
   FileCheck,
   Repeat2,
   Zap,
+  Coins,
+  History,
 } from "lucide-react";
 import { YookPayLogo } from "@/components/yookpay-logo";
 import { Button } from "@/components/ui/button";
@@ -63,6 +65,8 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
     { href: "/admin/kyc",           label: "File KYC",       icon: FileCheck },
     { href: "/admin/conversion",    label: "Conversion",     icon: Repeat2 },
     { href: "/admin/pixpay-config", label: "PixPay",         icon: Zap },
+    { href: "/admin/transactions",  label: "Transactions",   icon: History },
+    { href: "/admin/exchanges",     label: "Échanges USDT",  icon: Coins },
   ];
 
   const pageTitle = location.split("/")[1] || "Dashboard";

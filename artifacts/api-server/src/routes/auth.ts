@@ -44,11 +44,12 @@ router.post("/register", authRateLimit, async (req, res) => {
       .values({ email, passwordHash, name, phone, country })
       .returning();
 
-    // Create wallets for all three currencies
+    // Create wallets for all four currencies (including USDT)
     await db.insert(walletsTable).values([
       { userId: user.id, currency: "XAF", balance: "0", country: "CM" },
       { userId: user.id, currency: "XOF", balance: "0", country: "SN" },
       { userId: user.id, currency: "CDF", balance: "0", country: "CD" },
+      { userId: user.id, currency: "USDT", balance: "0", country: "ZZ" },
     ]);
 
     const token = signToken(user.id);

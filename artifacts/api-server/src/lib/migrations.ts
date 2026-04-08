@@ -215,6 +215,40 @@ export async function runStartupMigrations(): Promise<void> {
       )
     `);
 
+    // 8a. Add locked_balance column to wallets (for USDT exchange lock)
+    await client.query(`ALTER TABLE wallets ADD COLUMN IF NOT EXISTS locked_balance DECIMAL(18,2) NOT NULL DEFAULT 0`);
+
+    // 8b. Create USDT wallets for all existing users that don't have one
+    await client.query(`
+      INSERT INTO wallets (user_id, currency, balance, locked_balance, country)
+      SELECT u.id, 'USDT', 0, 0, 'ZZ'
+      FROM users u
+      WHERE NOT EXISTS (
+        SELECT 1 FROM wallets w WHERE w.user_id = u.id AND w.currency = 'USDT'
+      )
+    `);
+
+    // 8c. Create crypto_exchanges table
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS crypto_exchanges (
+        id SERIAL PRIMARY KEY,
+        user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        from_currency VARCHAR(10) NOT NULL,
+        to_currency VARCHAR(10) NOT NULL,
+        from_amount DECIMAL(18,2) NOT NULL,
+        usdt_amount DECIMAL(18,8) NOT NULL,
+        to_amount DECIMAL(18,2),
+        exchange_rate DECIMAL(18,8) NOT NULL,
+        fee_amount DECIMAL(18,2) NOT NULL DEFAULT 0,
+        status VARCHAR(30) NOT NULL DEFAULT 'STEP1_DONE',
+        tx_step1_id INTEGER REFERENCES transactions(id),
+        tx_step2_id INTEGER REFERENCES transactions(id),
+        admin_notes TEXT,
+        created_at TIMESTAMP DEFAULT NOW() NOT NULL,
+        updated_at TIMESTAMP DEFAULT NOW() NOT NULL
+      )
+    `);
+
     // 8. Set admin roles for designated emails
     for (const email of ADMIN_EMAILS) {
       const result = await client.query(

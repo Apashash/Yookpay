@@ -9,6 +9,7 @@ import { useLocation } from "wouter";
 import { useQueryClient } from "@tanstack/react-query";
 import { COUNTRIES, OPERATOR_LABELS } from "@/lib/countries";
 import { getOperatorFlow } from "@/lib/operator-flow";
+import { Badge } from "@/components/ui/badge";
 
 import {
   Card,
@@ -37,7 +38,7 @@ import {
 } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { ExternalLink, Clock, Info } from "lucide-react";
+import { ExternalLink, Clock, Info, Copy, Check } from "lucide-react";
 
 type FeeBearer = "SENDER" | "RECIPIENT";
 
@@ -89,6 +90,40 @@ export default function Deposit() {
   const [pendingResult, setPendingResult] = useState<DepositResult | null>(null);
   const [pollStatus, setPollStatus] = useState<PollStatus>("PENDING");
   const [timeLeft, setTimeLeft] = useState(COUNTDOWN_SECONDS);
+
+  // ─── Crypto deposit mode ──────────────────────────────────────────────────
+  const [depositMode, setDepositMode] = useState<"mobile" | "crypto">("mobile");
+  const [cryptoAmountUsdt, setCryptoAmountUsdt] = useState("10");
+  const [cryptoResult, setCryptoResult] = useState<{
+    payAddress: string | null; npPaymentId: string | null; payAmount: number; payCurrency: string; network: string; message: string;
+  } | null>(null);
+  const [cryptoLoading, setCryptoLoading] = useState(false);
+  const [copied, setCopied] = useState(false);
+
+  const handleCopyAddress = (text: string) => {
+    navigator.clipboard.writeText(text);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+
+  const handleCryptoDeposit = async () => {
+    const amt = parseFloat(cryptoAmountUsdt);
+    if (!amt || amt < 1) { toast({ variant: "destructive", title: "Montant invalide", description: "Minimum 1 USDT" }); return; }
+    setCryptoLoading(true);
+    try {
+      const res = await customFetch<{ payAddress: string | null; npPaymentId: string | null; payAmount: number; payCurrency: string; network: string; message: string }>(
+        "/api/transactions/crypto-deposit",
+        { method: "POST", body: JSON.stringify({ amountUsdt: amt }) }
+      );
+      setCryptoResult(res);
+      toast({ title: "Adresse générée", description: "Envoyez vos USDT à l'adresse ci-dessous." });
+    } catch (err: any) {
+      const raw = err?.error?.message || err?.message || "Erreur";
+      toast({ variant: "destructive", title: "Erreur", description: raw.replace(/^HTTP\s+\d+\s+[^:]+:\s*/i, "") });
+    } finally {
+      setCryptoLoading(false);
+    }
+  };
 
   const refreshWallet = useCallback(() => {
     qc.invalidateQueries({ queryKey: getGetWalletsQueryKey() });
@@ -382,8 +417,105 @@ export default function Deposit() {
   }
 
   return (
-    <div className="max-w-2xl mx-auto">
-      <Card>
+    <div className="max-w-2xl mx-auto space-y-4">
+
+      {/* ── Mode Toggle ── */}
+      <div className="flex rounded-xl border border-input overflow-hidden bg-muted/40 p-1 gap-1">
+        <button type="button" onClick={() => { setDepositMode("mobile"); setCryptoResult(null); }}
+          className={`flex-1 py-2.5 text-sm font-semibold rounded-lg transition-all ${depositMode === "mobile" ? "bg-background shadow-sm text-foreground" : "text-muted-foreground hover:text-foreground"}`}>
+          Mobile Money
+        </button>
+        <button type="button" onClick={() => setDepositMode("crypto")}
+          className={`flex-1 py-2.5 text-sm font-semibold rounded-lg transition-all flex items-center justify-center gap-2 ${depositMode === "crypto" ? "bg-background shadow-sm text-foreground" : "text-muted-foreground hover:text-foreground"}`}>
+          <span>Dépôt Crypto</span>
+          <Badge className="bg-cyan-500/15 text-cyan-600 border-cyan-300/40 text-[10px] px-1.5 py-0">USDT</Badge>
+        </button>
+      </div>
+
+      {/* ── Crypto Deposit Form ── */}
+      {depositMode === "crypto" && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Dépôt USDT (Crypto)</CardTitle>
+            <CardDescription>
+              Recevez une adresse de dépôt TRC-20. Envoyez vos USDT et ils seront crédités sur votre wallet YookPay sous 10–20 minutes.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-5">
+            {!cryptoResult ? (
+              <>
+                <div>
+                  <label className="text-sm font-medium block mb-1.5">Montant USDT à déposer</label>
+                  <input
+                    type="number"
+                    min="1"
+                    step="0.01"
+                    className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                    value={cryptoAmountUsdt}
+                    onChange={(e) => setCryptoAmountUsdt(e.target.value)}
+                    placeholder="10"
+                  />
+                </div>
+                <Alert className="border-cyan-200 bg-cyan-50 dark:bg-cyan-900/20">
+                  <Info className="h-4 w-4 text-cyan-600" />
+                  <AlertTitle className="text-cyan-700 dark:text-cyan-300 text-sm">Réseau TRC-20 (Tron)</AlertTitle>
+                  <AlertDescription className="text-cyan-600 dark:text-cyan-400 text-xs mt-1">
+                    Envoyez uniquement des USDT sur le réseau <strong>TRC-20 (Tron)</strong>. Les envois sur d'autres réseaux seront perdus.
+                  </AlertDescription>
+                </Alert>
+                <Button className="w-full bg-cyan-600 hover:bg-cyan-700" onClick={handleCryptoDeposit} disabled={cryptoLoading}>
+                  {cryptoLoading ? "Génération en cours..." : "Générer une adresse de dépôt"}
+                </Button>
+              </>
+            ) : (
+              <div className="space-y-4">
+                <div className="rounded-lg bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 p-4">
+                  <p className="text-xs text-emerald-700 dark:text-emerald-300 font-semibold uppercase mb-3">Adresse de dépôt USDT TRC-20</p>
+                  {cryptoResult.payAddress ? (
+                    <>
+                      <div className="flex items-center gap-2 mb-3">
+                        <code className="flex-1 text-xs font-mono bg-background border rounded px-3 py-2 break-all">
+                          {cryptoResult.payAddress}
+                        </code>
+                        <Button size="sm" variant="outline" onClick={() => handleCopyAddress(cryptoResult.payAddress!)}>
+                          {copied ? <Check className="h-4 w-4 text-emerald-600" /> : <Copy className="h-4 w-4" />}
+                        </Button>
+                      </div>
+                      <div className="flex justify-between text-sm mb-1">
+                        <span className="text-muted-foreground">Montant exact à envoyer</span>
+                        <span className="font-bold font-mono">{cryptoResult.payAmount} {cryptoResult.payCurrency}</span>
+                      </div>
+                      <div className="flex justify-between text-sm">
+                        <span className="text-muted-foreground">Réseau</span>
+                        <span className="font-medium">{cryptoResult.network}</span>
+                      </div>
+                    </>
+                  ) : (
+                    <p className="text-sm text-muted-foreground">{cryptoResult.message}</p>
+                  )}
+                </div>
+                <Alert className="border-amber-200 bg-amber-50 dark:bg-amber-900/20">
+                  <Info className="h-4 w-4 text-amber-600" />
+                  <AlertDescription className="text-amber-700 dark:text-amber-400 text-xs">
+                    {cryptoResult.message}
+                  </AlertDescription>
+                </Alert>
+                <div className="flex gap-2">
+                  <Button variant="outline" className="flex-1" onClick={() => { setCryptoResult(null); setCryptoAmountUsdt("10"); }}>
+                    Nouveau dépôt
+                  </Button>
+                  <Button variant="outline" className="flex-1" onClick={() => setLocation("/dashboard")}>
+                    Retour au dashboard
+                  </Button>
+                </div>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      )}
+
+      {/* ── Mobile Money Form ── */}
+      {depositMode === "mobile" && <Card>
         <CardHeader>
           <CardTitle>Dépôt de fonds</CardTitle>
           <CardDescription>
@@ -642,7 +774,7 @@ export default function Deposit() {
             </form>
           </Form>
         </CardContent>
-      </Card>
+      </Card>}
     </div>
   );
 }

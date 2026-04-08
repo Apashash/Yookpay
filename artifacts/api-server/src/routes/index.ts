@@ -9,6 +9,7 @@ import apiKeysRouter from "./apikeys";
 import kycRouter from "./kyc";
 import adminRouter from "./admin";
 import ipnRouter from "./ipn";
+import nowpaymentsIpnRouter from "./nowpayments-ipn";
 
 const router: IRouter = Router();
 
@@ -22,5 +23,6 @@ router.use("/api-keys", apiKeysRouter);
 router.use("/kyc", kycRouter);
 router.use("/admin", adminRouter);
 router.use("/ipn", ipnRouter);
+router.use("/nowpayments", nowpaymentsIpnRouter);
 
 export default router;

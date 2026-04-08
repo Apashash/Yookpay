@@ -957,5 +957,170 @@ router.get("/transactions/:id", async (req: AuthRequest, res) => {
   }
 });
 
+// ── Exchange Requests (USDT → Fiat) ─────────────────────────────────────────
+// GET /admin/exchanges — list pending exchange requests
+router.get("/exchanges", async (req: AuthRequest, res) => {
+  try {
+    const result = await db.execute(sql`
+      SELECT ce.*, u.email AS user_email, u.name AS user_name
+      FROM crypto_exchanges ce
+      JOIN users u ON u.id = ce.user_id
+      ORDER BY ce.created_at DESC
+      LIMIT 100
+    `);
+    res.json(result.rows.map((r: any) => ({
+      id: r.id,
+      userId: r.user_id,
+      userEmail: r.user_email,
+      userName: r.user_name,
+      fromCurrency: r.from_currency,
+      toCurrency: r.to_currency,
+      fromAmount: parseFloat(r.from_amount),
+      usdtAmount: parseFloat(r.usdt_amount),
+      toAmount: r.to_amount ? parseFloat(r.to_amount) : null,
+      exchangeRate: parseFloat(r.exchange_rate),
+      feeAmount: parseFloat(r.fee_amount),
+      status: r.status,
+      txStep1Id: r.tx_step1_id,
+      txStep2Id: r.tx_step2_id,
+      adminNotes: r.admin_notes,
+      createdAt: r.created_at,
+      updatedAt: r.updated_at,
+    })));
+  } catch (err) {
+    req.log.error({ err }, "Admin exchanges list error");
+    res.status(500).json({ error: "InternalError", message: "Erreur lors de la récupération des échanges" });
+  }
+});
+
+// PATCH /admin/exchanges/:id/approve — approve a USDT→fiat exchange request
+router.patch("/exchanges/:id/approve", async (req: AuthRequest, res) => {
+  const id = parseInt(req.params.id);
+  const { notes, finalAmount } = req.body as { notes?: string; finalAmount?: number };
+
+  try {
+    const result = await db.execute(sql`
+      SELECT ce.*, t.net_amount, t.currency, t.phone, t.user_id, t.metadata
+      FROM crypto_exchanges ce
+      LEFT JOIN transactions t ON t.id = ce.tx_step2_id
+      WHERE ce.id = ${id} AND ce.status = 'PENDING_ADMIN'
+      LIMIT 1
+    `);
+
+    if (!result.rows[0]) {
+      res.status(404).json({ error: "NotFound", message: "Demande d'échange introuvable ou déjà traitée" });
+      return;
+    }
+
+    const ex = result.rows[0] as any;
+    const confirmedAmount = finalAmount ?? parseFloat(ex.net_amount ?? "0");
+
+    // Credit fiat wallet
+    const [fiatWallet] = await db
+      .select()
+      .from(walletsTable)
+      .where(and(eq(walletsTable.userId, ex.user_id), eq(walletsTable.currency, ex.to_currency)))
+      .limit(1);
+
+    if (fiatWallet) {
+      await db.update(walletsTable).set({
+        balance: (parseFloat(fiatWallet.balance) + confirmedAmount).toFixed(2),
+        updatedAt: new Date(),
+      }).where(eq(walletsTable.id, fiatWallet.id));
+    }
+
+    // Deduct USDT from balance + unlock
+    await db.execute(sql`
+      UPDATE wallets SET
+        balance = balance - ${ex.usdt_amount},
+        locked_balance = GREATEST(0, locked_balance - ${ex.usdt_amount}),
+        updated_at = NOW()
+      WHERE user_id = ${ex.user_id} AND currency = 'USDT'
+    `);
+
+    // Update crypto_exchange record
+    await db.execute(sql`
+      UPDATE crypto_exchanges
+      SET status = 'COMPLETED', to_amount = ${confirmedAmount}, admin_notes = ${notes ?? null}, updated_at = NOW()
+      WHERE id = ${id}
+    `);
+
+    // Update transaction status
+    if (ex.tx_step2_id) {
+      await db.update(transactionsTable).set({
+        status: "SUCCESS",
+        netAmount: confirmedAmount.toFixed(2),
+        metadata: {
+          ...((typeof ex.metadata === "object" ? ex.metadata : {}) as object),
+          approvedAt: new Date().toISOString(),
+          adminNotes: notes,
+          finalAmount: confirmedAmount,
+        },
+        updatedAt: new Date(),
+      }).where(eq(transactionsTable.id, ex.tx_step2_id));
+    }
+
+    res.json({ success: true, message: `Échange approuvé — ${confirmedAmount} ${ex.to_currency} crédités.` });
+  } catch (err) {
+    req.log.error({ err, id }, "Admin approve exchange error");
+    res.status(500).json({ error: "InternalError", message: "Erreur lors de l'approbation" });
+  }
+});
+
+// PATCH /admin/exchanges/:id/reject — reject a USDT→fiat exchange request
+router.patch("/exchanges/:id/reject", async (req: AuthRequest, res) => {
+  const id = parseInt(req.params.id);
+  const { notes } = req.body as { notes?: string };
+
+  try {
+    const result = await db.execute(sql`
+      SELECT ce.*, t.user_id
+      FROM crypto_exchanges ce
+      LEFT JOIN transactions t ON t.id = ce.tx_step2_id
+      WHERE ce.id = ${id} AND ce.status = 'PENDING_ADMIN'
+      LIMIT 1
+    `);
+
+    if (!result.rows[0]) {
+      res.status(404).json({ error: "NotFound", message: "Demande introuvable ou déjà traitée" });
+      return;
+    }
+
+    const ex = result.rows[0] as any;
+
+    // Unlock USDT (refund)
+    await db.execute(sql`
+      UPDATE wallets SET
+        locked_balance = GREATEST(0, locked_balance - ${ex.usdt_amount}),
+        updated_at = NOW()
+      WHERE user_id = ${ex.user_id} AND currency = 'USDT'
+    `);
+
+    // Update crypto_exchange
+    await db.execute(sql`
+      UPDATE crypto_exchanges
+      SET status = 'REJECTED', admin_notes = ${notes ?? null}, updated_at = NOW()
+      WHERE id = ${id}
+    `);
+
+    // Update transaction
+    if (ex.tx_step2_id) {
+      await db.update(transactionsTable).set({
+        status: "FAILED",
+        metadata: {
+          rejectedAt: new Date().toISOString(),
+          adminNotes: notes,
+        },
+        updatedAt: new Date(),
+      }).where(eq(transactionsTable.id, ex.tx_step2_id));
+    }
+
+    res.json({ success: true, message: "Demande d'échange rejetée — USDT déverrouillé." });
+  } catch (err) {
+    req.log.error({ err, id }, "Admin reject exchange error");
+    res.status(500).json({ error: "InternalError", message: "Erreur lors du rejet" });
+  }
+});
+
 export default router;
 

@@ -4,7 +4,7 @@ import { Link } from "wouter";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   Users, FileCheck, ArrowRightLeft, ShieldCheck,
-  ChevronRight, TrendingUp, BadgeDollarSign, CheckCircle2, History,
+  ChevronRight, TrendingUp, BadgeDollarSign, CheckCircle2, History, Coins,
 } from "lucide-react";
 
 interface AdminStats {
@@ -199,6 +199,7 @@ export default function AdminDashboard() {
             { href: "/admin/users",        label: "Gérer les utilisateurs",     desc: "Voir, modifier les frais et les rôles",    icon: Users },
             { href: "/admin/kyc",          label: "File KYC / KYB",             desc: "Valider ou rejeter les documents soumis",  icon: FileCheck },
             { href: "/admin/transactions", label: "Historique des transactions", desc: "Consulter et filtrer toutes les transactions", icon: History },
+            { href: "/admin/exchanges",    label: "Échanges USDT",              desc: "Gérer les demandes de conversion USDT → Fiat", icon: Coins },
           ].map((item) => (
             <Link key={item.href} href={item.href}>
               <div className="flex items-center gap-4 px-5 py-4 hover:bg-muted/40 cursor-pointer transition-colors group">

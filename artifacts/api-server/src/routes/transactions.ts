@@ -5,6 +5,8 @@ import { eq, and, desc, count } from "drizzle-orm";
 import { sql } from "drizzle-orm";
 import { authMiddleware, type AuthRequest } from "../middlewares/authMiddleware";
 import { transactionRateLimit } from "../middlewares/rateLimitMiddleware";
+import { createNpPayment, createNpPayout } from "../lib/nowpayments";
+import { convertCurrency, getRateFromUsd, getMinExchangeAmount } from "../lib/fxRates";
 import {
   calculateFee,
   calculateFeeWithRate,
@@ -739,6 +741,445 @@ router.post("/transfer", authMiddleware, transactionRateLimit, async (req: AuthR
   } catch (err) {
     req.log.error({ err, reference }, "Transfer error");
     res.status(500).json({ error: "InternalError", message: "Transfer failed" });
+  }
+});
+
+// GET /transactions/fx-rate?from=XAF&to=USDT&amount=1000
+router.get("/fx-rate", authMiddleware, async (req: AuthRequest, res) => {
+  const { from, to, amount } = req.query as { from?: string; to?: string; amount?: string };
+  if (!from || !to) {
+    res.status(400).json({ error: "ValidationError", message: "from and to required" });
+    return;
+  }
+  try {
+    const amt = parseFloat(amount ?? "1");
+    const converted = await convertCurrency(amt, from, to);
+    const usdRate = await getRateFromUsd(from);
+    const minAmount = await getMinExchangeAmount(from);
+    res.json({ from, to, amount: amt, converted, rate: converted / amt, usdRate, minAmount });
+  } catch (err) {
+    res.status(500).json({ error: "InternalError", message: "FX rate unavailable" });
+  }
+});
+
+// POST /transactions/crypto-deposit
+// Creates a NowPayments USDT deposit address for the user
+router.post("/crypto-deposit", authMiddleware, transactionRateLimit, async (req: AuthRequest, res) => {
+  const schema = z.object({
+    amountUsdt: z.number().min(1, "Minimum 1 USDT"),
+  });
+  const parse = schema.safeParse(req.body);
+  if (!parse.success) {
+    res.status(400).json({ error: "ValidationError", message: "Montant USDT invalide" });
+    return;
+  }
+  const { amountUsdt } = parse.data;
+  const reference = generateReference();
+
+  try {
+    const callbackUrl = `${process.env.APP_URL ?? ""}/api/nowpayments/ipn`;
+
+    const [tx] = await db
+      .insert(transactionsTable)
+      .values({
+        userId: req.userId!,
+        type: "DEPOSIT",
+        status: "PENDING",
+        amount: amountUsdt.toString(),
+        fee: "0",
+        netAmount: amountUsdt.toFixed(8),
+        currency: "USDT",
+        country: "ZZ",
+        operator: "CRYPTO",
+        reference,
+        feeRate: "0",
+        metadata: { provider: "NOWPAYMENTS", initiatedAt: new Date().toISOString() },
+      })
+      .returning();
+
+    let payAddress = null;
+    let npPaymentId = null;
+    let payAmount = amountUsdt;
+
+    try {
+      const npResult = await createNpPayment({
+        priceAmount: amountUsdt,
+        priceCurrency: "usd",
+        payCurrency: "usdttrc20",
+        orderId: reference,
+        orderDescription: `YookPay USDT deposit - user ${req.userId}`,
+        ipnCallbackUrl: callbackUrl,
+      });
+      payAddress = npResult.pay_address;
+      npPaymentId = npResult.payment_id;
+      payAmount = npResult.pay_amount;
+
+      await db.update(transactionsTable).set({
+        providerReference: npPaymentId,
+        metadata: {
+          provider: "NOWPAYMENTS",
+          nowpaymentsPaymentId: npPaymentId,
+          payAddress,
+          payCurrency: "usdttrc20",
+          payAmount,
+          initiatedAt: new Date().toISOString(),
+        },
+      }).where(eq(transactionsTable.id, tx.id));
+    } catch (npErr) {
+      req.log.warn({ err: npErr }, "NowPayments unavailable - using sandbox mode");
+    }
+
+    res.status(201).json({
+      transaction: formatTx(tx),
+      payAddress,
+      npPaymentId,
+      payAmount,
+      payCurrency: "USDTTRC20",
+      network: "Tron (TRC-20)",
+      message: payAddress
+        ? "Envoyez exactement le montant USDT indiqué à l'adresse ci-dessous. La transaction sera confirmée sous 10-20 minutes."
+        : "NowPayments non configuré — contactez le support.",
+    });
+  } catch (err) {
+    req.log.error({ err }, "Crypto deposit error");
+    res.status(500).json({ error: "InternalError", message: "Erreur lors de la création du dépôt crypto" });
+  }
+});
+
+// POST /transactions/crypto-withdraw
+// Request a USDT withdrawal to an external crypto address
+router.post("/crypto-withdraw", authMiddleware, transactionRateLimit, async (req: AuthRequest, res) => {
+  const schema = z.object({
+    amountUsdt: z.number().min(1, "Minimum 1 USDT"),
+    address: z.string().min(20, "Adresse crypto invalide"),
+    network: z.enum(["TRC20", "ERC20"]).default("TRC20"),
+  });
+  const parse = schema.safeParse(req.body);
+  if (!parse.success) {
+    res.status(400).json({ error: "ValidationError", message: parse.error.errors[0]?.message ?? "Paramètres invalides" });
+    return;
+  }
+  const { amountUsdt, address, network } = parse.data;
+
+  // Fee 1% on crypto withdrawals
+  const feeRate = 0.01;
+  const fee = parseFloat((amountUsdt * feeRate).toFixed(8));
+  const netAmount = parseFloat((amountUsdt - fee).toFixed(8));
+
+  try {
+    const [usdtWallet] = await db
+      .select()
+      .from(walletsTable)
+      .where(and(eq(walletsTable.userId, req.userId!), eq(walletsTable.currency, "USDT")))
+      .limit(1);
+
+    const available = usdtWallet
+      ? parseFloat(usdtWallet.balance) - parseFloat((usdtWallet as any).locked_balance ?? "0")
+      : 0;
+
+    if (available < amountUsdt) {
+      res.status(400).json({ error: "InsufficientFunds", message: `Solde USDT disponible insuffisant (${available.toFixed(2)} USDT)` });
+      return;
+    }
+
+    const reference = generateReference();
+
+    // Deduct from wallet immediately (lock funds)
+    await db.update(walletsTable).set({
+      balance: (parseFloat(usdtWallet.balance) - amountUsdt).toFixed(8),
+      updatedAt: new Date(),
+    }).where(eq(walletsTable.id, usdtWallet.id));
+
+    const [tx] = await db
+      .insert(transactionsTable)
+      .values({
+        userId: req.userId!,
+        type: "WITHDRAWAL",
+        status: "PENDING",
+        amount: amountUsdt.toString(),
+        fee: fee.toString(),
+        netAmount: netAmount.toString(),
+        currency: "USDT",
+        country: "ZZ",
+        operator: "CRYPTO",
+        reference,
+        feeRate: feeRate.toString(),
+        metadata: {
+          provider: "NOWPAYMENTS",
+          address,
+          network,
+          initiatedAt: new Date().toISOString(),
+        },
+      })
+      .returning();
+
+    let npPayoutId = null;
+    try {
+      const payCurrency = network === "TRC20" ? "usdttrc20" : "usdterc20";
+      const callbackUrl = `${process.env.APP_URL ?? ""}/api/nowpayments/ipn`;
+      const npResult = await createNpPayout({
+        address,
+        amount: netAmount,
+        currency: payCurrency,
+        ipnCallbackUrl: callbackUrl,
+        extraId: reference,
+      });
+      npPayoutId = npResult.id;
+
+      await db.update(transactionsTable).set({
+        providerReference: npPayoutId,
+        metadata: {
+          provider: "NOWPAYMENTS",
+          address,
+          network,
+          npPayoutId,
+          initiatedAt: new Date().toISOString(),
+        },
+        status: "SUCCESS",
+        updatedAt: new Date(),
+      }).where(eq(transactionsTable.id, tx.id));
+    } catch (npErr) {
+      req.log.warn({ err: npErr }, "NowPayments payout unavailable - pending admin action");
+    }
+
+    res.status(201).json({
+      transaction: formatTx(tx),
+      address,
+      network,
+      netAmount,
+      fee,
+      message: "Votre retrait crypto est en cours de traitement.",
+    });
+  } catch (err) {
+    req.log.error({ err }, "Crypto withdraw error");
+    res.status(500).json({ error: "InternalError", message: "Erreur lors du retrait crypto" });
+  }
+});
+
+// POST /transactions/exchange-step1
+// Step 1: XAF/XOF/CDF → USDT (automatic, credits USDT wallet instantly)
+router.post("/exchange-step1", authMiddleware, transactionRateLimit, async (req: AuthRequest, res) => {
+  const schema = z.object({
+    fromCurrency: z.enum(["XAF", "XOF", "CDF"]),
+    amount: z.number().positive("Montant requis"),
+  });
+  const parse = schema.safeParse(req.body);
+  if (!parse.success) {
+    res.status(400).json({ error: "ValidationError", message: parse.error.errors[0]?.message ?? "Paramètres invalides" });
+    return;
+  }
+  const { fromCurrency, amount } = parse.data;
+
+  try {
+    const minAmount = await getMinExchangeAmount(fromCurrency);
+    if (amount < minAmount) {
+      res.status(400).json({ error: "MinimumAmount", message: `Montant minimum : ${minAmount.toLocaleString("fr")} ${fromCurrency} (équivalent à 16 000 XAF)` });
+      return;
+    }
+
+    const [fromWallet] = await db
+      .select()
+      .from(walletsTable)
+      .where(and(eq(walletsTable.userId, req.userId!), eq(walletsTable.currency, fromCurrency)))
+      .limit(1);
+
+    if (!fromWallet || parseFloat(fromWallet.balance) < amount) {
+      res.status(400).json({ error: "InsufficientFunds", message: `Solde ${fromCurrency} insuffisant` });
+      return;
+    }
+
+    const [usdtWallet] = await db
+      .select()
+      .from(walletsTable)
+      .where(and(eq(walletsTable.userId, req.userId!), eq(walletsTable.currency, "USDT")))
+      .limit(1);
+
+    if (!usdtWallet) {
+      res.status(404).json({ error: "NotFound", message: "Wallet USDT introuvable" });
+      return;
+    }
+
+    // Exchange fee: 2%
+    const feeRate = 0.02;
+    const fee = Math.round(amount * feeRate);
+    const netAmount = amount - fee;
+
+    // Convert to USDT via FX rates
+    const usdtAmount = await convertCurrency(netAmount, fromCurrency, "USDT");
+    const rate = usdtAmount / netAmount;
+
+    const reference = generateReference();
+    const countryMap: Record<string, string> = { XAF: "CM", XOF: "SN", CDF: "CD" };
+
+    // Deduct from source wallet
+    await db.update(walletsTable).set({
+      balance: (parseFloat(fromWallet.balance) - amount).toFixed(2),
+      updatedAt: new Date(),
+    }).where(eq(walletsTable.id, fromWallet.id));
+
+    // Credit USDT wallet
+    await db.update(walletsTable).set({
+      balance: (parseFloat(usdtWallet.balance) + usdtAmount).toFixed(8),
+      updatedAt: new Date(),
+    }).where(eq(walletsTable.id, usdtWallet.id));
+
+    // Create transaction record
+    const [tx] = await db
+      .insert(transactionsTable)
+      .values({
+        userId: req.userId!,
+        type: "TRANSFER",
+        status: "SUCCESS",
+        amount: amount.toString(),
+        fee: fee.toString(),
+        netAmount: usdtAmount.toFixed(8),
+        currency: fromCurrency,
+        country: (countryMap[fromCurrency] ?? "CM") as any,
+        operator: "EXCHANGE",
+        reference,
+        feeRate: feeRate.toString(),
+        metadata: {
+          exchangeType: "FIAT_TO_USDT",
+          fromCurrency,
+          toCurrency: "USDT",
+          fromAmount: amount,
+          usdtAmount,
+          rate,
+          completedAt: new Date().toISOString(),
+        },
+      })
+      .returning();
+
+    // Create crypto_exchange record (status: STEP1_DONE = USDT credited, can optionally do step 2)
+    await db.execute(sql`
+      INSERT INTO crypto_exchanges (user_id, from_currency, to_currency, from_amount, usdt_amount, exchange_rate, fee_amount, status, tx_step1_id)
+      VALUES (${req.userId!}, ${fromCurrency}, 'USDT', ${amount}, ${usdtAmount}, ${rate}, ${fee}, 'STEP1_DONE', ${tx.id})
+    `);
+
+    res.status(201).json({
+      transaction: formatTx(tx),
+      fromCurrency,
+      fromAmount: amount,
+      usdtAmount: parseFloat(usdtAmount.toFixed(8)),
+      rate,
+      fee,
+      message: `${amount.toLocaleString("fr")} ${fromCurrency} ont été convertis en ${usdtAmount.toFixed(6)} USDT et crédités sur votre wallet.`,
+    });
+  } catch (err) {
+    req.log.error({ err }, "Exchange step1 error");
+    res.status(500).json({ error: "InternalError", message: "Erreur lors de l'échange" });
+  }
+});
+
+// POST /transactions/exchange-step2
+// Step 2: USDT → XAF/XOF/CDF (locks USDT, sends request to admin)
+router.post("/exchange-step2", authMiddleware, transactionRateLimit, async (req: AuthRequest, res) => {
+  const schema = z.object({
+    amountUsdt: z.number().min(1, "Minimum 1 USDT"),
+    toCurrency: z.enum(["XAF", "XOF", "CDF"]),
+    phone: z.string().min(6, "Numéro de téléphone requis pour recevoir le paiement"),
+  });
+  const parse = schema.safeParse(req.body);
+  if (!parse.success) {
+    res.status(400).json({ error: "ValidationError", message: parse.error.errors[0]?.message ?? "Paramètres invalides" });
+    return;
+  }
+  const { amountUsdt, toCurrency, phone } = parse.data;
+
+  try {
+    const [usdtWallet] = await db
+      .select()
+      .from(walletsTable)
+      .where(and(eq(walletsTable.userId, req.userId!), eq(walletsTable.currency, "USDT")))
+      .limit(1);
+
+    // Check for available (unlocked) USDT
+    const lockedBal = parseFloat((usdtWallet as any)?.locked_balance ?? "0");
+    const totalBal = usdtWallet ? parseFloat(usdtWallet.balance) : 0;
+    const available = totalBal - lockedBal;
+
+    if (available < amountUsdt) {
+      res.status(400).json({ error: "InsufficientFunds", message: `Solde USDT disponible insuffisant (${available.toFixed(2)} USDT disponibles)` });
+      return;
+    }
+
+    // Check for pending step2 exchange
+    const pending = await db.execute(sql`
+      SELECT id FROM crypto_exchanges
+      WHERE user_id = ${req.userId!} AND status = 'PENDING_ADMIN'
+      LIMIT 1
+    `);
+    if (pending.rows.length > 0) {
+      res.status(400).json({ error: "PendingExchange", message: "Vous avez déjà une demande d'échange en attente. Attendez la confirmation de l'admin avant d'en créer une nouvelle." });
+      return;
+    }
+
+    // Fee: 2%
+    const feeRate = 0.02;
+    const fee = parseFloat((amountUsdt * feeRate).toFixed(8));
+    const netUsdt = amountUsdt - fee;
+
+    // Estimated fiat amount
+    const estimatedFiat = await convertCurrency(netUsdt, "USDT", toCurrency);
+    const rate = estimatedFiat / netUsdt;
+
+    const reference = generateReference();
+    const countryMap: Record<string, string> = { XAF: "CM", XOF: "SN", CDF: "CD" };
+
+    // Lock USDT balance
+    await db.execute(sql`
+      UPDATE wallets SET locked_balance = locked_balance + ${amountUsdt}, updated_at = NOW()
+      WHERE user_id = ${req.userId!} AND currency = 'USDT'
+    `);
+
+    // Create transaction (PENDING until admin confirms)
+    const [tx] = await db
+      .insert(transactionsTable)
+      .values({
+        userId: req.userId!,
+        type: "TRANSFER",
+        status: "PENDING",
+        amount: amountUsdt.toString(),
+        fee: fee.toString(),
+        netAmount: estimatedFiat.toFixed(2),
+        currency: "USDT",
+        country: (countryMap[toCurrency] ?? "CM") as any,
+        operator: "EXCHANGE",
+        phone,
+        reference,
+        feeRate: feeRate.toString(),
+        metadata: {
+          exchangeType: "USDT_TO_FIAT",
+          fromCurrency: "USDT",
+          toCurrency,
+          amountUsdt,
+          estimatedFiat,
+          rate,
+          phone,
+          pendingSince: new Date().toISOString(),
+        },
+      })
+      .returning();
+
+    // Create crypto_exchange record with PENDING_ADMIN status
+    await db.execute(sql`
+      INSERT INTO crypto_exchanges (user_id, from_currency, to_currency, from_amount, usdt_amount, to_amount, exchange_rate, fee_amount, status, tx_step2_id)
+      VALUES (${req.userId!}, 'USDT', ${toCurrency}, ${amountUsdt}, ${amountUsdt}, ${estimatedFiat}, ${rate}, ${fee}, 'PENDING_ADMIN', ${tx.id})
+    `);
+
+    res.status(201).json({
+      transaction: formatTx(tx),
+      amountUsdt,
+      toCurrency,
+      estimatedFiat: parseFloat(estimatedFiat.toFixed(2)),
+      rate,
+      fee,
+      phone,
+      message: `Demande envoyée à l'admin. Vous recevrez ${estimatedFiat.toFixed(0)} ${toCurrency} sur le ${phone} sous 24-48h après confirmation.`,
+    });
+  } catch (err) {
+    req.log.error({ err }, "Exchange step2 error");
+    res.status(500).json({ error: "InternalError", message: "Erreur lors de la demande d'échange" });
   }
 });
 
