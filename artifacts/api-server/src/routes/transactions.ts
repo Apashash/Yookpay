@@ -41,14 +41,14 @@ const OPERATOR_LABELS: Record<string, string> = {
 const GLOBAL_COUNTRY = "ZZ";
 const GLOBAL_OPERATOR = "GLOBAL";
 
-// Look up the effective fee rate from user_operator_fees (new: pixpay + margin)
-// Returns total rate (decimal) or undefined if no custom config
+// Look up the effective fee breakdown for a user (pixpay + margin separately)
+// Returns { total, pixpay, margin } or undefined if country/operator not found in FEE_TABLE
 async function getUserOperatorFeeRate(
   userId: number,
   country: string,
   operator: string,
   type: "DEPOSIT" | "WITHDRAWAL",
-): Promise<number | undefined> {
+): Promise<{ total: number; pixpay: number; margin: number } | undefined> {
   try {
     const result = await pool.query<{
       pixpay_deposit: string; pixpay_withdrawal: string;
@@ -58,18 +58,15 @@ async function getUserOperatorFeeRate(
       [userId, country, operator]
     );
     if (result.rows.length) {
-      // Use custom config: PixPay fee + YookPay margin as configured by admin
       const r = result.rows[0];
-      if (type === "DEPOSIT") {
-        return parseFloat(r.pixpay_deposit) + parseFloat(r.margin_deposit);
-      } else {
-        return parseFloat(r.pixpay_withdrawal) + parseFloat(r.margin_withdrawal);
-      }
+      const pixpay = parseFloat(type === "DEPOSIT" ? r.pixpay_deposit : r.pixpay_withdrawal);
+      const margin = parseFloat(type === "DEPOSIT" ? r.margin_deposit : r.margin_withdrawal);
+      return { total: pixpay + margin, pixpay, margin };
     }
-    // No custom config → apply default PixPay rate + DEFAULT_MARGIN
-    const defaultRate = FEE_TABLE[country as Country]?.[operator as Operator]?.[type]?.rate;
-    if (defaultRate !== undefined) {
-      return defaultRate + DEFAULT_MARGIN;
+    // No custom config → use FEE_TABLE rate + DEFAULT_MARGIN
+    const defaultPixpay = FEE_TABLE[country as Country]?.[operator as Operator]?.[type]?.rate;
+    if (defaultPixpay !== undefined) {
+      return { total: defaultPixpay + DEFAULT_MARGIN, pixpay: defaultPixpay, margin: DEFAULT_MARGIN };
     }
     return undefined;
   } catch {
@@ -323,11 +320,11 @@ router.post("/fee-preview", authMiddleware, async (req: AuthRequest, res) => {
 
   const { amount, country, operator, type } = parse.data;
   try {
-    const opRate = (type === "DEPOSIT" || type === "WITHDRAWAL")
+    const opBreakdown = (type === "DEPOSIT" || type === "WITHDRAWAL")
       ? await getUserOperatorFeeRate(req.userId!, country, operator, type)
       : undefined;
-    const legacyRate = opRate !== undefined ? undefined : await getUserFeeRate(req.userId!, country, operator, type as TransactionType);
-    const userRate = opRate ?? legacyRate;
+    const legacyRate = opBreakdown !== undefined ? undefined : await getUserFeeRate(req.userId!, country, operator, type as TransactionType);
+    const userRate = opBreakdown?.total ?? legacyRate;
     const breakdown = userRate !== undefined
       ? calculateFeeWithRate(amount, country as Country, operator as Operator, type as TransactionType, userRate)
       : calculateFee(amount, country as Country, operator as Operator, type as TransactionType);
@@ -412,12 +409,13 @@ router.post("/deposit", authMiddleware, transactionRateLimit, async (req: AuthRe
   }
 
   try {
-    const opRate  = await getUserOperatorFeeRate(req.userId!, country, operator, "DEPOSIT");
-    const legacyRate = opRate !== undefined ? undefined : await getUserFeeRate(req.userId!, country, operator, "DEPOSIT");
-    const userRate = opRate ?? legacyRate;
+    const opBreakdown = await getUserOperatorFeeRate(req.userId!, country, operator, "DEPOSIT");
+    const legacyRate = opBreakdown !== undefined ? undefined : await getUserFeeRate(req.userId!, country, operator, "DEPOSIT");
+    const userRate = opBreakdown?.total ?? legacyRate;
     const feeBreakdown = userRate !== undefined
       ? calculateFeeWithRate(amount, country as Country, operator as Operator, "DEPOSIT", userRate)
       : calculateFee(amount, country as Country, operator as Operator, "DEPOSIT");
+    const yookpayMarginAmount = Math.round(amount * (opBreakdown?.margin ?? DEFAULT_MARGIN));
 
     // Check service availability BEFORE creating the transaction
     const serviceId = await getPixPayServiceId(operator, currency, "DEPOSIT", country);
@@ -452,6 +450,7 @@ router.post("/deposit", authMiddleware, transactionRateLimit, async (req: AuthRe
         phone,
         reference,
         feeRate: feeBreakdown.feeRate.toString(),
+        yookpayMargin: yookpayMarginAmount.toString(),
         metadata: { initiatedAt: new Date().toISOString(), feeBearer, flow, pixPayAmount },
       })
       .returning();
@@ -559,13 +558,15 @@ router.post("/withdraw", authMiddleware, transactionRateLimit, async (req: AuthR
     }
 
     let feeBreakdown;
+    let yookpayMarginAmount = 0;
     try {
-      const opRate = await getUserOperatorFeeRate(req.userId!, country, operator, "WITHDRAWAL");
-      const legacyRate = opRate !== undefined ? undefined : await getUserFeeRate(req.userId!, country, operator, "WITHDRAWAL");
-      const userRate = opRate ?? legacyRate;
+      const opBreakdown = await getUserOperatorFeeRate(req.userId!, country, operator, "WITHDRAWAL");
+      const legacyRate = opBreakdown !== undefined ? undefined : await getUserFeeRate(req.userId!, country, operator, "WITHDRAWAL");
+      const userRate = opBreakdown?.total ?? legacyRate;
       feeBreakdown = userRate !== undefined
         ? calculateFeeWithRate(amount, country as Country, operator as Operator, "WITHDRAWAL", userRate)
         : calculateFee(amount, country as Country, operator as Operator, "WITHDRAWAL");
+      yookpayMarginAmount = Math.round(amount * (opBreakdown?.margin ?? DEFAULT_MARGIN));
     } catch {
       res.status(400).json({ error: "BadRequest", message: "Impossible de calculer les frais pour cet opérateur." });
       return;
@@ -622,6 +623,7 @@ router.post("/withdraw", authMiddleware, transactionRateLimit, async (req: AuthR
         phone,
         reference,
         feeRate: feeBreakdown.feeRate.toString(),
+        yookpayMargin: yookpayMarginAmount.toString(),
         metadata: { initiatedAt: new Date().toISOString(), feeBearer, flow, walletDebit, pixPayAmount },
       })
       .returning();

@@ -273,6 +273,30 @@ export async function runStartupMigrations(): Promise<void> {
       }
     }
 
+    // 11. Add yookpay_margin column to transactions (stores YookPay profit only, separate from PixPay fee)
+    await client.query(`
+      ALTER TABLE transactions ADD COLUMN IF NOT EXISTS yookpay_margin NUMERIC(18,4) DEFAULT 0
+    `);
+    // Backfill existing transactions using known PixPay base rates
+    await client.query(`
+      UPDATE transactions SET yookpay_margin = GREATEST(
+        CASE
+          WHEN type IN ('DEPOSIT','WITHDRAWAL') AND country IN ('CM','CG','GA')
+            THEN fee::numeric - amount::numeric * 0.015
+          WHEN type IN ('DEPOSIT','WITHDRAWAL') AND country IN ('CI','SN','BF','BJ','GM','GN','ML','TG')
+            THEN fee::numeric - amount::numeric * 0.019
+          WHEN type = 'DEPOSIT'    AND country = 'CD'
+            THEN fee::numeric - amount::numeric * 0.030
+          WHEN type = 'WITHDRAWAL' AND country = 'CD'
+            THEN fee::numeric - amount::numeric * 0.035
+          ELSE 0
+        END, 0
+      )
+      WHERE (yookpay_margin IS NULL OR yookpay_margin = 0)
+        AND status = 'SUCCESS'
+        AND type IN ('DEPOSIT','WITHDRAWAL')
+    `);
+
     // 10. Create user_operator_fees table (PixPay fee + YookPay margin per user/country/operator)
     await client.query(`
       CREATE TABLE IF NOT EXISTS user_operator_fees (

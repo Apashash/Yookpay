@@ -17,6 +17,7 @@ export const transactionsTable = pgTable("transactions", {
   phone: varchar("phone", { length: 50 }),
   reference: varchar("reference", { length: 100 }).notNull().unique(),
   feeRate: decimal("fee_rate", { precision: 6, scale: 4 }),
+  yookpayMargin: decimal("yookpay_margin", { precision: 18, scale: 4 }).default("0"),
   metadata: jsonb("metadata"),
   providerReference: text("provider_reference"),
   createdAt: timestamp("created_at").defaultNow().notNull(),

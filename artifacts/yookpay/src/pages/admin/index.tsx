@@ -5,6 +5,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import {
   Users, FileCheck, ArrowRightLeft, ShieldCheck,
   ChevronRight, TrendingUp, BadgeDollarSign, CheckCircle2, History, Coins,
+  ArrowDownCircle, ArrowUpCircle,
 } from "lucide-react";
 
 interface AdminStats {
@@ -15,8 +16,19 @@ interface AdminStats {
   successTx: number;
   totalVolume: number;
   totalMargin: number;
+  totalFees: number;
+  depositMargin: number;
+  withdrawalMargin: number;
   verifiedUsers: number;
-  byCurrency: Array<{ currency: string; volume: number; margin: number; count: number }>;
+  byCurrency: Array<{
+    currency: string;
+    volume: number;
+    margin: number;
+    fees: number;
+    depositMargin: number;
+    withdrawalMargin: number;
+    count: number;
+  }>;
 }
 
 function fmtAmount(n: number) {
@@ -106,7 +118,7 @@ export default function AdminDashboard() {
             isLoading={isLoading}
           />
           <StatCard
-            label="Marge YookPay"
+            label="Marge YookPay nette"
             value={data ? fmtAmount(data.totalMargin) + " F" : undefined}
             sub={`Taux moyen ${marginRate}%`}
             icon={BadgeDollarSign}
@@ -116,25 +128,82 @@ export default function AdminDashboard() {
         </div>
       </div>
 
+      {/* Marge YookPay détaillée — Dépôts vs Retraits */}
+      <div className="bg-card border rounded-2xl overflow-hidden">
+        <div className="px-5 py-3 border-b bg-muted/30 flex items-center justify-between">
+          <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">Marge YookPay — Détail</p>
+          {isLoading ? (
+            <Skeleton className="h-4 w-24" />
+          ) : (
+            <span className="text-xs text-muted-foreground">Total brut : {fmtAmount(data?.totalFees ?? 0)} F</span>
+          )}
+        </div>
+        <div className="grid grid-cols-2 divide-x">
+          <div className="px-5 py-4">
+            <div className="flex items-center gap-2 mb-1">
+              <ArrowDownCircle className="h-4 w-4 text-blue-500" />
+              <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Dépôts</span>
+            </div>
+            {isLoading ? (
+              <Skeleton className="h-7 w-28 mt-1" />
+            ) : (
+              <p className="text-xl font-bold text-blue-700 tabular-nums">
+                +{fmtAmount(data?.depositMargin ?? 0)} F
+              </p>
+            )}
+            <p className="text-xs text-muted-foreground mt-0.5">Marge perçue sur dépôts</p>
+          </div>
+          <div className="px-5 py-4">
+            <div className="flex items-center gap-2 mb-1">
+              <ArrowUpCircle className="h-4 w-4 text-violet-500" />
+              <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Retraits</span>
+            </div>
+            {isLoading ? (
+              <Skeleton className="h-7 w-28 mt-1" />
+            ) : (
+              <p className="text-xl font-bold text-violet-700 tabular-nums">
+                +{fmtAmount(data?.withdrawalMargin ?? 0)} F
+              </p>
+            )}
+            <p className="text-xs text-muted-foreground mt-0.5">Marge perçue sur retraits</p>
+          </div>
+        </div>
+      </div>
+
       {/* Détail par devise */}
       {!isLoading && (data?.byCurrency?.length ?? 0) > 0 && (
         <div className="bg-card border rounded-2xl overflow-hidden">
           <div className="px-5 py-3 border-b bg-muted/30">
-            <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">Détail par devise</p>
+            <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">Marge par devise</p>
           </div>
           <div className="divide-y">
             {(data?.byCurrency ?? []).map((row) => (
-              <div key={row.currency} className="flex items-center gap-4 px-5 py-3.5">
-                <div className="h-8 w-8 rounded-lg bg-primary/10 flex items-center justify-center flex-shrink-0">
-                  <span className="text-xs font-bold text-primary">{row.currency}</span>
+              <div key={row.currency} className="px-5 py-3.5">
+                <div className="flex items-center gap-3 mb-2">
+                  <div className="h-8 w-8 rounded-lg bg-primary/10 flex items-center justify-center flex-shrink-0">
+                    <span className="text-xs font-bold text-primary">{row.currency}</span>
+                  </div>
+                  <div className="flex-1">
+                    <p className="text-sm font-semibold">{row.currency}</p>
+                    <p className="text-xs text-muted-foreground">{row.count} tx — Volume : {fmtAmount(row.volume)} {row.currency}</p>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-sm font-bold text-emerald-700 tabular-nums">+{fmtAmount(row.margin)} {row.currency}</p>
+                    <p className="text-xs text-muted-foreground">Marge nette</p>
+                  </div>
                 </div>
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-semibold">{row.currency}</p>
-                  <p className="text-xs text-muted-foreground">{row.count} tx réussie{row.count > 1 ? "s" : ""}</p>
-                </div>
-                <div className="text-right">
-                  <p className="text-sm font-bold tabular-nums">{fmtAmount(row.volume)} {row.currency}</p>
-                  <p className="text-xs text-emerald-600 font-medium tabular-nums">+{fmtAmount(row.margin)} {row.currency} marge</p>
+                {/* Dépôt / Retrait breakdown */}
+                <div className="grid grid-cols-2 gap-2 mt-1 pl-11">
+                  <div className="flex items-center gap-1.5">
+                    <ArrowDownCircle className="h-3 w-3 text-blue-400 flex-shrink-0" />
+                    <span className="text-xs text-muted-foreground">Dép. : </span>
+                    <span className="text-xs font-semibold text-blue-700 tabular-nums">{fmtAmount(row.depositMargin)} {row.currency}</span>
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <ArrowUpCircle className="h-3 w-3 text-violet-400 flex-shrink-0" />
+                    <span className="text-xs text-muted-foreground">Ret. : </span>
+                    <span className="text-xs font-semibold text-violet-700 tabular-nums">{fmtAmount(row.withdrawalMargin)} {row.currency}</span>
+                  </div>
                 </div>
               </div>
             ))}
