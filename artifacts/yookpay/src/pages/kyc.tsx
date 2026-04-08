@@ -17,10 +17,17 @@ import {
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
+import {
+  Command, CommandEmpty, CommandInput, CommandItem, CommandList,
+} from "@/components/ui/command";
+import {
+  Popover, PopoverContent, PopoverTrigger,
+} from "@/components/ui/popover";
 import { useToast } from "@/hooks/use-toast";
 import {
   CheckCircle2, Clock, AlertCircle, Upload, Trash2, User, Building2,
   ShieldCheck, ChevronRight, ChevronLeft, PenLine, RotateCcw, FileText,
+  ChevronsUpDown, Check,
 } from "lucide-react";
 
 // ── Business categories ──────────────────────────────────────────────────────
@@ -340,6 +347,51 @@ function FileSlot({
   );
 }
 
+// ── Category combobox with live search ───────────────────────────────────────
+function CategoryCombobox({ value, onChange }: { value: string; onChange: (v: string) => void }) {
+  const [open, setOpen] = useState(false);
+
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <Button
+          type="button"
+          variant="outline"
+          role="combobox"
+          aria-expanded={open}
+          className="w-full justify-between font-normal text-left h-auto min-h-9 py-2"
+        >
+          <span className={`truncate ${!value ? "text-muted-foreground" : ""}`}>
+            {value || "Rechercher parmi les activités…"}
+          </span>
+          <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
+        <Command>
+          <CommandInput placeholder="Taper pour rechercher…" autoFocus />
+          <CommandList className="max-h-64">
+            <CommandEmpty>Aucune activité trouvée.</CommandEmpty>
+            {BUSINESS_CATEGORIES.map((cat) => (
+              <CommandItem
+                key={cat}
+                value={cat}
+                onSelect={(v) => {
+                  onChange(v === value ? "" : v);
+                  setOpen(false);
+                }}
+              >
+                <Check className={`mr-2 h-4 w-4 shrink-0 ${value === cat ? "opacity-100" : "opacity-0"}`} />
+                {cat}
+              </CommandItem>
+            ))}
+          </CommandList>
+        </Command>
+      </PopoverContent>
+    </Popover>
+  );
+}
+
 // ── Main component ───────────────────────────────────────────────────────────
 export default function Kyc() {
   const qc    = useQueryClient();
@@ -625,14 +677,9 @@ export default function Kyc() {
                 <FormField control={kybForm.control} name="businessCategory" render={({ field }) => (
                   <FormItem>
                     <FormLabel>Catégorie d'activité <span className="text-destructive">*</span></FormLabel>
-                    <Select onValueChange={field.onChange} value={field.value}>
-                      <FormControl><SelectTrigger><SelectValue placeholder="Sélectionner parmi 200 catégories…" /></SelectTrigger></FormControl>
-                      <SelectContent className="max-h-72">
-                        {BUSINESS_CATEGORIES.map((cat) => (
-                          <SelectItem key={cat} value={cat}>{cat}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                    <FormControl>
+                      <CategoryCombobox value={field.value} onChange={field.onChange} />
+                    </FormControl>
                     <FormMessage />
                   </FormItem>
                 )} />
