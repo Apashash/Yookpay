@@ -398,7 +398,8 @@ function CategoryCombobox({ value, onChange }: { value: string; onChange: (v: st
 export default function Kyc() {
   const qc    = useQueryClient();
   const { toast } = useToast();
-  const [step, setStep] = useState<1 | 2>(1);
+  const [step, setStep]         = useState<1 | 2>(1);
+  const [stepAutoSet, setStepAutoSet] = useState(false);
 
   // Files for step 1
   const [frontFile,  setFrontFile]  = useState<{ name: string; data: string } | null>(null);
@@ -428,19 +429,28 @@ export default function Kyc() {
     defaultValues: { businessDescription: "", businessWebsite: "", businessCategory: "", businessType: "" },
   });
 
-  // Pre-fill forms when profile is loaded
+  // Pre-fill forms and auto-navigate when profile is loaded
   useEffect(() => {
     if (!profile) return;
+    // Pre-fill KYC identity
     if (profile.fullName)    kycForm.setValue("fullName",    profile.fullName);
     if (profile.dateOfBirth) kycForm.setValue("dateOfBirth", profile.dateOfBirth?.split("T")[0] ?? "");
     if (profile.docType)     kycForm.setValue("docType",     profile.docType);
     if (profile.docNumber)   kycForm.setValue("docNumber",   profile.docNumber);
+    // Pre-fill KYB
     if (profile.businessDescription) kybForm.setValue("businessDescription", profile.businessDescription);
     if (profile.businessWebsite)     kybForm.setValue("businessWebsite",     profile.businessWebsite ?? "");
     if (profile.businessCategory)    kybForm.setValue("businessCategory",    profile.businessCategory);
     if (profile.businessType)        kybForm.setValue("businessType",        profile.businessType);
     if (profile.niuNumber)           kybForm.setValue("niuNumber",           profile.niuNumber ?? "");
     if (profile.rccmNumber)          kybForm.setValue("rccmNumber",          profile.rccmNumber ?? "");
+    // Auto-jump to step 2 if identity already saved (first load only)
+    if (!stepAutoSet) {
+      setStepAutoSet(true);
+      if (profile.fullName && profile.kycStatus !== "NOT_STARTED") {
+        setStep(2);
+      }
+    }
   }, [profile]);
 
   const kycMutation = useMutation({
@@ -551,6 +561,18 @@ export default function Kyc() {
       {step === 1 && (
         <Form {...kycForm}>
           <form onSubmit={kycForm.handleSubmit((v) => kycMutation.mutate(v))} className="space-y-5">
+            {/* Banner when returning to edit already-saved KYC */}
+            {profile?.fullName && profile?.kycStatus !== "NOT_STARTED" && (
+              <div className="rounded-lg bg-blue-50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-800 px-4 py-3 flex items-start gap-2.5">
+                <AlertCircle className="h-4 w-4 text-blue-600 dark:text-blue-400 shrink-0 mt-0.5" />
+                <div className="text-sm">
+                  <p className="font-medium text-blue-700 dark:text-blue-300">Modification de l'identité</p>
+                  <p className="text-blue-600 dark:text-blue-400 text-xs mt-0.5">
+                    Votre identité est déjà enregistrée. Modifiez les champs souhaités puis cliquez sur "Enregistrer et continuer".
+                  </p>
+                </div>
+              </div>
+            )}
             <Card>
               <CardHeader className="pb-3">
                 <CardTitle className="text-base flex items-center gap-2">
@@ -635,7 +657,11 @@ export default function Kyc() {
             </Card>
 
             <Button type="submit" className="w-full gap-2" disabled={kycMutation.isPending}>
-              {kycMutation.isPending ? "Enregistrement…" : "Suivant : Vérification Entreprise"}
+              {kycMutation.isPending
+                ? "Enregistrement…"
+                : (profile?.fullName && profile?.kycStatus !== "NOT_STARTED")
+                  ? "Enregistrer les modifications et continuer"
+                  : "Suivant : Vérification Entreprise"}
               <ChevronRight className="h-4 w-4" />
             </Button>
           </form>
@@ -646,6 +672,28 @@ export default function Kyc() {
       {step === 2 && (
         <Form {...kybForm}>
           <form onSubmit={kybForm.handleSubmit((v) => kybMutation.mutate(v))} className="space-y-5">
+            {/* KYC already saved indicator */}
+            {profile?.fullName && (
+              <div className="rounded-lg bg-green-50 dark:bg-green-950/20 border border-green-200 dark:border-green-800 px-4 py-3 flex items-center justify-between gap-3">
+                <div className="flex items-center gap-2 text-sm text-green-700 dark:text-green-400">
+                  <CheckCircle2 className="h-4 w-4 shrink-0" />
+                  <span>
+                    <span className="font-medium">Identité enregistrée ✓</span>
+                    <span className="text-xs text-green-600 dark:text-green-500 ml-1">— {profile.fullName}</span>
+                  </span>
+                </div>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  className="text-xs text-green-700 dark:text-green-400 hover:bg-green-100 dark:hover:bg-green-900/20 gap-1 shrink-0"
+                  onClick={() => setStep(1)}
+                >
+                  <ChevronLeft className="h-3 w-3" />
+                  Modifier
+                </Button>
+              </div>
+            )}
             <Card>
               <CardHeader className="pb-3">
                 <CardTitle className="text-base flex items-center gap-2">
