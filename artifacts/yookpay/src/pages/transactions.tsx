@@ -99,6 +99,27 @@ function typeLabel(type: string) {
   }
 }
 
+function fmtSmart(n: number, currency: string) {
+  const dec = currency === "USDT" ? 4 : 0;
+  return n.toLocaleString("fr-FR", { minimumFractionDigits: dec, maximumFractionDigits: dec }) + " " + currency;
+}
+
+function getExchangeMeta(tx: Tx) {
+  const m = tx.metadata as Record<string, string> | null;
+  if (!m) return null;
+  const from = m.fromCurrency as string | undefined;
+  const to = m.toCurrency as string | undefined;
+  const type = m.exchangeType as string | undefined;
+  if (!from || !to) return null;
+  return { from, to, type };
+}
+
+function exchangeTypeLabel(tx: Tx) {
+  const meta = getExchangeMeta(tx);
+  if (!meta) return typeLabel(tx.type);
+  return `${meta.from} → ${meta.to}`;
+}
+
 function CopyButton({ text }: { text: string }) {
   const [copied, setCopied] = useState(false);
   return (
@@ -126,6 +147,14 @@ function TransactionDetail({ tx, open, onClose }: { tx: Tx | null; open: boolean
   const country = tx.country ? COUNTRIES.find((c) => c.code === tx.country) : null;
   const isDeposit  = tx.type === "DEPOSIT";
   const isWithdraw = tx.type === "WITHDRAWAL";
+  const exMeta = getExchangeMeta(tx);
+
+  // Exchange transactions have mixed currencies
+  const feeCurrency = exMeta ? (exMeta.type === "FIAT_TO_USDT" ? exMeta.from : "USDT") : tx.currency;
+  const netCurrency = exMeta ? exMeta.to : tx.currency;
+  const netLabel = exMeta
+    ? (exMeta.type === "FIAT_TO_USDT" ? "USDT reçus" : "Fiat estimé")
+    : (isDeposit ? "Montant reçu" : isWithdraw ? "Total débité" : "Montant net");
 
   return (
     <Sheet open={open} onOpenChange={(v) => !v && onClose()}>
@@ -133,7 +162,7 @@ function TransactionDetail({ tx, open, onClose }: { tx: Tx | null; open: boolean
         <SheetHeader className="mb-6">
           <SheetTitle className="flex items-center gap-2">
             <TypeIcon type={tx.type} />
-            {typeLabel(tx.type)}
+            {exchangeTypeLabel(tx)}
           </SheetTitle>
         </SheetHeader>
 
@@ -141,7 +170,7 @@ function TransactionDetail({ tx, open, onClose }: { tx: Tx | null; open: boolean
           <div className="mb-2"><StatusBadge status={tx.status} /></div>
           <div className="text-3xl font-bold mt-2">
             <span className={isWithdraw ? "text-rose-600" : "text-emerald-600"}>
-              {isWithdraw ? "−" : "+"}{formatCurrency(tx.amount, tx.currency)}
+              {isWithdraw ? "−" : "+"}{fmtSmart(tx.amount, tx.currency)}
             </span>
           </div>
           <div className="text-xs text-muted-foreground mt-1">{formatDate(tx.createdAt)}</div>
@@ -159,16 +188,21 @@ function TransactionDetail({ tx, open, onClose }: { tx: Tx | null; open: boolean
 
         <div>
           <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-1">Détails financiers</p>
-          <DetailRow label="Montant brut" value={formatCurrency(tx.amount, tx.currency)} />
+          {exMeta && (
+            <DetailRow label="Type d'échange" value={
+              <span className="font-semibold text-cyan-700 dark:text-cyan-400">{exMeta.from} → {exMeta.to}</span>
+            } />
+          )}
+          <DetailRow label="Montant brut" value={fmtSmart(tx.amount, tx.currency)} />
           <DetailRow
             label={`Frais${tx.feeRate ? ` (${(tx.feeRate * 100).toFixed(1)}%)` : ""}`}
-            value={<span className="text-rose-500">+ {formatCurrency(tx.fee, tx.currency)}</span>}
+            value={<span className="text-amber-600">{fmtSmart(tx.fee, feeCurrency)}</span>}
           />
           <DetailRow
-            label={isDeposit ? "Montant reçu" : isWithdraw ? "Total débité" : "Montant net"}
+            label={netLabel}
             value={
-              <span className={isDeposit ? "text-emerald-600 font-semibold" : "text-rose-600 font-semibold"}>
-                {formatCurrency(tx.netAmount, tx.currency)}
+              <span className="text-emerald-600 font-semibold">
+                {fmtSmart(tx.netAmount, netCurrency)}
               </span>
             }
           />
@@ -178,8 +212,8 @@ function TransactionDetail({ tx, open, onClose }: { tx: Tx | null; open: boolean
 
         <div>
           <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-1">Informations</p>
-          <DetailRow label="Type" value={typeLabel(tx.type)} />
-          <DetailRow label="Devise" value={tx.currency} />
+          <DetailRow label="Type" value={exchangeTypeLabel(tx)} />
+          {!exMeta && <DetailRow label="Devise" value={tx.currency} />}
           {country && (
             <DetailRow
               label="Pays"
@@ -363,13 +397,16 @@ export default function Transactions() {
                         <div className="flex items-center gap-1.5">
                           <TypeIcon type={tx.type} />
                           <div>
-                            <div className="text-sm">{typeLabel(tx.type)}</div>
-                            {tx.operator && <div className="text-xs text-muted-foreground">{tx.operator}</div>}
+                            <div className="text-sm">{exchangeTypeLabel(tx as unknown as Tx)}</div>
+                            {tx.operator && tx.operator !== "EXCHANGE" && <div className="text-xs text-muted-foreground">{tx.operator}</div>}
                           </div>
                         </div>
                       </TableCell>
-                      <TableCell>{formatCurrency(tx.amount, tx.currency)}</TableCell>
-                      <TableCell>{formatCurrency(tx.netAmount, tx.currency)}</TableCell>
+                      <TableCell>{fmtSmart(tx.amount, tx.currency)}</TableCell>
+                      <TableCell>{(() => {
+                        const meta = getExchangeMeta(tx as unknown as Tx);
+                        return fmtSmart(tx.netAmount, meta ? meta.to : tx.currency);
+                      })()}</TableCell>
                       <TableCell className="text-sm text-muted-foreground whitespace-nowrap">{formatDate(tx.createdAt)}</TableCell>
                       <TableCell className="text-right">
                         <StatusBadge status={tx.status} pulse={tx.status === "PENDING"} />

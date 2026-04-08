@@ -44,7 +44,25 @@ interface TxPage {
 }
 
 function fmt(n: number, currency: string) {
-  return n.toLocaleString("fr-FR", { maximumFractionDigits: 0 }) + " " + currency;
+  const dec = currency === "USDT" ? 4 : 0;
+  return n.toLocaleString("fr-FR", { minimumFractionDigits: dec, maximumFractionDigits: dec }) + " " + currency;
+}
+
+// Extract exchange metadata from a transaction
+function getExchangeMeta(tx: AdminTx) {
+  const m = tx.metadata as Record<string, string> | null;
+  if (!m) return null;
+  const from = m.fromCurrency as string | undefined;
+  const to = m.toCurrency as string | undefined;
+  const type = m.exchangeType as string | undefined;
+  if (!from || !to) return null;
+  return { from, to, type };
+}
+
+function exchangeLabel(tx: AdminTx) {
+  const meta = getExchangeMeta(tx);
+  if (!meta) return typeLabel(tx.type);
+  return `${meta.from} → ${meta.to}`;
 }
 
 function fmtDate(d: string) {
@@ -98,21 +116,36 @@ function CopyBtn({ text }: { text: string }) {
 
 function ExpandedDetail({ tx }: { tx: AdminTx }) {
   const country = tx.country ? COUNTRIES.find((c) => c.code === tx.country) : null;
+  const exMeta = getExchangeMeta(tx);
+
+  // For exchange transactions the currencies are mixed:
+  // Step1 (FIAT→USDT): amount=XAF, fee=XAF, netAmount=USDT
+  // Step2 (USDT→FIAT): amount=USDT, fee=USDT, netAmount=XAF
+  const feeCurrency   = exMeta ? (exMeta.type === "FIAT_TO_USDT" ? exMeta.from : "USDT") : tx.currency;
+  const netCurrency   = exMeta ? exMeta.to : tx.currency;
+  const netLabel      = exMeta ? (exMeta.type === "FIAT_TO_USDT" ? "USDT reçus" : "Fiat estimé") : "Net perçu";
+
   return (
     <div className="bg-muted/30 border-t px-4 py-3 grid grid-cols-1 sm:grid-cols-2 gap-x-8 gap-y-1.5 text-xs">
       {/* Col 1 */}
       <div className="space-y-1.5">
+        {exMeta && (
+          <div className="flex justify-between gap-2">
+            <span className="text-muted-foreground">Type d'échange</span>
+            <span className="font-semibold text-cyan-700 dark:text-cyan-400">{exMeta.from} → {exMeta.to}</span>
+          </div>
+        )}
         <div className="flex justify-between gap-2">
           <span className="text-muted-foreground">Montant brut</span>
           <span className="font-semibold tabular-nums">{fmt(tx.amount, tx.currency)}</span>
         </div>
         <div className="flex justify-between gap-2">
-          <span className="text-muted-foreground">Frais</span>
-          <span className="tabular-nums">{fmt(tx.fee, tx.currency)}{tx.feeRate != null ? ` (${(tx.feeRate * 100).toFixed(2)}%)` : ""}</span>
+          <span className="text-muted-foreground">Frais{tx.feeRate != null ? ` (${(tx.feeRate * 100).toFixed(2)}%)` : ""}</span>
+          <span className="tabular-nums text-amber-600">{fmt(tx.fee, feeCurrency)}</span>
         </div>
         <div className="flex justify-between gap-2">
-          <span className="text-muted-foreground">Net perçu</span>
-          <span className="font-semibold tabular-nums">{fmt(tx.netAmount, tx.currency)}</span>
+          <span className="text-muted-foreground">{netLabel}</span>
+          <span className="font-semibold tabular-nums">{fmt(tx.netAmount, netCurrency)}</span>
         </div>
         {tx.phone && (
           <div className="flex justify-between gap-2">
@@ -126,7 +159,7 @@ function ExpandedDetail({ tx }: { tx: AdminTx }) {
             <span>{country.flag} {country.name}</span>
           </div>
         )}
-        {tx.operator && (
+        {tx.operator && tx.operator !== "EXCHANGE" && (
           <div className="flex justify-between gap-2">
             <span className="text-muted-foreground">Opérateur</span>
             <span>{tx.operator}</span>
@@ -306,16 +339,20 @@ export default function AdminTransactions() {
                     {/* Type */}
                     <div className="hidden sm:flex items-center gap-1">
                       <TypeDot type={tx.type} />
-                      <span className="text-[10px] font-medium">{typeLabel(tx.type)}</span>
+                      <span className="text-[10px] font-medium">{exchangeLabel(tx)}</span>
                     </div>
                     {/* Amount */}
                     <div className="hidden sm:block text-right">
                       <p className="text-xs font-semibold tabular-nums">{fmt(tx.amount, tx.currency)}</p>
                       <p className="text-[10px] text-muted-foreground">{fmtDate(tx.createdAt)}</p>
                     </div>
-                    {/* Fee */}
+                    {/* Fee — use correct currency for exchanges */}
                     <div className="hidden sm:block text-right">
-                      <p className="text-[10px] text-muted-foreground tabular-nums">{fmt(tx.fee, tx.currency)}</p>
+                      {(() => {
+                        const exm = getExchangeMeta(tx);
+                        const fc = exm ? (exm.type === "FIAT_TO_USDT" ? exm.from : "USDT") : tx.currency;
+                        return <p className="text-[10px] text-muted-foreground tabular-nums">{fmt(tx.fee, fc)}</p>;
+                      })()}
                     </div>
                     {/* Status */}
                     <div className="hidden sm:flex items-center">
