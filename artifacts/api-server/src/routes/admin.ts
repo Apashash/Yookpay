@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { db } from "@workspace/db";
+import { db, pool } from "@workspace/db";
 import { usersTable, walletsTable, transactionsTable, kycDocumentsTable, userFeesTable } from "@workspace/db/schema";
 import { eq, desc, sql, and } from "drizzle-orm";
 import { authMiddleware, type AuthRequest } from "../middlewares/authMiddleware";
@@ -447,30 +447,122 @@ router.patch("/kyc/:docId", async (req: AuthRequest, res) => {
   }
 });
 
-// GET /admin/kyc — list all pending KYC documents
+// GET /admin/kyc — list all KYC submissions grouped by user (profile + docs, no file_data)
 router.get("/kyc", async (req: AuthRequest, res) => {
+  const client = await pool.connect();
   try {
-    const docs = await db
-      .select({
-        id: kycDocumentsTable.id,
-        userId: kycDocumentsTable.userId,
-        type: kycDocumentsTable.type,
-        status: kycDocumentsTable.status,
-        fileName: kycDocumentsTable.fileName,
-        notes: kycDocumentsTable.notes,
-        createdAt: kycDocumentsTable.createdAt,
-        updatedAt: kycDocumentsTable.updatedAt,
-        userName: usersTable.name,
-        userEmail: usersTable.email,
-      })
-      .from(kycDocumentsTable)
-      .innerJoin(usersTable, eq(kycDocumentsTable.userId, usersTable.id))
-      .orderBy(desc(kycDocumentsTable.createdAt));
+    const profilesRes = await client.query(`
+      SELECT
+        kp.*,
+        u.name AS user_name,
+        u.email AS user_email
+      FROM kyc_profiles kp
+      INNER JOIN users u ON u.id = kp.user_id
+      ORDER BY kp.updated_at DESC
+    `);
 
-    res.json({ documents: docs });
+    const docsRes = await client.query(`
+      SELECT id, user_id, type, status, file_name, notes, created_at, updated_at
+      FROM kyc_documents
+      WHERE user_id = ANY($1::int[])
+    `, [profilesRes.rows.map((r: any) => r.user_id)]);
+
+    const docsMap: Record<number, any[]> = {};
+    for (const d of docsRes.rows) {
+      if (!docsMap[d.user_id]) docsMap[d.user_id] = [];
+      docsMap[d.user_id].push({
+        id: d.id, userId: d.user_id, type: d.type, status: d.status,
+        fileName: d.file_name, notes: d.notes, createdAt: d.created_at, updatedAt: d.updated_at,
+      });
+    }
+
+    const submissions = profilesRes.rows.map((p: any) => ({
+      userId: p.user_id,
+      userName: p.user_name,
+      userEmail: p.user_email,
+      profile: {
+        id: p.id,
+        fullName: p.full_name,
+        dateOfBirth: p.date_of_birth,
+        docType: p.doc_type,
+        docNumber: p.doc_number,
+        kycStatus: p.kyc_status,
+        businessDescription: p.business_description,
+        businessWebsite: p.business_website,
+        businessCategory: p.business_category,
+        businessType: p.business_type,
+        kybStatus: p.kyb_status,
+        adminNotes: p.admin_notes,
+        createdAt: p.created_at,
+        updatedAt: p.updated_at,
+        hasSignature: !!p.signature_data,
+      },
+      documents: docsMap[p.user_id] ?? [],
+    }));
+
+    res.json({ submissions });
   } catch (err) {
     req.log.error({ err }, "Admin list KYC error");
-    res.status(500).json({ error: "InternalError", message: "Failed to fetch KYC documents" });
+    res.status(500).json({ error: "InternalError", message: "Failed to fetch KYC submissions" });
+  } finally {
+    client.release();
+  }
+});
+
+// GET /admin/kyc/doc/:docId/file — return base64 file data for a specific doc
+router.get("/kyc/doc/:docId/file", async (req: AuthRequest, res) => {
+  const docId = parseInt(req.params.docId);
+  if (isNaN(docId)) { res.status(400).json({ error: "ValidationError", message: "ID invalide" }); return; }
+  const client = await pool.connect();
+  try {
+    const result = await client.query(`SELECT file_data, file_name, type FROM kyc_documents WHERE id = $1`, [docId]);
+    if (!result.rows[0]) { res.status(404).json({ error: "NotFound", message: "Document introuvable" }); return; }
+    res.json({ fileData: result.rows[0].file_data, fileName: result.rows[0].file_name, type: result.rows[0].type });
+  } finally {
+    client.release();
+  }
+});
+
+// GET /admin/kyc/signature/:userId — return signature data for a user
+router.get("/kyc/signature/:userId", async (req: AuthRequest, res) => {
+  const userId = parseInt(req.params.userId);
+  if (isNaN(userId)) { res.status(400).json({ error: "ValidationError", message: "ID invalide" }); return; }
+  const client = await pool.connect();
+  try {
+    const result = await client.query(`SELECT signature_data FROM kyc_profiles WHERE user_id = $1`, [userId]);
+    if (!result.rows[0]) { res.status(404).json({ error: "NotFound" }); return; }
+    res.json({ signatureData: result.rows[0].signature_data });
+  } finally {
+    client.release();
+  }
+});
+
+// PATCH /admin/kyc/profile/:userId — update KYC/KYB profile status
+router.patch("/kyc/profile/:userId", async (req: AuthRequest, res) => {
+  const userId = parseInt(req.params.userId);
+  if (isNaN(userId)) { res.status(400).json({ error: "ValidationError", message: "ID invalide" }); return; }
+  const schema = z.object({
+    kycStatus: z.enum(["PENDING", "VERIFIED", "REJECTED"]).optional(),
+    kybStatus: z.enum(["PENDING", "VERIFIED", "REJECTED"]).optional(),
+    adminNotes: z.string().max(1000).optional(),
+  });
+  const parse = schema.safeParse(req.body);
+  if (!parse.success) { res.status(400).json({ error: "ValidationError", message: "Données invalides" }); return; }
+  const client = await pool.connect();
+  try {
+    const sets: string[] = ["updated_at = NOW()"];
+    const values: any[] = [userId];
+    if (parse.data.kycStatus) { values.push(parse.data.kycStatus); sets.push(`kyc_status = $${values.length}`); }
+    if (parse.data.kybStatus) { values.push(parse.data.kybStatus); sets.push(`kyb_status = $${values.length}`); }
+    if (parse.data.adminNotes !== undefined) { values.push(parse.data.adminNotes); sets.push(`admin_notes = $${values.length}`); }
+    await client.query(`UPDATE kyc_profiles SET ${sets.join(", ")} WHERE user_id = $1`, values);
+    req.log.info({ adminId: req.userId, userId, ...parse.data }, "KYC profile status updated");
+    res.json({ success: true });
+  } catch (err) {
+    req.log.error({ err }, "Admin KYC profile update error");
+    res.status(500).json({ error: "InternalError", message: "Erreur" });
+  } finally {
+    client.release();
   }
 });
 

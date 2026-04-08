@@ -1,4 +1,5 @@
 import { Router } from "express";
+import { pool } from "@workspace/db";
 import { db } from "@workspace/db";
 import { kycDocumentsTable } from "@workspace/db/schema";
 import { eq, and } from "drizzle-orm";
@@ -7,12 +8,21 @@ import { z } from "zod";
 
 const router = Router();
 
-const DOC_TYPES = ["CNI", "PASSEPORT", "RCCM", "JUSTIF_DOMICILE", "PHOTO_SELFIE"] as const;
-type DocType = typeof DOC_TYPES[number];
+const KYC_DOC_TYPES = ["ID_FRONT", "ID_BACK"] as const;
+const KYB_DOC_TYPES = ["KYB_STATUTS", "KYB_RCCM", "KYB_NIU", "KYB_PLAN_LOC"] as const;
+const ALL_DOC_TYPES = [...KYC_DOC_TYPES, ...KYB_DOC_TYPES] as const;
+type DocType = typeof ALL_DOC_TYPES[number];
 
-// GET /kyc — get all KYC documents for user
+// GET /kyc — return profile + docs
 router.get("/", authMiddleware, async (req: AuthRequest, res) => {
+  const client = await pool.connect();
   try {
+    const profileRes = await client.query(
+      `SELECT * FROM kyc_profiles WHERE user_id = $1 LIMIT 1`,
+      [req.userId]
+    );
+    const profile = profileRes.rows[0] ?? null;
+
     const docs = await db
       .select({
         id: kycDocumentsTable.id,
@@ -26,82 +36,145 @@ router.get("/", authMiddleware, async (req: AuthRequest, res) => {
       .from(kycDocumentsTable)
       .where(eq(kycDocumentsTable.userId, req.userId!));
 
-    const submitted = docs.map((d) => d.type);
-    const missing = DOC_TYPES.filter((t) => !submitted.includes(t));
-
-    const allVerified = DOC_TYPES.every((t) =>
-      docs.find((d) => d.type === t && d.status === "VERIFIED")
-    );
-
-    res.json({
-      documents: docs,
-      kycStatus: allVerified ? "VERIFIED" : docs.length > 0 ? "PENDING" : "NOT_STARTED",
-      missingDocuments: missing,
-    });
+    res.json({ profile, documents: docs });
   } catch (err) {
     req.log.error({ err }, "Get KYC error");
-    res.status(500).json({ error: "InternalError", message: "Failed to fetch KYC documents" });
+    res.status(500).json({ error: "InternalError", message: "Erreur lors de la récupération KYC" });
+  } finally {
+    client.release();
   }
 });
 
-// POST /kyc — upload a document
-router.post("/", authMiddleware, async (req: AuthRequest, res) => {
+// POST /kyc/identity — save KYC step 1 (identity info + ID scans)
+router.post("/identity", authMiddleware, async (req: AuthRequest, res) => {
   const schema = z.object({
-    type: z.enum(DOC_TYPES),
-    fileName: z.string().min(1).max(255),
-    fileData: z.string().min(1),
+    fullName:    z.string().min(2).max(255),
+    dateOfBirth: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+    docType:     z.enum(["CNI", "PASSEPORT", "PERMIS", "SEJOUR"]),
+    docNumber:   z.string().min(1).max(100),
+    frontFile:   z.object({ name: z.string(), data: z.string() }).optional(),
+    backFile:    z.object({ name: z.string(), data: z.string() }).optional(),
   });
 
   const parse = schema.safeParse(req.body);
   if (!parse.success) {
-    res.status(400).json({ error: "ValidationError", message: "Données invalides" });
+    res.status(400).json({ error: "ValidationError", message: "Données invalides", issues: parse.error.issues });
     return;
   }
 
-  const { type, fileName, fileData } = parse.data;
+  const { fullName, dateOfBirth, docType, docNumber, frontFile, backFile } = parse.data;
+  const client = await pool.connect();
 
   try {
-    const existing = await db
-      .select({ id: kycDocumentsTable.id })
-      .from(kycDocumentsTable)
-      .where(and(eq(kycDocumentsTable.userId, req.userId!), eq(kycDocumentsTable.type, type)))
-      .limit(1);
+    await client.query(`
+      INSERT INTO kyc_profiles (user_id, full_name, date_of_birth, doc_type, doc_number, kyc_status, updated_at)
+      VALUES ($1, $2, $3, $4, $5, 'PENDING', NOW())
+      ON CONFLICT (user_id) DO UPDATE SET
+        full_name = EXCLUDED.full_name,
+        date_of_birth = EXCLUDED.date_of_birth,
+        doc_type = EXCLUDED.doc_type,
+        doc_number = EXCLUDED.doc_number,
+        kyc_status = 'PENDING',
+        updated_at = NOW()
+    `, [req.userId, fullName, dateOfBirth, docType, docNumber]);
 
-    let doc;
-    if (existing.length > 0) {
-      const [updated] = await db
-        .update(kycDocumentsTable)
-        .set({ fileName, fileData, status: "PENDING", updatedAt: new Date() })
-        .where(eq(kycDocumentsTable.id, existing[0].id))
-        .returning({
-          id: kycDocumentsTable.id,
-          type: kycDocumentsTable.type,
-          status: kycDocumentsTable.status,
-          fileName: kycDocumentsTable.fileName,
-          createdAt: kycDocumentsTable.createdAt,
-          updatedAt: kycDocumentsTable.updatedAt,
-        });
-      doc = updated;
-    } else {
-      const [inserted] = await db
-        .insert(kycDocumentsTable)
-        .values({ userId: req.userId!, type, fileName, fileData, status: "PENDING" })
-        .returning({
-          id: kycDocumentsTable.id,
-          type: kycDocumentsTable.type,
-          status: kycDocumentsTable.status,
-          fileName: kycDocumentsTable.fileName,
-          createdAt: kycDocumentsTable.createdAt,
-          updatedAt: kycDocumentsTable.updatedAt,
-        });
-      doc = inserted;
+    // Upsert file docs
+    for (const [docTypeKey, file] of [["ID_FRONT", frontFile], ["ID_BACK", backFile]] as const) {
+      if (!file) continue;
+      const existing = await db.select({ id: kycDocumentsTable.id })
+        .from(kycDocumentsTable)
+        .where(and(eq(kycDocumentsTable.userId, req.userId!), eq(kycDocumentsTable.type, docTypeKey)))
+        .limit(1);
+
+      if (existing.length > 0) {
+        await db.update(kycDocumentsTable)
+          .set({ fileName: file.name, fileData: file.data, status: "PENDING", updatedAt: new Date() })
+          .where(eq(kycDocumentsTable.id, existing[0].id));
+      } else {
+        await db.insert(kycDocumentsTable)
+          .values({ userId: req.userId!, type: docTypeKey, fileName: file.name, fileData: file.data, status: "PENDING" });
+      }
     }
 
-    req.log.info({ userId: req.userId, docId: doc.id, type }, "KYC document uploaded");
-    res.status(201).json({ document: doc, message: "Document soumis avec succès" });
+    req.log.info({ userId: req.userId }, "KYC identity submitted");
+    res.json({ success: true, message: "Informations d'identité enregistrées" });
   } catch (err) {
-    req.log.error({ err }, "KYC upload error");
-    res.status(500).json({ error: "InternalError", message: "Failed to upload document" });
+    req.log.error({ err }, "KYC identity error");
+    res.status(500).json({ error: "InternalError", message: "Erreur lors de l'enregistrement" });
+  } finally {
+    client.release();
+  }
+});
+
+// POST /kyc/kyb — save KYB step 2 (business info + docs + signature)
+router.post("/kyb", authMiddleware, async (req: AuthRequest, res) => {
+  const schema = z.object({
+    businessDescription: z.string().min(10).max(4000),
+    businessWebsite:     z.string().max(500).optional().default(""),
+    businessCategory:    z.string().min(1).max(200),
+    businessType:        z.string().min(1).max(50),
+    signatureData:       z.string().min(1),
+    statutsFile:         z.object({ name: z.string(), data: z.string() }).optional(),
+    rccmFile:            z.object({ name: z.string(), data: z.string() }).optional(),
+    niuFile:             z.object({ name: z.string(), data: z.string() }).optional(),
+    planLocFile:         z.object({ name: z.string(), data: z.string() }).optional(),
+  });
+
+  const parse = schema.safeParse(req.body);
+  if (!parse.success) {
+    res.status(400).json({ error: "ValidationError", message: "Données invalides", issues: parse.error.issues });
+    return;
+  }
+
+  const { businessDescription, businessWebsite, businessCategory, businessType, signatureData,
+    statutsFile, rccmFile, niuFile, planLocFile } = parse.data;
+  const client = await pool.connect();
+
+  try {
+    await client.query(`
+      INSERT INTO kyc_profiles (user_id, business_description, business_website, business_category, business_type, signature_data, kyb_status, updated_at)
+      VALUES ($1, $2, $3, $4, $5, $6, 'PENDING', NOW())
+      ON CONFLICT (user_id) DO UPDATE SET
+        business_description = EXCLUDED.business_description,
+        business_website = EXCLUDED.business_website,
+        business_category = EXCLUDED.business_category,
+        business_type = EXCLUDED.business_type,
+        signature_data = EXCLUDED.signature_data,
+        kyb_status = 'PENDING',
+        updated_at = NOW()
+    `, [req.userId, businessDescription, businessWebsite, businessCategory, businessType, signatureData]);
+
+    const kybDocs: Array<[string, typeof statutsFile]> = [
+      ["KYB_STATUTS",  statutsFile],
+      ["KYB_RCCM",     rccmFile],
+      ["KYB_NIU",      niuFile],
+      ["KYB_PLAN_LOC", planLocFile],
+    ];
+
+    for (const [docTypeKey, file] of kybDocs) {
+      if (!file) continue;
+      const existing = await db.select({ id: kycDocumentsTable.id })
+        .from(kycDocumentsTable)
+        .where(and(eq(kycDocumentsTable.userId, req.userId!), eq(kycDocumentsTable.type, docTypeKey)))
+        .limit(1);
+
+      if (existing.length > 0) {
+        await db.update(kycDocumentsTable)
+          .set({ fileName: file.name, fileData: file.data, status: "PENDING", updatedAt: new Date() })
+          .where(eq(kycDocumentsTable.id, existing[0].id));
+      } else {
+        await db.insert(kycDocumentsTable)
+          .values({ userId: req.userId!, type: docTypeKey, fileName: file.name, fileData: file.data, status: "PENDING" });
+      }
+    }
+
+    req.log.info({ userId: req.userId }, "KYB submitted");
+    res.json({ success: true, message: "Informations d'entreprise enregistrées" });
+  } catch (err) {
+    req.log.error({ err }, "KYB error");
+    res.status(500).json({ error: "InternalError", message: "Erreur lors de l'enregistrement" });
+  } finally {
+    client.release();
   }
 });
 
@@ -114,9 +187,7 @@ router.delete("/:id", authMiddleware, async (req: AuthRequest, res) => {
   }
 
   try {
-    const [doc] = await db
-      .select()
-      .from(kycDocumentsTable)
+    const [doc] = await db.select().from(kycDocumentsTable)
       .where(and(eq(kycDocumentsTable.id, id), eq(kycDocumentsTable.userId, req.userId!)))
       .limit(1);
 

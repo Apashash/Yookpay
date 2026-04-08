@@ -178,6 +178,28 @@ export async function runStartupMigrations(): Promise<void> {
       DO UPDATE SET service_id = EXCLUDED.service_id, notes = EXCLUDED.notes, updated_at = NOW()
     `);
 
+    // 7b. Create kyc_profiles table (structured KYC identity + KYB business info)
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS kyc_profiles (
+        id SERIAL PRIMARY KEY,
+        user_id INTEGER NOT NULL UNIQUE REFERENCES users(id) ON DELETE CASCADE,
+        full_name VARCHAR(255),
+        date_of_birth DATE,
+        doc_type VARCHAR(30),
+        doc_number VARCHAR(100),
+        kyc_status VARCHAR(20) NOT NULL DEFAULT 'NOT_STARTED',
+        business_description TEXT,
+        business_website VARCHAR(500),
+        business_category VARCHAR(200),
+        business_type VARCHAR(50),
+        signature_data TEXT,
+        kyb_status VARCHAR(20) NOT NULL DEFAULT 'NOT_STARTED',
+        admin_notes TEXT,
+        created_at TIMESTAMP DEFAULT NOW() NOT NULL,
+        updated_at TIMESTAMP DEFAULT NOW() NOT NULL
+      )
+    `);
+
     // 7. Create platform_config table (key-value for Wave business_name_id, etc.)
     await client.query(`
       CREATE TABLE IF NOT EXISTS platform_config (
