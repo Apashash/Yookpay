@@ -154,6 +154,26 @@ router.get("/crypto-min-amount", async (_req, res) => {
   }
 });
 
+// GET /transactions/fx-rate?from=XAF&to=USDT&amount=1000
+router.get("/fx-rate", authMiddleware, async (req: AuthRequest, res) => {
+  const { from, to, amount } = req.query as { from?: string; to?: string; amount?: string };
+  if (!from || !to) {
+    res.status(400).json({ error: "ValidationError", message: "from and to required" });
+    return;
+  }
+  try {
+    const amt = parseFloat(amount ?? "1");
+    const converted = await convertWithAdminRate(amt, from, to);
+    const usdRate = await getRateFromUsd(from);
+    const minAmount = await getMinExchangeAmount(from);
+    const effectiveRate = await getEffectiveRate(from, to);
+    const feeRate = await getExchangeFeeRate();
+    res.json({ from, to, amount: amt, converted, rate: effectiveRate, usdRate, minAmount, feeRate });
+  } catch {
+    res.status(500).json({ error: "InternalError", message: "FX rate unavailable" });
+  }
+});
+
 // GET /transactions/:id  — status polling endpoint
 router.get("/:id", authMiddleware, async (req: AuthRequest, res) => {
   const id = parseInt(req.params.id, 10);
@@ -753,26 +773,6 @@ router.post("/transfer", authMiddleware, transactionRateLimit, async (req: AuthR
   } catch (err) {
     req.log.error({ err, reference }, "Transfer error");
     res.status(500).json({ error: "InternalError", message: "Transfer failed" });
-  }
-});
-
-// GET /transactions/fx-rate?from=XAF&to=USDT&amount=1000
-router.get("/fx-rate", authMiddleware, async (req: AuthRequest, res) => {
-  const { from, to, amount } = req.query as { from?: string; to?: string; amount?: string };
-  if (!from || !to) {
-    res.status(400).json({ error: "ValidationError", message: "from and to required" });
-    return;
-  }
-  try {
-    const amt = parseFloat(amount ?? "1");
-    const converted = await convertWithAdminRate(amt, from, to);
-    const usdRate = await getRateFromUsd(from);
-    const minAmount = await getMinExchangeAmount(from);
-    const effectiveRate = await getEffectiveRate(from, to);
-    const feeRate = await getExchangeFeeRate();
-    res.json({ from, to, amount: amt, converted, rate: effectiveRate, usdRate, minAmount, feeRate });
-  } catch (err) {
-    res.status(500).json({ error: "InternalError", message: "FX rate unavailable" });
   }
 });
 
