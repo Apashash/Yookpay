@@ -56,7 +56,7 @@ const step2Schema = z.object({
 });
 type Step2Values = z.infer<typeof step2Schema>;
 
-type FxInfo = { rate: number; converted: number; minAmount: number } | null;
+type FxInfo = { rate: number; converted: number; minAmount: number; feeRate: number } | null;
 
 // ─── Main Component ───────────────────────────────────────────────────────────
 export default function Transfer() {
@@ -299,13 +299,13 @@ export default function Transfer() {
                           <span className="font-mono font-medium">1 USDT ≈ {(1 / fxInfo.rate).toLocaleString("fr", { maximumFractionDigits: 0 })} {fromCurrency}</span>
                         </div>
                         <div className="flex justify-between text-sm">
-                          <span className="text-muted-foreground">Frais (2%)</span>
-                          <span className="font-medium text-amber-600">− {(step1Amount * 0.02).toLocaleString("fr", { maximumFractionDigits: 0 })} {fromCurrency}</span>
+                          <span className="text-muted-foreground">Frais ({((fxInfo.feeRate ?? 0.02) * 100).toFixed(1)}%)</span>
+                          <span className="font-medium text-amber-600">− {(step1Amount * (fxInfo.feeRate ?? 0.02)).toLocaleString("fr", { maximumFractionDigits: 0 })} {fromCurrency}</span>
                         </div>
                         <Separator />
                         <div className="flex justify-between text-sm font-bold">
                           <span>Vous recevez</span>
-                          <span className="text-cyan-700 dark:text-cyan-300">≈ {(fxInfo.converted * 0.98).toFixed(4)} USDT</span>
+                          <span className="text-cyan-700 dark:text-cyan-300">≈ {(fxInfo.converted * (1 - (fxInfo.feeRate ?? 0.02))).toFixed(4)} USDT</span>
                         </div>
                       </>
                     )}
@@ -406,13 +406,13 @@ export default function Transfer() {
                       <span className="font-mono">1 USDT ≈ {(fxInfo2.rate).toLocaleString("fr", { maximumFractionDigits: 0 })} {toCurrency}</span>
                     </div>
                     <div className="flex justify-between text-sm">
-                      <span className="text-muted-foreground">Frais (2%)</span>
-                      <span className="text-amber-600">− {(step2Usdt * 0.02).toFixed(4)} USDT</span>
+                      <span className="text-muted-foreground">Frais ({((fxInfo2.feeRate ?? 0.02) * 100).toFixed(1)}%)</span>
+                      <span className="text-amber-600">− {(step2Usdt * (fxInfo2.feeRate ?? 0.02)).toFixed(4)} USDT</span>
                     </div>
                     <Separator />
                     <div className="flex justify-between font-bold text-sm">
                       <span>Estimation reçue</span>
-                      <span className="text-emerald-600">≈ {(fxInfo2.converted * 0.98).toLocaleString("fr", { maximumFractionDigits: 0 })} {toCurrency}</span>
+                      <span className="text-emerald-600">≈ {(fxInfo2.converted * (1 - (fxInfo2.feeRate ?? 0.02))).toLocaleString("fr", { maximumFractionDigits: 0 })} {toCurrency}</span>
                     </div>
                     <p className="text-[10px] text-muted-foreground">Le montant final peut varier légèrement selon le taux au moment de la confirmation.</p>
                   </div>

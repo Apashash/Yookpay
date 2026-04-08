@@ -317,8 +317,8 @@ export default function AdminExchanges() {
                     <div><span className="text-xs text-muted-foreground block">Montant USDT</span><span className="font-mono font-semibold">{ex.usdtAmount.toFixed(8)}</span></div>
                     <div><span className="text-xs text-muted-foreground block">Devise cible</span><span className="font-bold">{ex.toCurrency}</span></div>
                     <div><span className="text-xs text-muted-foreground block">Taux appliqué</span><span className="font-mono">{ex.exchangeRate.toFixed(2)} {ex.toCurrency}/USDT</span></div>
-                    <div><span className="text-xs text-muted-foreground block">Montant estimé</span><span className="font-semibold text-emerald-600">{(ex.usdtAmount * ex.exchangeRate * 0.98).toLocaleString("fr", { maximumFractionDigits: 0 })} {ex.toCurrency}</span></div>
-                    <div><span className="text-xs text-muted-foreground block">Frais (2%)</span><span className="text-amber-600">{ex.feeAmount.toFixed(4)} USDT</span></div>
+                    <div><span className="text-xs text-muted-foreground block">Montant estimé</span><span className="font-semibold text-emerald-600">{((ex.usdtAmount - ex.feeAmount) * ex.exchangeRate).toLocaleString("fr", { maximumFractionDigits: 0 })} {ex.toCurrency}</span></div>
+                    <div><span className="text-xs text-muted-foreground block">Frais ({((ratesData?.rates?.["EXCHANGE_FEE"] ?? 0.02) * 100).toFixed(1)}%)</span><span className="text-amber-600">{ex.feeAmount.toFixed(4)} USDT</span></div>
                     <div><span className="text-xs text-muted-foreground block">TX ID</span><span className="font-mono text-xs">#{ex.txStep2Id}</span></div>
                   </div>
                 )}

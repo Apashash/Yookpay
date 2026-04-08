@@ -758,7 +758,8 @@ router.get("/fx-rate", authMiddleware, async (req: AuthRequest, res) => {
     const usdRate = await getRateFromUsd(from);
     const minAmount = await getMinExchangeAmount(from);
     const effectiveRate = await getEffectiveRate(from, to);
-    res.json({ from, to, amount: amt, converted, rate: effectiveRate, usdRate, minAmount });
+    const feeRate = await getExchangeFeeRate();
+    res.json({ from, to, amount: amt, converted, rate: effectiveRate, usdRate, minAmount, feeRate });
   } catch (err) {
     res.status(500).json({ error: "InternalError", message: "FX rate unavailable" });
   }
