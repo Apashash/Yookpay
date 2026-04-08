@@ -39,7 +39,7 @@ interface ApiKey {
   createdAt: string;
 }
 
-function CopyButton({ text, label }: { text: string; label?: string }) {
+function CopyButton({ text, label, className }: { text: string; label?: string; className?: string }) {
   const [copied, setCopied] = useState(false);
   const copy = () => {
     navigator.clipboard.writeText(text).then(() => {
@@ -48,8 +48,8 @@ function CopyButton({ text, label }: { text: string; label?: string }) {
     });
   };
   return (
-    <Button variant="outline" size="sm" className="gap-2" onClick={copy}>
-      {copied ? <Check className="h-3.5 w-3.5 text-green-500" /> : <Copy className="h-3.5 w-3.5" />}
+    <Button variant="outline" size="sm" className={`gap-2 ${className ?? ""}`} onClick={copy}>
+      {copied ? <Check className="h-4 w-4 text-green-500" /> : <Copy className="h-4 w-4" />}
       {label && <span>{copied ? "Copié !" : label}</span>}
     </Button>
   );
@@ -419,20 +419,29 @@ export default function ApiKeys() {
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-3 py-2">
-            <Label>Votre clé API — {revealedKey?.name}</Label>
-            <code className="block w-full text-xs font-mono bg-muted border rounded px-3 py-3 break-all leading-relaxed select-all">
+            <Label className="text-sm">Votre clé API — {revealedKey?.name}</Label>
+            <div
+              className="w-full font-mono text-sm bg-muted border rounded-lg px-4 py-4 break-all leading-7 select-all cursor-text"
+              onClick={(e) => {
+                const sel = window.getSelection();
+                const range = document.createRange();
+                range.selectNodeContents(e.currentTarget);
+                sel?.removeAllRanges();
+                sel?.addRange(range);
+              }}
+            >
               {revealedKey?.rawKey}
-            </code>
+            </div>
             {revealedKey && (
-              <CopyButton text={revealedKey.rawKey} label="Copier la clé complète" />
+              <CopyButton text={revealedKey.rawKey} label="Copier la clé complète" className="w-full justify-center text-base py-5" />
             )}
             <p className="text-xs text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800 rounded p-2">
               ⚠ Stockez cette clé dans un gestionnaire de secrets ou une variable d'environnement sécurisée.
             </p>
           </div>
           <DialogFooter>
-            <Button onClick={() => setRevealedKey(null)} className="w-full">
-              J'ai copié ma clé
+            <Button variant="ghost" onClick={() => setRevealedKey(null)} className="w-full">
+              Fermer
             </Button>
           </DialogFooter>
         </DialogContent>
