@@ -6,6 +6,11 @@ function apiKey(): string {
   return process.env.NOWPAYMENTS_API_KEY ?? "";
 }
 
+function jwtToken(): string {
+  return process.env.NOWPAYMENTS_JWT_TOKEN ?? "";
+}
+
+// Standard fetch with x-api-key (for deposits / payment creation)
 async function npFetch<T>(path: string, options?: RequestInit): Promise<T> {
   const key = apiKey();
   if (!key) throw new Error("NOWPAYMENTS_API_KEY non configurée");
@@ -14,6 +19,31 @@ async function npFetch<T>(path: string, options?: RequestInit): Promise<T> {
     ...options,
     headers: {
       "x-api-key": key,
+      "Content-Type": "application/json",
+      ...(options?.headers ?? {}),
+    },
+  });
+
+  const body = await res.json();
+  if (!res.ok) {
+    const msg = body?.message ?? body?.error ?? JSON.stringify(body);
+    throw new Error(`NowPayments API error ${res.status}: ${msg}`);
+  }
+  return body as T;
+}
+
+// Payout fetch with both x-api-key AND Bearer JWT (required for mass payouts)
+async function npPayoutFetch<T>(path: string, options?: RequestInit): Promise<T> {
+  const key = apiKey();
+  const jwt = jwtToken();
+  if (!key) throw new Error("NOWPAYMENTS_API_KEY non configurée");
+  if (!jwt) throw new Error("NOWPAYMENTS_JWT_TOKEN non configuré — JWT requis pour les paiements sortants NowPayments. Activez Mass Payouts dans votre compte NowPayments.");
+
+  const res = await fetch(`${BASE_URL}${path}`, {
+    ...options,
+    headers: {
+      "x-api-key": key,
+      "Authorization": `Bearer ${jwt}`,
       "Content-Type": "application/json",
       ...(options?.headers ?? {}),
     },
@@ -118,7 +148,7 @@ export async function createNpPayout(params: {
   ipnCallbackUrl: string;
   extraId?: string;
 }): Promise<NpPayoutResult> {
-  return npFetch<NpPayoutResult>("/payout", {
+  return npPayoutFetch<NpPayoutResult>("/payout", {
     method: "POST",
     body: JSON.stringify({
       address:          params.address,

@@ -820,6 +820,39 @@ router.patch("/users/:id/ban", async (req: AuthRequest, res) => {
   }
 });
 
+// POST /admin/transactions/:id/refund-crypto — refund a stuck PENDING USDT crypto withdrawal
+router.post("/transactions/:id/refund-crypto", async (req: AuthRequest, res) => {
+  const txId = parseInt(req.params.id);
+  if (isNaN(txId)) { res.status(400).json({ error: "ValidationError", message: "Invalid ID" }); return; }
+  try {
+    const [tx] = await db.select().from(transactionsTable)
+      .where(and(eq(transactionsTable.id, txId), eq(transactionsTable.status, "PENDING"), eq(transactionsTable.currency, "USDT")))
+      .limit(1);
+    if (!tx) { res.status(404).json({ error: "NotFound", message: "Transaction PENDING USDT introuvable" }); return; }
+
+    const [wallet] = await db.select().from(walletsTable)
+      .where(and(eq(walletsTable.userId, tx.userId), eq(walletsTable.currency, "USDT"))).limit(1);
+    if (!wallet) { res.status(404).json({ error: "NotFound", message: "Portefeuille USDT introuvable" }); return; }
+
+    const refundAmount = parseFloat(tx.amount);
+    await db.update(walletsTable).set({
+      balance: (parseFloat(wallet.balance) + refundAmount).toFixed(8),
+      updatedAt: new Date(),
+    }).where(eq(walletsTable.id, wallet.id));
+    await db.update(transactionsTable).set({
+      status: "FAILED",
+      metadata: { ...(tx.metadata as object ?? {}), refundedAt: new Date().toISOString(), refundedBy: "admin", reason: "Retrait remboursé manuellement" },
+      updatedAt: new Date(),
+    }).where(eq(transactionsTable.id, txId));
+
+    req.log.info({ adminId: req.userId, txId, refundAmount }, "Crypto withdrawal refunded by admin");
+    res.json({ success: true, refundAmount, message: `${refundAmount} USDT remboursés sur le portefeuille de l'utilisateur` });
+  } catch (err) {
+    req.log.error({ err }, "Refund crypto error");
+    res.status(500).json({ error: "InternalError", message: "Erreur lors du remboursement" });
+  }
+});
+
 // PUT /admin/users/:id/wallets/:currency — update a user's wallet balance
 router.put("/users/:id/wallets/:currency", async (req: AuthRequest, res) => {
   const userId = parseInt(req.params.id);

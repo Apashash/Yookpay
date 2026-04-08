@@ -1024,7 +1024,31 @@ router.post("/crypto-withdraw", authMiddleware, transactionRateLimit, async (req
         updatedAt: new Date(),
       }).where(eq(transactionsTable.id, tx.id));
     } catch (npErr) {
-      req.log.warn({ err: npErr }, "NowPayments payout unavailable - pending admin action");
+      const errMsg = npErr instanceof Error ? npErr.message : String(npErr);
+      req.log.error({ err: npErr }, "NowPayments payout failed");
+
+      // Refund the wallet and mark transaction FAILED
+      await db.update(walletsTable).set({
+        balance: usdtWallet.balance, // restore original balance
+        updatedAt: new Date(),
+      }).where(eq(walletsTable.id, usdtWallet.id));
+      await db.update(transactionsTable).set({
+        status: "FAILED",
+        metadata: {
+          provider: "NOWPAYMENTS",
+          address,
+          network,
+          error: errMsg,
+          initiatedAt: new Date().toISOString(),
+        },
+        updatedAt: new Date(),
+      }).where(eq(transactionsTable.id, tx.id));
+
+      res.status(503).json({
+        error: "PayoutFailed",
+        message: "Le retrait crypto est temporairement indisponible. Vos fonds ont été remboursés sur votre portefeuille. Veuillez réessayer plus tard ou contacter le support.",
+      });
+      return;
     }
 
     res.status(201).json({
