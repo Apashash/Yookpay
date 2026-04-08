@@ -33,24 +33,30 @@ export async function setUsdtRate(pair: string, rate: number): Promise<void> {
   `);
 }
 
+// Resolve the best available rate for from→to:
+// 1. Try direct pair (FROM_TO)
+// 2. Try inverse pair (TO_FROM) and take 1/rate
+// 3. Fall back to live FX
+async function resolveRate(from: string, to: string): Promise<number | null> {
+  const direct = await getAdminRate(`${from}_${to}`);
+  if (direct !== null) return direct;
+  const inverse = await getAdminRate(`${to}_${from}`);
+  if (inverse !== null && inverse > 0) return 1 / inverse;
+  return null;
+}
+
 // Convert using admin rate if set, otherwise fall back to live FX
 export async function convertWithAdminRate(amount: number, from: string, to: string): Promise<number> {
-  const pair = `${from}_${to}`;
-  const adminRate = await getAdminRate(pair);
-  if (adminRate !== null) {
-    // adminRate = how many [to] per 1 [from]
-    return amount * adminRate;
-  }
+  const rate = await resolveRate(from, to);
+  if (rate !== null) return amount * rate;
   return convertCurrency(amount, from, to);
 }
 
 // Get the effective rate (admin or live) for 1 [from] → [to]
 export async function getEffectiveRate(from: string, to: string): Promise<number> {
-  const pair = `${from}_${to}`;
-  const adminRate = await getAdminRate(pair);
-  if (adminRate !== null) return adminRate;
-  const converted = await convertCurrency(1, from, to);
-  return converted;
+  const rate = await resolveRate(from, to);
+  if (rate !== null) return rate;
+  return convertCurrency(1, from, to);
 }
 
 // Get the admin-configured exchange fee rate (decimal), fallback 2%
