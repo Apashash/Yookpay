@@ -35,16 +35,24 @@ export function getCountry(code: string) {
 
 /**
  * Normalize a phone number for PixPay:
- * - strips non-digit chars
- * - if already starts with the country dial code digits → keep as-is
- * - otherwise strip leading zeros and prepend dial code digits
- * Example: CI "+225", "0595857098" → "225595857098"
+ * PixPay expects LOCAL format with leading 0 (e.g. "0595857098" for CI)
+ * - strips non-digit chars and spaces
+ * - if number already starts with 0 → keep as-is
+ * - if number was entered without leading 0 (e.g. "595857098") → add it back
+ * - if number starts with country dial code digits → strip them and add local 0
+ * Example: CI "+225", "0595857098" → "0595857098" (unchanged, correct for PixPay)
+ * Example: CI "+225", "225595857098" → "0595857098"
  */
 export function normalizePhone(phone: string, countryCode: string): string {
   const country = COUNTRIES.find((c) => c.code === countryCode);
-  if (!country) return phone.replace(/\D/g, "");
-  const dialDigits = country.dialCode.replace("+", "");
+  const dialDigits = country?.dialCode.replace("+", "") ?? "";
   const digits = phone.replace(/\D/g, "");
-  if (digits.startsWith(dialDigits)) return digits;
-  return dialDigits + digits.replace(/^0+/, "");
+  // If already has country code prefix, strip it and add leading 0
+  if (dialDigits && digits.startsWith(dialDigits)) {
+    return "0" + digits.slice(dialDigits.length);
+  }
+  // If starts with 0 already, return as-is
+  if (digits.startsWith("0")) return digits;
+  // Otherwise prepend 0
+  return "0" + digits;
 }

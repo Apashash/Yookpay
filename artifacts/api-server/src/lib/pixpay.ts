@@ -92,20 +92,39 @@ export async function callPixPayAirtime(params: PixPayCallParams): Promise<PixPa
     statut_code?: number;
   };
 
-  logger.info({ statusCode: res.status, pixpayStatus: json.statut_code, state: json.data?.["state"] }, "PixPay airtime response");
+  const data = json.data ?? {};
+  const pixState = String(data["state"] ?? "").toUpperCase();
+  const pixTransactionId = String(data["transaction_id"] ?? "");
 
+  logger.info(
+    { statusCode: res.status, pixpayStatus: json.statut_code, state: pixState, txId: pixTransactionId },
+    "PixPay airtime response"
+  );
+
+  // PixPay sometimes returns HTTP 500 but still creates the transaction (with FAILED state)
+  // In that case, we return the result with state=FAILED rather than throwing
+  if (pixTransactionId && (pixState === "FAILED" || pixState === "REJECTED")) {
+    logger.warn({ pixTransactionId, pixState, message: json.message }, "PixPay transaction created but immediately FAILED");
+    return {
+      pixTransactionId,
+      state: pixState,
+      smsLink: null,
+      message: json.message ?? "Transaction échouée côté opérateur",
+    };
+  }
+
+  // Hard error: no transaction_id was created at all
   if (!res.ok || json.statut_code === 500) {
     logger.error(
       { statusCode: res.status, pixpayStatutCode: json.statut_code, message: json.message, fullBody: json },
-      "PixPay airtime error"
+      "PixPay airtime hard error — no transaction created"
     );
     throw new Error(json.message ?? `PixPay API error: ${res.status}`);
   }
 
-  const data = json.data ?? {};
   return {
-    pixTransactionId: String(data["transaction_id"] ?? ""),
-    state: String(data["state"] ?? "PENDING1"),
+    pixTransactionId,
+    state: pixState || "PENDING1",
     smsLink: data["sms_link"] ? String(data["sms_link"]) : null,
     message: json.message ?? "Transaction initiée",
   };

@@ -31,12 +31,16 @@ const DIAL_CODES: Record<string, string> = {
   SN: "221", TG: "228",
 };
 
-/** Normalize phone to E.164 digits (no '+') for PixPay */
+/** Normalize phone for PixPay — expects LOCAL format with leading 0 (e.g. "0595857098") */
 function normalizePhone(phone: string, country: string): string {
   const dialDigits = DIAL_CODES[country.toUpperCase()] ?? "";
   const digits = phone.replace(/\D/g, "");
-  if (!dialDigits || digits.startsWith(dialDigits)) return digits;
-  return dialDigits + digits.replace(/^0+/, "");
+  // If sent with country code prefix, strip it and restore leading 0
+  if (dialDigits && digits.startsWith(dialDigits)) {
+    return "0" + digits.slice(dialDigits.length);
+  }
+  if (digits.startsWith("0")) return digits;
+  return "0" + digits;
 }
 
 const OPERATOR_LABELS: Record<string, string> = {
@@ -497,10 +501,13 @@ router.post("/deposit", authMiddleware, transactionRateLimit, async (req: AuthRe
 
     const pixResult = await callPixPayAirtime(pixParams);
 
+    const isPixFailed = ["FAILED", "REJECTED"].includes(pixResult.state.toUpperCase());
+
     await db
       .update(transactionsTable)
       .set({
-        providerReference: pixResult.pixTransactionId,
+        providerReference: pixResult.pixTransactionId || null,
+        status: isPixFailed ? "FAILED" : "PENDING",
         metadata: {
           initiatedAt: new Date().toISOString(),
           feeBearer,
@@ -512,6 +519,20 @@ router.post("/deposit", authMiddleware, transactionRateLimit, async (req: AuthRe
         updatedAt: new Date(),
       })
       .where(eq(transactionsTable.id, tx.id));
+
+    if (isPixFailed) {
+      req.log.warn(
+        { txId: tx.id, pixId: pixResult.pixTransactionId, pixState: pixResult.state },
+        "PixPay deposit immediately FAILED"
+      );
+      res.status(422).json({
+        error: "PixPayFailed",
+        message: pixResult.message
+          ? `Le dépôt a été refusé : ${pixResult.message}. Vérifiez votre numéro de téléphone et réessayez.`
+          : "Le dépôt a été refusé par l'opérateur. Le service peut être temporairement indisponible ou votre numéro de téléphone est invalide.",
+      });
+      return;
+    }
 
     req.log.info(
       { txId: tx.id, pixId: pixResult.pixTransactionId, pixState: pixResult.state },
@@ -669,10 +690,13 @@ router.post("/withdraw", authMiddleware, transactionRateLimit, async (req: AuthR
 
     const pixResult = await callPixPayAirtime(pixParams);
 
+    const isPixFailed = ["FAILED", "REJECTED"].includes(pixResult.state.toUpperCase());
+
     await db
       .update(transactionsTable)
       .set({
-        providerReference: pixResult.pixTransactionId,
+        providerReference: pixResult.pixTransactionId || null,
+        status: isPixFailed ? "FAILED" : "PENDING",
         metadata: {
           initiatedAt: new Date().toISOString(),
           feeBearer,
@@ -684,6 +708,29 @@ router.post("/withdraw", authMiddleware, transactionRateLimit, async (req: AuthR
         updatedAt: new Date(),
       })
       .where(eq(transactionsTable.id, tx.id));
+
+    if (isPixFailed) {
+      // Refund the wallet since the withdrawal failed immediately
+      const [currentWallet] = await db.select().from(walletsTable)
+        .where(and(eq(walletsTable.userId, req.userId!), eq(walletsTable.currency, currency))).limit(1);
+      if (currentWallet) {
+        await db.update(walletsTable).set({
+          balance: (parseFloat(currentWallet.balance) + walletDebit).toFixed(2),
+          updatedAt: new Date(),
+        }).where(eq(walletsTable.id, currentWallet.id));
+      }
+      req.log.warn(
+        { txId: tx.id, pixId: pixResult.pixTransactionId, pixState: pixResult.state },
+        "PixPay withdrawal immediately FAILED — wallet refunded"
+      );
+      res.status(422).json({
+        error: "PixPayFailed",
+        message: pixResult.message
+          ? `Le retrait a été refusé : ${pixResult.message}. Votre solde a été remboursé.`
+          : "Le retrait a été refusé par l'opérateur. Le service peut être temporairement indisponible ou votre numéro de téléphone est invalide. Votre solde a été remboursé.",
+      });
+      return;
+    }
 
     req.log.info(
       { txId: tx.id, pixId: pixResult.pixTransactionId, pixState: pixResult.state },
