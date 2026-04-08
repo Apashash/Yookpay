@@ -81,7 +81,12 @@ export default function AdminExchanges() {
     if (!ratesData?.rates) return;
     const inputs: Record<string, string> = {};
     for (const [k, v] of Object.entries(ratesData.rates)) {
-      inputs[k] = v > 0 ? String(v) : "";
+      if (v > 0) {
+        // EXCHANGE_FEE is stored as decimal (0.06) but displayed as % (6)
+        inputs[k] = k === FEE_KEY ? String(parseFloat((v * 100).toFixed(4))) : String(v);
+      } else {
+        inputs[k] = "";
+      }
     }
     setRateInputs(prev => {
       const hasValues = Object.values(prev).some(v => v !== "");

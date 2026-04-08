@@ -280,7 +280,7 @@ export default function Transfer() {
                       </FormControl>
                       {fxInfo && (
                         <FormDescription className="text-xs">
-                          Minimum : {fxInfo.minAmount.toLocaleString("fr")} {fromCurrency} (≈ 16 000 XAF)
+                          Minimum : {fxInfo.minAmount.toLocaleString("fr")} {fromCurrency} (≈ {(fxInfo.minAmount * fxInfo.rate).toFixed(2)} USDT)
                         </FormDescription>
                       )}
                       <FormMessage />
