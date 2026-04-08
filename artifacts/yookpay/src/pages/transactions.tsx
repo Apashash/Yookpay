@@ -120,6 +120,21 @@ function exchangeTypeLabel(tx: Tx) {
   return `${meta.from} → ${meta.to}`;
 }
 
+function richTypeLabel(tx: Tx): string {
+  const meta = getExchangeMeta(tx);
+  if (meta) return `Échange ${meta.from} → ${meta.to}`;
+  if (tx.operator === "NOWPAYMENTS" || (tx.currency === "USDT" && tx.type === "DEPOSIT")) {
+    return "Dépôt Crypto (USDT)";
+  }
+  if (tx.operator === "CRYPTO" || (tx.currency === "USDT" && tx.type === "WITHDRAWAL")) {
+    return "Retrait Crypto (USDT)";
+  }
+  if (tx.type === "DEPOSIT")    return "Dépôt Mobile Money";
+  if (tx.type === "WITHDRAWAL") return "Retrait Mobile Money";
+  if (tx.type === "TRANSFER")   return "Transfert";
+  return tx.type;
+}
+
 function CopyButton({ text }: { text: string }) {
   const [copied, setCopied] = useState(false);
   return (
@@ -141,104 +156,169 @@ function DetailRow({ label, value }: { label: string; value: React.ReactNode }) 
   );
 }
 
+function SectionTitle({ children }: { children: React.ReactNode }) {
+  return (
+    <p className="text-[11px] font-bold uppercase tracking-widest text-muted-foreground/60 mb-1 mt-4 first:mt-0">
+      {children}
+    </p>
+  );
+}
+
 function TransactionDetail({ tx, open, onClose }: { tx: Tx | null; open: boolean; onClose: () => void }) {
   if (!tx) return null;
 
   const country = tx.country ? COUNTRIES.find((c) => c.code === tx.country) : null;
-  const isDeposit  = tx.type === "DEPOSIT";
   const isWithdraw = tx.type === "WITHDRAWAL";
   const exMeta = getExchangeMeta(tx);
+  const meta = tx.metadata as Record<string, string> | null;
 
-  // Exchange transactions have mixed currencies
-  const feeCurrency = exMeta ? (exMeta.type === "FIAT_TO_USDT" ? exMeta.from : "USDT") : tx.currency;
-  const netCurrency = exMeta ? exMeta.to : tx.currency;
-  const netLabel = exMeta
+  const feeCurrency  = exMeta ? (exMeta.type === "FIAT_TO_USDT" ? exMeta.from : "USDT") : tx.currency;
+  const netCurrency  = exMeta ? exMeta.to : tx.currency;
+  const netLabel     = exMeta
     ? (exMeta.type === "FIAT_TO_USDT" ? "USDT reçus" : "Fiat estimé")
-    : (isDeposit ? "Montant reçu" : isWithdraw ? "Total débité" : "Montant net");
+    : (isWithdraw ? "Total débité" : "Montant reçu");
+
+  const isCrypto    = tx.operator === "NOWPAYMENTS" || tx.operator === "CRYPTO";
+  const cryptoAddr  = meta?.address as string | undefined;
+  const cryptoTxId  = meta?.paymentId ?? meta?.txId as string | undefined;
+  const exchRate    = meta?.exchangeRate as string | undefined;
+
+  const label = richTypeLabel(tx);
 
   return (
     <Sheet open={open} onOpenChange={(v) => !v && onClose()}>
-      <SheetContent side="right" className="w-full sm:max-w-md overflow-y-auto">
-        <SheetHeader className="mb-6">
-          <SheetTitle className="flex items-center gap-2">
-            <TypeIcon type={tx.type} />
-            {exchangeTypeLabel(tx)}
-          </SheetTitle>
-        </SheetHeader>
-
-        <div className="bg-muted rounded-xl p-5 text-center mb-6">
-          <div className="mb-2"><StatusBadge status={tx.status} /></div>
-          <div className="text-3xl font-bold mt-2">
-            <span className={isWithdraw ? "text-rose-600" : "text-emerald-600"}>
+      <SheetContent side="right" className="w-full sm:max-w-[420px] overflow-y-auto p-0">
+        {/* Header gradient */}
+        <div className={`px-5 pt-6 pb-5 ${isWithdraw ? "bg-rose-50 dark:bg-rose-900/20" : "bg-emerald-50 dark:bg-emerald-900/20"}`}>
+          <SheetHeader className="mb-0">
+            <SheetTitle className="flex items-center gap-2 text-base">
+              <TypeIcon type={tx.type} />
+              <span>{label}</span>
+            </SheetTitle>
+          </SheetHeader>
+          <div className="text-center mt-4">
+            <div className="mb-2"><StatusBadge status={tx.status} pulse={tx.status === "PENDING"} /></div>
+            <div className={`text-4xl font-extrabold tabular-nums ${isWithdraw ? "text-rose-600" : "text-emerald-600"}`}>
               {isWithdraw ? "−" : "+"}{fmtSmart(tx.amount, tx.currency)}
-            </span>
-          </div>
-          <div className="text-xs text-muted-foreground mt-1">{formatDate(tx.createdAt)}</div>
-        </div>
-
-        <div className="mb-4">
-          <p className="text-xs text-muted-foreground mb-1">Référence</p>
-          <div className="flex items-center bg-muted rounded-lg px-3 py-2">
-            <span className="font-mono text-xs flex-1 truncate">{tx.reference}</span>
-            <CopyButton text={tx.reference} />
+            </div>
+            <div className="text-xs text-muted-foreground mt-1">{formatDate(tx.createdAt)}</div>
           </div>
         </div>
 
-        <Separator className="my-4" />
+        <div className="px-5 pb-8">
+          {/* ── Références ── */}
+          <SectionTitle>Références</SectionTitle>
 
-        <div>
-          <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-1">Détails financiers</p>
-          {exMeta && (
-            <DetailRow label="Type d'échange" value={
-              <span className="font-semibold text-cyan-700 dark:text-cyan-400">{exMeta.from} → {exMeta.to}</span>
-            } />
-          )}
-          <DetailRow label="Montant brut" value={fmtSmart(tx.amount, tx.currency)} />
-          <DetailRow
-            label={`Frais${tx.feeRate ? ` (${(tx.feeRate * 100).toFixed(1)}%)` : ""}`}
-            value={<span className="text-amber-600">{fmtSmart(tx.fee, feeCurrency)}</span>}
-          />
-          <DetailRow
-            label={netLabel}
-            value={
-              <span className="text-emerald-600 font-semibold">
-                {fmtSmart(tx.netAmount, netCurrency)}
+          <div className="space-y-1">
+            <div className="flex justify-between items-center py-2.5 border-b border-border/50">
+              <span className="text-sm text-muted-foreground">Réf. YookPay</span>
+              <span className="flex items-center gap-1">
+                <span className="font-mono text-xs font-semibold">{tx.reference}</span>
+                <CopyButton text={tx.reference} />
               </span>
-            }
-          />
-        </div>
+            </div>
 
-        <Separator className="my-4" />
+            {cryptoTxId && (
+              <div className="flex justify-between items-center py-2.5 border-b border-border/50">
+                <span className="text-sm text-muted-foreground">ID paiement crypto</span>
+                <span className="flex items-center gap-1">
+                  <span className="font-mono text-xs max-w-[160px] truncate">{cryptoTxId}</span>
+                  <CopyButton text={String(cryptoTxId)} />
+                </span>
+              </div>
+            )}
 
-        <div>
-          <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-1">Informations</p>
-          <DetailRow label="Type" value={exchangeTypeLabel(tx)} />
-          {!exMeta && <DetailRow label="Devise" value={tx.currency} />}
-          {country && (
+            {cryptoAddr && (
+              <div className="flex justify-between items-start py-2.5 border-b border-border/50">
+                <span className="text-sm text-muted-foreground shrink-0 mr-4">Adresse crypto</span>
+                <span className="flex items-center gap-1">
+                  <span className="font-mono text-xs max-w-[160px] truncate">{cryptoAddr}</span>
+                  <CopyButton text={cryptoAddr} />
+                </span>
+              </div>
+            )}
+          </div>
+
+          {/* ── Détails financiers ── */}
+          <SectionTitle>Détails financiers</SectionTitle>
+          <div className="divide-y divide-border/50">
+            {exMeta && (
+              <DetailRow label="Direction d'échange" value={
+                <span className="font-semibold text-cyan-700 dark:text-cyan-400">{exMeta.from} → {exMeta.to}</span>
+              } />
+            )}
+            <DetailRow label="Montant brut" value={
+              <span className="font-mono font-semibold">{fmtSmart(tx.amount, tx.currency)}</span>
+            } />
             <DetailRow
-              label="Pays"
+              label={`Frais${tx.feeRate ? ` (${(tx.feeRate * 100).toFixed(2)}%)` : ""}`}
+              value={<span className="text-amber-600 font-mono">{fmtSmart(tx.fee, feeCurrency)}</span>}
+            />
+            <DetailRow
+              label={netLabel}
               value={
+                <span className={`font-semibold font-mono ${isWithdraw ? "text-rose-600" : "text-emerald-600"}`}>
+                  {fmtSmart(tx.netAmount, netCurrency)}
+                </span>
+              }
+            />
+            {exchRate && (
+              <DetailRow label="Taux de change" value={
+                <span className="font-mono text-xs">
+                  {parseFloat(exchRate).toLocaleString("en-US", { maximumFractionDigits: 4 })} {netCurrency}/{feeCurrency}
+                </span>
+              } />
+            )}
+          </div>
+
+          {/* ── Informations ── */}
+          <SectionTitle>Informations</SectionTitle>
+          <div className="divide-y divide-border/50">
+            <DetailRow label="Type" value={
+              <span className="font-semibold">{label}</span>
+            } />
+
+            {!exMeta && <DetailRow label="Devise" value={tx.currency} />}
+
+            {tx.phone && (
+              <DetailRow label="Numéro de téléphone" value={
+                <span className="flex items-center font-mono font-semibold">
+                  {tx.phone}
+                  <CopyButton text={tx.phone} />
+                </span>
+              } />
+            )}
+
+            {tx.operator && tx.operator !== "EXCHANGE" && !isCrypto && (
+              <DetailRow label="Opérateur" value={
+                <span className="font-semibold">{tx.operator}</span>
+              } />
+            )}
+
+            {isCrypto && (
+              <DetailRow label="Réseau" value="USDT (TRC20 / NowPayments)" />
+            )}
+
+            {country && (
+              <DetailRow label="Pays" value={
                 <span className="flex items-center gap-1.5">
                   <span>{country.flag}</span>
                   <span>{country.name}</span>
                 </span>
-              }
-            />
-          )}
-          {tx.operator && <DetailRow label="Opérateur" value={tx.operator} />}
-          {tx.phone && (
-            <DetailRow
-              label="Numéro"
-              value={
-                <span className="flex items-center font-mono">
-                  {tx.phone}
-                  <CopyButton text={tx.phone} />
-                </span>
-              }
-            />
-          )}
-          <DetailRow label="Date de création" value={formatDate(tx.createdAt)} />
-          <DetailRow label="Dernière mise à jour" value={formatDate(tx.updatedAt)} />
+              } />
+            )}
+
+            <DetailRow label="ID transaction" value={
+              <span className="font-mono text-xs text-muted-foreground">#{tx.id}</span>
+            } />
+
+            <DetailRow label="Date de création" value={
+              <span className="text-xs">{formatDate(tx.createdAt)}</span>
+            } />
+            <DetailRow label="Dernière mise à jour" value={
+              <span className="text-xs">{formatDate(tx.updatedAt)}</span>
+            } />
+          </div>
         </div>
       </SheetContent>
     </Sheet>
@@ -397,8 +477,13 @@ export default function Transactions() {
                         <div className="flex items-center gap-1.5">
                           <TypeIcon type={tx.type} />
                           <div>
-                            <div className="text-sm">{exchangeTypeLabel(tx as unknown as Tx)}</div>
-                            {tx.operator && tx.operator !== "EXCHANGE" && <div className="text-xs text-muted-foreground">{tx.operator}</div>}
+                            <div className="text-sm font-medium">{richTypeLabel(tx as unknown as Tx)}</div>
+                            {tx.operator && tx.operator !== "EXCHANGE" && tx.operator !== "CRYPTO" && tx.operator !== "NOWPAYMENTS" && (
+                              <div className="text-xs text-muted-foreground">{tx.operator}</div>
+                            )}
+                            {tx.phone && (
+                              <div className="text-xs text-muted-foreground font-mono">{tx.phone}</div>
+                            )}
                           </div>
                         </div>
                       </TableCell>

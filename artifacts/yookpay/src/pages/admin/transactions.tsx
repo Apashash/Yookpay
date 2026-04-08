@@ -134,6 +134,30 @@ function typeLabel(t: string) {
   return t;
 }
 
+/** Full human-readable type label for a transaction */
+function richTypeLabel(tx: AdminTx): string {
+  const meta = getExchangeMeta(tx);
+  if (meta) return `Échange ${meta.from} → ${meta.to}`;
+  if (tx.operator === "NOWPAYMENTS" || tx.currency === "USDT" && tx.type === "DEPOSIT") {
+    return "Dépôt Crypto (USDT)";
+  }
+  if (tx.operator === "CRYPTO" || tx.currency === "USDT" && tx.type === "WITHDRAWAL") {
+    return "Retrait Crypto (USDT)";
+  }
+  if (tx.type === "DEPOSIT")    return `Dépôt Mobile Money`;
+  if (tx.type === "WITHDRAWAL") return `Retrait Mobile Money`;
+  if (tx.type === "TRANSFER")   return "Transfert";
+  return tx.type;
+}
+
+/** Short sub-label for the row (operator, phone) */
+function richSubLabel(tx: AdminTx): string | null {
+  if (tx.operator && tx.operator !== "EXCHANGE" && tx.operator !== "CRYPTO" && tx.operator !== "NOWPAYMENTS") {
+    return tx.operator;
+  }
+  return null;
+}
+
 function CopyBtn({ text }: { text: string }) {
   const [ok, setOk] = useState(false);
   return (
@@ -146,92 +170,161 @@ function CopyBtn({ text }: { text: string }) {
   );
 }
 
+function DetailRow({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <div className="flex justify-between gap-2 items-start py-1 border-b border-border/30 last:border-0">
+      <span className="text-muted-foreground flex-shrink-0 text-[11px]">{label}</span>
+      <span className="text-right text-[11px]">{children}</span>
+    </div>
+  );
+}
+
 function ExpandedDetail({ tx }: { tx: AdminTx }) {
   const country = tx.country ? COUNTRIES.find((c) => c.code === tx.country) : null;
   const exMeta = getExchangeMeta(tx);
+  const meta = tx.metadata as Record<string, string> | null;
 
-  // For exchange transactions the currencies are mixed:
-  // Step1 (FIAT→USDT): amount=XAF, fee=XAF, netAmount=USDT
-  // Step2 (USDT→FIAT): amount=USDT, fee=USDT, netAmount=XAF
-  const feeCurrency   = exMeta ? (exMeta.type === "FIAT_TO_USDT" ? exMeta.from : "USDT") : tx.currency;
-  const netCurrency   = exMeta ? exMeta.to : tx.currency;
-  const netLabel      = exMeta ? (exMeta.type === "FIAT_TO_USDT" ? "USDT reçus" : "Fiat estimé") : "Net perçu";
+  const feeCurrency = exMeta ? (exMeta.type === "FIAT_TO_USDT" ? exMeta.from : "USDT") : tx.currency;
+  const netCurrency = exMeta ? exMeta.to : tx.currency;
+  const netLabel    = exMeta ? (exMeta.type === "FIAT_TO_USDT" ? "USDT reçus" : "Fiat estimé") : "Net reçu";
+
+  const isCrypto    = tx.operator === "NOWPAYMENTS" || tx.operator === "CRYPTO";
+  const cryptoAddr  = meta?.address as string | undefined;
+  const cryptoTxId  = meta?.paymentId ?? meta?.txId as string | undefined;
+  const exchangeRate = meta?.exchangeRate as string | undefined;
 
   return (
-    <div className="bg-muted/30 border-t px-4 py-3 grid grid-cols-1 sm:grid-cols-2 gap-x-8 gap-y-1.5 text-xs">
-      {/* Col 1 */}
-      <div className="space-y-1.5">
-        {exMeta && (
-          <div className="flex justify-between gap-2">
-            <span className="text-muted-foreground">Type d'échange</span>
-            <span className="font-semibold text-cyan-700 dark:text-cyan-400">{exMeta.from} → {exMeta.to}</span>
-          </div>
-        )}
-        <div className="flex justify-between gap-2">
-          <span className="text-muted-foreground">Montant brut</span>
-          <span className="font-semibold tabular-nums">{fmt(tx.amount, tx.currency)}</span>
+    <div className="bg-muted/20 border-t border-border/60 px-4 py-3 text-xs">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-8 gap-y-0">
+        {/* ─── Col 1: Transaction info ─── */}
+        <div>
+          <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/60 mb-1.5">Détails de la transaction</p>
+
+          <DetailRow label="Type">
+            <span className="font-semibold text-foreground">{richTypeLabel(tx)}</span>
+          </DetailRow>
+
+          <DetailRow label="Statut">
+            <StatusBadge status={tx.status} />
+          </DetailRow>
+
+          {exMeta && (
+            <DetailRow label="Direction d'échange">
+              <span className="font-semibold text-cyan-700 dark:text-cyan-400">{exMeta.from} → {exMeta.to}</span>
+            </DetailRow>
+          )}
+
+          <DetailRow label="Montant brut">
+            <span className="font-semibold tabular-nums font-mono">{fmt(tx.amount, tx.currency)}</span>
+          </DetailRow>
+
+          <DetailRow label={`Frais${tx.feeRate != null ? ` (${(tx.feeRate * 100).toFixed(2)}%)` : ""}`}>
+            <span className="tabular-nums font-mono text-amber-600">{fmt(tx.fee, feeCurrency)}</span>
+          </DetailRow>
+
+          <DetailRow label={netLabel}>
+            <span className="font-semibold tabular-nums font-mono">{fmt(tx.netAmount, netCurrency)}</span>
+          </DetailRow>
+
+          {exchangeRate && (
+            <DetailRow label="Taux de change">
+              <span className="font-mono">{parseFloat(exchangeRate).toLocaleString("en-US", { maximumFractionDigits: 4 })} {netCurrency}/{feeCurrency}</span>
+            </DetailRow>
+          )}
+
+          {tx.phone && (
+            <DetailRow label="Numéro de téléphone">
+              <span className="font-mono font-semibold">{tx.phone}</span>
+            </DetailRow>
+          )}
+
+          {tx.operator && tx.operator !== "EXCHANGE" && !isCrypto && (
+            <DetailRow label="Opérateur">
+              <span className="font-semibold">{tx.operator}</span>
+            </DetailRow>
+          )}
+
+          {isCrypto && (
+            <DetailRow label="Réseau">
+              <span className="font-semibold">USDT (TRC20 / NowPayments)</span>
+            </DetailRow>
+          )}
+
+          {country && (
+            <DetailRow label="Pays">
+              <span>{country.flag} {country.name}</span>
+            </DetailRow>
+          )}
         </div>
-        <div className="flex justify-between gap-2">
-          <span className="text-muted-foreground">Frais{tx.feeRate != null ? ` (${(tx.feeRate * 100).toFixed(2)}%)` : ""}</span>
-          <span className="tabular-nums text-amber-600">{fmt(tx.fee, feeCurrency)}</span>
-        </div>
-        <div className="flex justify-between gap-2">
-          <span className="text-muted-foreground">{netLabel}</span>
-          <span className="font-semibold tabular-nums">{fmt(tx.netAmount, netCurrency)}</span>
-        </div>
-        {tx.phone && (
-          <div className="flex justify-between gap-2">
-            <span className="text-muted-foreground">Téléphone</span>
-            <span className="font-mono">{tx.phone}</span>
-          </div>
-        )}
-        {country && (
-          <div className="flex justify-between gap-2">
-            <span className="text-muted-foreground">Pays</span>
-            <span>{country.flag} {country.name}</span>
-          </div>
-        )}
-        {tx.operator && tx.operator !== "EXCHANGE" && (
-          <div className="flex justify-between gap-2">
-            <span className="text-muted-foreground">Opérateur</span>
-            <span>{tx.operator}</span>
-          </div>
-        )}
-      </div>
-      {/* Col 2 */}
-      <div className="space-y-1.5">
-        <div className="flex justify-between gap-2 min-w-0">
-          <span className="text-muted-foreground flex-shrink-0">Réf. YookPay</span>
-          <span className="flex items-center gap-1 min-w-0">
-            <span className="font-mono truncate max-w-[180px]">{tx.reference}</span>
-            <CopyBtn text={tx.reference} />
-          </span>
-        </div>
-        {tx.providerReference && (
-          <div className="flex justify-between gap-2 min-w-0">
-            <span className="text-muted-foreground flex-shrink-0">Réf. PixPay</span>
-            <span className="flex items-center gap-1 min-w-0">
-              <span className="font-mono truncate max-w-[180px]">{tx.providerReference}</span>
-              <CopyBtn text={tx.providerReference} />
+
+        {/* ─── Col 2: References & metadata ─── */}
+        <div>
+          <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/60 mb-1.5 mt-3 sm:mt-0">Références</p>
+
+          <DetailRow label="ID transaction">
+            <span className="flex items-center gap-1">
+              <span className="font-mono text-[10px] text-muted-foreground">#{tx.id}</span>
             </span>
-          </div>
-        )}
-        <div className="flex justify-between gap-2">
-          <span className="text-muted-foreground">Créée le</span>
-          <span>{fmtDateFull(tx.createdAt)}</span>
-        </div>
-        <div className="flex justify-between gap-2">
-          <span className="text-muted-foreground">MAJ</span>
-          <span>{fmtDateFull(tx.updatedAt)}</span>
-        </div>
-        <div className="flex justify-between gap-2">
-          <span className="text-muted-foreground">Utilisateur</span>
-          <Link href={`/admin/users/${tx.userId}`} onClick={(e) => e.stopPropagation()}>
-            <span className="flex items-center gap-1 text-primary hover:underline">
-              {tx.userName || tx.userEmail}
-              <ExternalLink className="h-2.5 w-2.5" />
+          </DetailRow>
+
+          <DetailRow label="Réf. YookPay">
+            <span className="flex items-center gap-1">
+              <span className="font-mono text-[10px]">{tx.reference}</span>
+              <CopyBtn text={tx.reference} />
             </span>
-          </Link>
+          </DetailRow>
+
+          {tx.providerReference && (
+            <DetailRow label="Réf. PixPay">
+              <span className="flex items-center gap-1">
+                <span className="font-mono text-[10px]">{tx.providerReference}</span>
+                <CopyBtn text={tx.providerReference} />
+              </span>
+            </DetailRow>
+          )}
+
+          {cryptoTxId && (
+            <DetailRow label="ID paiement crypto">
+              <span className="flex items-center gap-1">
+                <span className="font-mono text-[10px] truncate max-w-[140px]">{cryptoTxId}</span>
+                <CopyBtn text={String(cryptoTxId)} />
+              </span>
+            </DetailRow>
+          )}
+
+          {cryptoAddr && (
+            <DetailRow label="Adresse crypto">
+              <span className="flex items-center gap-1">
+                <span className="font-mono text-[10px] truncate max-w-[140px]">{cryptoAddr}</span>
+                <CopyBtn text={cryptoAddr} />
+              </span>
+            </DetailRow>
+          )}
+
+          <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/60 mb-1.5 mt-3">Utilisateur &amp; dates</p>
+
+          <DetailRow label="Utilisateur">
+            <Link href={`/admin/users/${tx.userId}`} onClick={(e) => e.stopPropagation()}>
+              <span className="flex items-center gap-1 text-primary hover:underline">
+                {tx.userName || tx.userEmail}
+                <ExternalLink className="h-2.5 w-2.5" />
+              </span>
+            </Link>
+          </DetailRow>
+
+          {tx.userEmail && tx.userName && (
+            <DetailRow label="Email">
+              <span className="font-mono text-[10px]">{tx.userEmail}</span>
+            </DetailRow>
+          )}
+
+          <DetailRow label="Créée le">
+            <span>{fmtDateFull(tx.createdAt)}</span>
+          </DetailRow>
+
+          <DetailRow label="Mise à jour">
+            <span>{fmtDateFull(tx.updatedAt)}</span>
+          </DetailRow>
         </div>
       </div>
     </div>
@@ -564,12 +657,24 @@ export default function AdminTransactions() {
                     <div className="min-w-0">
                       <p className="text-xs font-medium truncate leading-tight">{tx.userName || tx.userEmail}</p>
                       <p className="text-[10px] text-muted-foreground font-mono truncate">{tx.reference}</p>
-                      <p className="text-[10px] text-muted-foreground/60 sm:hidden">{fmtDate(tx.createdAt)}</p>
+                      <div className="flex items-center gap-1 sm:hidden mt-0.5">
+                        <TypeDot type={tx.type} />
+                        <span className="text-[10px] text-muted-foreground font-medium truncate">{richTypeLabel(tx)}</span>
+                      </div>
+                      {tx.phone && <p className="text-[10px] text-muted-foreground/70 sm:hidden font-mono">{tx.phone}</p>}
                     </div>
                     {/* Type */}
-                    <div className="hidden sm:flex items-center gap-1">
-                      <TypeDot type={tx.type} />
-                      <span className="text-[10px] font-medium">{exchangeLabel(tx)}</span>
+                    <div className="hidden sm:flex flex-col gap-0">
+                      <div className="flex items-center gap-1">
+                        <TypeDot type={tx.type} />
+                        <span className="text-[10px] font-medium">{richTypeLabel(tx)}</span>
+                      </div>
+                      {richSubLabel(tx) && (
+                        <span className="text-[9px] text-muted-foreground ml-4">{richSubLabel(tx)}</span>
+                      )}
+                      {tx.phone && (
+                        <span className="text-[9px] text-muted-foreground ml-4 font-mono">{tx.phone}</span>
+                      )}
                     </div>
                     {/* Amount */}
                     <div className="hidden sm:block text-right">
