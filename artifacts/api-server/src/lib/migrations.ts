@@ -257,7 +257,7 @@ export async function runStartupMigrations(): Promise<void> {
         updated_at TIMESTAMP DEFAULT NOW()
       )
     `);
-    const usdtPairs = ["USDT_XAF","XAF_USDT","USDT_XOF","XOF_USDT","USDT_CDF","CDF_USDT"];
+    const usdtPairs = ["USDT_XAF","XAF_USDT","USDT_XOF","XOF_USDT","USDT_CDF","CDF_USDT","EXCHANGE_FEE"];
     for (const pair of usdtPairs) {
       await client.query(`INSERT INTO usdt_rates (pair, rate) VALUES ($1, 0) ON CONFLICT (pair) DO NOTHING`, [pair]);
     }

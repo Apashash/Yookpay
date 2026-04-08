@@ -6,7 +6,7 @@ import { authMiddleware, type AuthRequest } from "../middlewares/authMiddleware"
 import { adminMiddleware } from "../middlewares/adminMiddleware";
 import { z } from "zod";
 import { FEE_TABLE, CURRENCY_MAP } from "../services/feeService";
-import { getAllUsdtRates, setUsdtRate, USDT_PAIRS } from "../lib/adminRates";
+import { getAllUsdtRates, setUsdtRate, USDT_PAIRS, getEffectiveRate, getExchangeFeeRate } from "../lib/adminRates";
 
 const router = Router();
 
@@ -1014,7 +1014,12 @@ router.patch("/exchanges/:id/approve", async (req: AuthRequest, res) => {
     }
 
     const ex = result.rows[0] as any;
-    const confirmedAmount = finalAmount ?? parseFloat(ex.net_amount ?? "0");
+
+    // Use current admin rate (if set) to recalculate the fiat amount
+    // net_usdt = gross - fee (already taken at step2 creation)
+    const netUsdt = parseFloat(ex.usdt_amount) - parseFloat(ex.fee_amount ?? "0");
+    const currentRate = await getEffectiveRate("USDT", ex.to_currency);
+    const confirmedAmount = finalAmount ?? parseFloat((netUsdt * currentRate).toFixed(2));
 
     // Credit fiat wallet
     const [fiatWallet] = await db

@@ -48,6 +48,8 @@ const PAIRS = [
   { key: "CDF_USDT", label: "1 CDF = ? USDT", hint: "ex: 0.000351" },
 ];
 
+const FEE_KEY = "EXCHANGE_FEE";
+
 const STATUS_BADGE: Record<string, React.ReactElement> = {
   STEP1_DONE:    <Badge className="bg-cyan-500/15 text-cyan-600 border-cyan-300/40 whitespace-nowrap">Étape 1 ✓</Badge>,
   PENDING_ADMIN: <Badge className="bg-amber-500/15 text-amber-600 border-amber-300/40 whitespace-nowrap">En attente</Badge>,
@@ -121,8 +123,8 @@ export default function AdminExchanges() {
     },
   });
 
-  const saveRate = async (pair: string) => {
-    const val = parseFloat(rateInputs[pair] ?? "0") || 0;
+  const saveRate = async (pair: string, overrideValue?: number) => {
+    const val = overrideValue !== undefined ? overrideValue : (parseFloat(rateInputs[pair] ?? "0") || 0);
     setSavingPair(pair);
     try {
       await customFetch(`/api/admin/usdt-rates/${pair}`, {
@@ -172,10 +174,45 @@ export default function AdminExchanges() {
         <CardHeader>
           <CardTitle className="text-base">Taux de change USDT</CardTitle>
           <CardDescription>
-            Définissez les taux appliqués lors des échanges. Laissez vide (ou 0) pour utiliser le taux marché en temps réel.
+            Définissez les taux et frais appliqués lors des échanges. Laissez 0 pour utiliser le taux marché en temps réel.
           </CardDescription>
         </CardHeader>
-        <CardContent>
+        <CardContent className="space-y-4">
+          {/* Exchange fee */}
+          <div className="rounded-lg border border-amber-200 bg-amber-50 dark:bg-amber-900/20 dark:border-amber-800 p-3">
+            <Label className="text-sm font-semibold text-amber-800 dark:text-amber-300 mb-2 block">
+              Frais d'échange (%) — actuellement {ratesData?.rates?.[FEE_KEY] ? `${(ratesData.rates[FEE_KEY] * 100).toFixed(2)}%` : "2% (défaut)"}
+            </Label>
+            <div className="flex items-end gap-2">
+              <div className="flex-1 min-w-0">
+                <Input
+                  type="number"
+                  step="0.1"
+                  min="0"
+                  max="100"
+                  placeholder="ex: 2 (pour 2%)"
+                  value={rateInputs[FEE_KEY] ?? ""}
+                  onChange={(e) => setRateInputs(prev => ({ ...prev, [FEE_KEY]: e.target.value }))}
+                  className="text-sm"
+                />
+              </div>
+              <Button
+                size="sm"
+                variant="outline"
+                className="shrink-0 border-amber-300"
+                onClick={async () => {
+                  const val = parseFloat(rateInputs[FEE_KEY] ?? "0") || 0;
+                  await saveRate(FEE_KEY, val / 100); // convert % to decimal
+                }}
+                disabled={savingPair === FEE_KEY}
+              >
+                {savingPair === FEE_KEY ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Save className="h-3.5 w-3.5" />}
+              </Button>
+            </div>
+            <p className="text-xs text-amber-700 dark:text-amber-400 mt-1">Entrez 2 pour 2%, 1.5 pour 1.5%, etc. S'applique à tous les échanges USDT.</p>
+          </div>
+
+          {/* Taux de change */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             {PAIRS.map(({ key, label, hint }) => (
               <div key={key} className="flex items-end gap-2">
@@ -204,7 +241,7 @@ export default function AdminExchanges() {
               </div>
             ))}
           </div>
-          <div className="flex flex-wrap gap-2 mt-3">
+          <div className="flex flex-wrap gap-2 mt-1">
             {PAIRS.map(p => {
               const r = ratesData?.rates?.[p.key] ?? 0;
               return (
@@ -340,25 +377,43 @@ export default function AdminExchanges() {
             </DialogDescription>
           </DialogHeader>
 
-          {dialog?.type === "approve" && dialog.exchange && (
-            <div className="rounded-lg bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-800 p-3 text-sm space-y-1">
-              <div className="flex justify-between">
-                <span className="text-muted-foreground">USDT verrouillé</span>
-                <span className="font-mono font-semibold">{dialog.exchange.usdtAmount.toFixed(4)} USDT</span>
+          {dialog?.type === "approve" && dialog.exchange && (() => {
+            const ex = dialog.exchange;
+            const feeRate = ratesData?.rates?.["EXCHANGE_FEE"] ?? 0.02;
+            const netUsdt = ex.usdtAmount - ex.feeAmount;
+            const currentAdminRate = ratesData?.rates?.[`USDT_${ex.toCurrency}`] ?? 0;
+            const effectiveRate = currentAdminRate > 0 ? currentAdminRate : ex.exchangeRate;
+            const finalAmt = netUsdt * effectiveRate;
+            return (
+              <div className="rounded-lg bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-800 p-3 text-sm space-y-1">
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">USDT brut</span>
+                  <span className="font-mono font-semibold">{ex.usdtAmount.toFixed(4)} USDT</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Frais ({(feeRate * 100).toFixed(1)}%)</span>
+                  <span className="text-amber-600 font-mono">−{ex.feeAmount.toFixed(4)} USDT</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">USDT net</span>
+                  <span className="font-mono">{netUsdt.toFixed(4)} USDT</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">
+                    Taux actuel {currentAdminRate > 0 ? <span className="text-emerald-600">(admin)</span> : "(marché)"}
+                  </span>
+                  <span className="font-mono">{effectiveRate.toFixed(2)} {ex.toCurrency}/USDT</span>
+                </div>
+                <Separator className="my-1" />
+                <div className="flex justify-between font-bold text-base">
+                  <span>Wallet crédité</span>
+                  <span className="text-emerald-700 dark:text-emerald-400">
+                    {finalAmt.toLocaleString("fr", { maximumFractionDigits: 0 })} {ex.toCurrency}
+                  </span>
+                </div>
               </div>
-              <div className="flex justify-between">
-                <span className="text-muted-foreground">Taux appliqué</span>
-                <span className="font-mono">{dialog.exchange.exchangeRate.toFixed(2)} {dialog.exchange.toCurrency}/USDT</span>
-              </div>
-              <Separator className="my-1" />
-              <div className="flex justify-between font-bold">
-                <span>Montant crédité</span>
-                <span className="text-emerald-700 dark:text-emerald-400">
-                  ≈ {(dialog.exchange.usdtAmount * dialog.exchange.exchangeRate * 0.98).toLocaleString("fr", { maximumFractionDigits: 0 })} {dialog.exchange.toCurrency}
-                </span>
-              </div>
-            </div>
-          )}
+            );
+          })()}
 
           <div className="space-y-2">
             <Label className="text-sm font-medium">Notes internes <span className="text-muted-foreground">(optionnel)</span></Label>

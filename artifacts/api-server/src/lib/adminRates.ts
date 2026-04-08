@@ -4,8 +4,10 @@ import { db } from "@workspace/db";
 import { sql } from "drizzle-orm";
 import { convertCurrency } from "./fxRates";
 
-export const USDT_PAIRS = ["USDT_XAF","XAF_USDT","USDT_XOF","XOF_USDT","USDT_CDF","CDF_USDT"] as const;
+export const USDT_PAIRS = ["USDT_XAF","XAF_USDT","USDT_XOF","XOF_USDT","USDT_CDF","CDF_USDT","EXCHANGE_FEE"] as const;
 export type UsdtPair = typeof USDT_PAIRS[number];
+
+export const DEFAULT_EXCHANGE_FEE = 0.02; // 2%
 
 export async function getAllUsdtRates(): Promise<Record<string, number>> {
   const result = await db.execute(sql`SELECT pair, rate FROM usdt_rates ORDER BY pair`);
@@ -49,4 +51,10 @@ export async function getEffectiveRate(from: string, to: string): Promise<number
   if (adminRate !== null) return adminRate;
   const converted = await convertCurrency(1, from, to);
   return converted;
+}
+
+// Get the admin-configured exchange fee rate (decimal), fallback 2%
+export async function getExchangeFeeRate(): Promise<number> {
+  const rate = await getAdminRate("EXCHANGE_FEE");
+  return rate !== null ? rate : DEFAULT_EXCHANGE_FEE;
 }

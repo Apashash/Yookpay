@@ -7,7 +7,7 @@ import { authMiddleware, type AuthRequest } from "../middlewares/authMiddleware"
 import { transactionRateLimit } from "../middlewares/rateLimitMiddleware";
 import { createNpPayment, createNpPayout } from "../lib/nowpayments";
 import { convertCurrency, getRateFromUsd, getMinExchangeAmount } from "../lib/fxRates";
-import { convertWithAdminRate, getEffectiveRate } from "../lib/adminRates";
+import { convertWithAdminRate, getEffectiveRate, getExchangeFeeRate } from "../lib/adminRates";
 import {
   calculateFee,
   calculateFeeWithRate,
@@ -1001,8 +1001,8 @@ router.post("/exchange-step1", authMiddleware, transactionRateLimit, async (req:
       return;
     }
 
-    // Exchange fee: 2%
-    const feeRate = 0.02;
+    // Exchange fee: admin-configured or 2% default
+    const feeRate = await getExchangeFeeRate();
     const fee = Math.round(amount * feeRate);
     const netAmount = amount - fee;
 
@@ -1115,8 +1115,8 @@ router.post("/exchange-step2", authMiddleware, transactionRateLimit, async (req:
       return;
     }
 
-    // Fee: 2%
-    const feeRate = 0.02;
+    // Fee: admin-configured or 2% default
+    const feeRate = await getExchangeFeeRate();
     const fee = parseFloat((amountUsdt * feeRate).toFixed(8));
     const netUsdt = amountUsdt - fee;
 
