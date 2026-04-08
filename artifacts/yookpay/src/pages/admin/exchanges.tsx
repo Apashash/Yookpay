@@ -204,13 +204,16 @@ export default function AdminExchanges() {
               </div>
             ))}
           </div>
-          <p className="text-xs text-muted-foreground mt-3">
-            Taux actuels (0 = marché) :&nbsp;
+          <div className="flex flex-wrap gap-2 mt-3">
             {PAIRS.map(p => {
               const r = ratesData?.rates?.[p.key] ?? 0;
-              return <span key={p.key} className="mr-2 font-mono">{p.key}={r > 0 ? r : "auto"}</span>;
+              return (
+                <span key={p.key} className="text-xs font-mono bg-muted px-2 py-0.5 rounded">
+                  {p.key}: <span className={r > 0 ? "text-emerald-600 font-semibold" : "text-muted-foreground"}>{r > 0 ? r : "auto"}</span>
+                </span>
+              );
             })}
-          </p>
+          </div>
         </CardContent>
       </Card>
 
