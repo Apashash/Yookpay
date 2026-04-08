@@ -288,8 +288,8 @@ export default function ApiKeys() {
                   </Button>
                   <CopyButton text={selectedKey.prefix} label="" />
                 </div>
-                <p className="text-xs text-muted-foreground">
-                  Seul le préfixe est visible. La clé complète n'est affichée qu'une fois à la création — régénérez-la pour en obtenir une nouvelle.
+                <p className="text-xs text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800 rounded p-2">
+                  ⚠ La clé complète n'est <strong>jamais stockée</strong> — elle n'est visible qu'une seule fois, à la création ou après régénération. Si vous ne l'avez pas copiée, régénérez la clé pour en obtenir une nouvelle.
                 </p>
               </div>
 
