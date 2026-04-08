@@ -420,21 +420,12 @@ export default function ApiKeys() {
           </DialogHeader>
           <div className="space-y-3 py-2">
             <Label>Votre clé API — {revealedKey?.name}</Label>
-            <div className="flex items-center gap-2">
-              <code className="flex-1 text-xs font-mono bg-muted border rounded px-3 py-3 break-all leading-relaxed">
-                {revealedKey?.rawKey}
-              </code>
-              {revealedKey && (
-                <Button
-                  variant="outline"
-                  size="icon"
-                  className="h-9 w-9 flex-shrink-0"
-                  onClick={() => navigator.clipboard.writeText(revealedKey.rawKey)}
-                >
-                  <Copy className="h-4 w-4" />
-                </Button>
-              )}
-            </div>
+            <code className="block w-full text-xs font-mono bg-muted border rounded px-3 py-3 break-all leading-relaxed select-all">
+              {revealedKey?.rawKey}
+            </code>
+            {revealedKey && (
+              <CopyButton text={revealedKey.rawKey} label="Copier la clé complète" />
+            )}
             <p className="text-xs text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800 rounded p-2">
               ⚠ Stockez cette clé dans un gestionnaire de secrets ou une variable d'environnement sécurisée.
             </p>
