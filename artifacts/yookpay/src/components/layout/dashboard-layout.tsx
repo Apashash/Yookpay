@@ -51,7 +51,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
     { href: "/dashboard",    label: "Dashboard",     icon: LayoutDashboard },
     { href: "/deposit",      label: "Dépôt",          icon: ArrowDownToLine },
     { href: "/withdraw",     label: "Retrait",        icon: ArrowUpFromLine },
-    { href: "/transfer",     label: "Transfert",      icon: ArrowRightLeft },
+    { href: "/transfer",     label: "Échange USDT",   icon: ArrowRightLeft },
     { href: "/transactions", label: "Transactions",   icon: ListOrdered },
     { href: "/services",     label: "Mes Services",   icon: Briefcase },
     { href: "/api-keys",     label: "Clé API",        icon: KeyRound },

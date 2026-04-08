@@ -3,7 +3,6 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import {
-  useCreateTransfer,
   useGetWallets,
   customFetch,
 } from "@workspace/api-client-react";
@@ -41,21 +40,7 @@ import {
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
-import { ArrowRight, ArrowRightLeft, Info, Loader2, Lock } from "lucide-react";
-
-// ─── Tabs ────────────────────────────────────────────────────────────────────
-type Tab = "virement" | "exchange";
-
-// ─── Virement Form ────────────────────────────────────────────────────────────
-const transferSchema = z.object({
-  amount: z.coerce.number().min(100, "Amount must be at least 100"),
-  fromCurrency: z.enum(["XAF", "XOF", "CDF"]),
-  toCurrency: z.enum(["XAF", "XOF", "CDF"]),
-}).refine(data => data.fromCurrency !== data.toCurrency, {
-  message: "Les devises source et destination doivent être différentes",
-  path: ["toCurrency"],
-});
-type TransferFormValues = z.infer<typeof transferSchema>;
+import { ArrowRight, Info, Loader2, Lock } from "lucide-react";
 
 // ─── Exchange Step 1 Form (fiat → USDT) ──────────────────────────────────────
 const step1Schema = z.object({
@@ -80,9 +65,7 @@ export default function Transfer() {
   const [, setLocation] = useLocation();
   const queryClient = useQueryClient();
   const { data: wallets } = useGetWallets();
-  const transferMutation = useCreateTransfer();
 
-  const [tab, setTab] = useState<Tab>("virement");
   const [exchangeStep, setExchangeStep] = useState<1 | 2>(1);
   const [step1Loading, setStep1Loading] = useState(false);
   const [step2Loading, setStep2Loading] = useState(false);
@@ -92,29 +75,6 @@ export default function Transfer() {
   const refreshWallets = useCallback(() => {
     queryClient.invalidateQueries({ queryKey: getGetWalletsQueryKey() });
   }, [queryClient]);
-
-  // ─── Virement form ──────────────────────────────────────────────────────────
-  const transferForm = useForm<TransferFormValues>({
-    resolver: zodResolver(transferSchema),
-    defaultValues: { amount: 1000, fromCurrency: "XAF", toCurrency: "XOF" },
-  });
-
-  const onSubmitTransfer = (data: TransferFormValues) => {
-    transferMutation.mutate(
-      { data },
-      {
-        onSuccess: () => {
-          toast({ title: "Virement effectué", description: "Fonds transférés avec succès." });
-          refreshWallets();
-          setLocation("/dashboard");
-        },
-        onError: (err) => {
-          const raw = (err as any)?.error?.message || (err as any)?.message || "Erreur";
-          toast({ variant: "destructive", title: "Échec du virement", description: raw.replace(/^HTTP\s+\d+\s+[^:]+:\s*/i, "") });
-        },
-      }
-    );
-  };
 
   // ─── Exchange Step 1 form ───────────────────────────────────────────────────
   const step1Form = useForm<Step1Values>({
@@ -222,395 +182,280 @@ export default function Transfer() {
   return (
     <div className="max-w-2xl mx-auto space-y-4">
 
-      {/* ── Tab switcher ── */}
-      <div className="flex rounded-xl border border-input overflow-hidden bg-muted/40 p-1 gap-1">
-        <button
-          type="button"
-          onClick={() => setTab("virement")}
-          className={`flex-1 py-2.5 text-sm font-semibold rounded-lg transition-all ${
-            tab === "virement"
-              ? "bg-background shadow-sm text-foreground"
-              : "text-muted-foreground hover:text-foreground"
-          }`}
-        >
-          Virement Interne
-        </button>
-        <button
-          type="button"
-          onClick={() => setTab("exchange")}
-          className={`flex-1 py-2.5 text-sm font-semibold rounded-lg transition-all flex items-center justify-center gap-2 ${
-            tab === "exchange"
-              ? "bg-background shadow-sm text-foreground"
-              : "text-muted-foreground hover:text-foreground"
-          }`}
-        >
-          <span>Échange USDT</span>
-          <Badge className="bg-cyan-500/15 text-cyan-600 border-cyan-300/40 text-[10px] px-1.5 py-0">CRYPTO</Badge>
-        </button>
+      {/* Page header */}
+      <div className="flex items-center gap-2">
+        <h1 className="text-xl font-bold">Échange USDT</h1>
+        <Badge className="bg-cyan-500/15 text-cyan-600 border-cyan-300/40 text-[10px] px-1.5 py-0">CRYPTO</Badge>
       </div>
 
-      {/* ═══════════════════════════ VIREMENT ═══════════════════════════ */}
-      {tab === "virement" && (
+      {/* Progress stepper */}
+      <div className="flex items-center gap-2 px-1">
+        {[1, 2].map((s) => (
+          <div key={s} className="flex items-center gap-2 flex-1">
+            <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold transition-colors ${
+              exchangeStep === s
+                ? "bg-cyan-600 text-white"
+                : s < exchangeStep
+                ? "bg-emerald-500 text-white"
+                : "bg-muted text-muted-foreground"
+            }`}>
+              {s < exchangeStep ? "✓" : s}
+            </div>
+            <div className="flex-1">
+              <p className={`text-xs font-semibold ${exchangeStep >= s ? "text-foreground" : "text-muted-foreground"}`}>
+                {s === 1 ? "Fiat → USDT" : "USDT → Fiat"}
+              </p>
+              <p className="text-[10px] text-muted-foreground">
+                {s === 1 ? "Automatique" : "Confirmation admin 24-48h"}
+              </p>
+            </div>
+            {s < 2 && <ArrowRight className="w-4 h-4 text-muted-foreground" />}
+          </div>
+        ))}
+      </div>
+
+      {/* USDT wallet balance display */}
+      <div className="rounded-xl bg-gradient-to-br from-cyan-600 via-sky-600 to-blue-700 p-4 text-white flex items-center justify-between">
+        <div>
+          <p className="text-xs text-white/70 font-medium mb-0.5">Wallet USDT</p>
+          <p className="text-2xl font-extrabold">{formatCurrency(usdtBalance, "USDT")}</p>
+        </div>
+        <div className="text-right">
+          <Badge className="bg-white/15 text-white border-white/20">TRC-20</Badge>
+        </div>
+      </div>
+
+      {/* ─── Step 1: Fiat → USDT ─── */}
+      {exchangeStep === 1 && (
         <Card>
           <CardHeader>
-            <CardTitle>Virement entre wallets</CardTitle>
+            <CardTitle className="flex items-center gap-2">
+              <span className="w-6 h-6 rounded-full bg-cyan-600 text-white text-xs flex items-center justify-center font-bold">1</span>
+              Convertir Fiat → USDT
+            </CardTitle>
             <CardDescription>
-              Transférez des fonds entre vos wallets XAF, XOF et CDF instantanément.
+              Vos fonds XAF/XOF/CDF seront immédiatement convertis en USDT au taux du marché.
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <Form {...transferForm}>
-              <form onSubmit={transferForm.handleSubmit(onSubmitTransfer)} className="space-y-6">
-                <div className="flex flex-col md:flex-row gap-6 items-start md:items-center">
-                  <FormField
-                    control={transferForm.control}
-                    name="fromCurrency"
-                    render={({ field }) => (
-                      <FormItem className="flex-1 w-full">
-                        <FormLabel>Depuis</FormLabel>
-                        <Select onValueChange={field.onChange} defaultValue={field.value}>
-                          <FormControl>
-                            <SelectTrigger data-testid="select-from-currency">
-                              <SelectValue placeholder="Source" />
-                            </SelectTrigger>
-                          </FormControl>
-                          <SelectContent modal={false}>
-                            {FIAT_CURRENCIES.map(c => (
-                              <SelectItem key={c.value} value={c.value}>
-                                {c.value} ({formatCurrency(getBalance(c.value), c.value)})
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-
-                  <div className="hidden md:flex mt-6 px-2 text-muted-foreground">
-                    <ArrowRight className="w-6 h-6" />
-                  </div>
-
-                  <FormField
-                    control={transferForm.control}
-                    name="toCurrency"
-                    render={({ field }) => (
-                      <FormItem className="flex-1 w-full">
-                        <FormLabel>Vers</FormLabel>
-                        <Select onValueChange={field.onChange} defaultValue={field.value}>
-                          <FormControl>
-                            <SelectTrigger data-testid="select-to-currency">
-                              <SelectValue placeholder="Destination" />
-                            </SelectTrigger>
-                          </FormControl>
-                          <SelectContent modal={false}>
-                            {FIAT_CURRENCIES.map(c => (
-                              <SelectItem key={c.value} value={c.value}>{c.label}</SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                </div>
-
+            <Form {...step1Form}>
+              <form onSubmit={step1Form.handleSubmit(onSubmitStep1)} className="space-y-5">
                 <FormField
-                  control={transferForm.control}
-                  name="amount"
+                  control={step1Form.control}
+                  name="fromCurrency"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Montant</FormLabel>
-                      <FormControl>
-                        <Input type="number" placeholder="1000" {...field} data-testid="input-amount" />
-                      </FormControl>
+                      <FormLabel>Devise source</FormLabel>
+                      <Select onValueChange={field.onChange} defaultValue={field.value}>
+                        <FormControl>
+                          <SelectTrigger>
+                            <SelectValue />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent modal={false}>
+                          {FIAT_CURRENCIES.map(c => (
+                            <SelectItem key={c.value} value={c.value}>
+                              {c.value} — Solde : {formatCurrency(getBalance(c.value), c.value)}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
                       <FormMessage />
                     </FormItem>
                   )}
                 />
 
-                <Button type="submit" className="w-full" disabled={transferMutation.isPending} data-testid="button-submit-transfer">
-                  {transferMutation.isPending ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Traitement...</> : "Virer les fonds"}
+                <FormField
+                  control={step1Form.control}
+                  name="amount"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Montant à convertir ({fromCurrency})</FormLabel>
+                      <FormControl>
+                        <Input type="number" placeholder="16000" {...field} />
+                      </FormControl>
+                      {fxInfo && (
+                        <FormDescription className="text-xs">
+                          Minimum : {fxInfo.minAmount.toLocaleString("fr")} {fromCurrency} (≈ 16 000 XAF)
+                        </FormDescription>
+                      )}
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                {/* FX Rate Preview */}
+                {(fxLoading || fxInfo) && (
+                  <div className="rounded-lg border border-cyan-200 bg-cyan-50 dark:bg-cyan-900/20 dark:border-cyan-700/30 p-4 space-y-2">
+                    <p className="text-xs font-semibold text-cyan-700 dark:text-cyan-300 uppercase tracking-wide">Aperçu de l'échange</p>
+                    {fxLoading ? (
+                      <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                        <Loader2 className="h-3 w-3 animate-spin" />
+                        Chargement du taux...
+                      </div>
+                    ) : fxInfo && (
+                      <>
+                        <div className="flex justify-between text-sm">
+                          <span className="text-muted-foreground">Taux actuel</span>
+                          <span className="font-mono font-medium">1 USDT ≈ {(1 / fxInfo.rate).toLocaleString("fr", { maximumFractionDigits: 0 })} {fromCurrency}</span>
+                        </div>
+                        <div className="flex justify-between text-sm">
+                          <span className="text-muted-foreground">Frais (2%)</span>
+                          <span className="font-medium text-amber-600">− {(step1Amount * 0.02).toLocaleString("fr", { maximumFractionDigits: 0 })} {fromCurrency}</span>
+                        </div>
+                        <Separator />
+                        <div className="flex justify-between text-sm font-bold">
+                          <span>Vous recevez</span>
+                          <span className="text-cyan-700 dark:text-cyan-300">≈ {(fxInfo.converted * 0.98).toFixed(4)} USDT</span>
+                        </div>
+                      </>
+                    )}
+                  </div>
+                )}
+
+                <Alert className="border-amber-200 bg-amber-50 dark:bg-amber-900/20">
+                  <Info className="h-4 w-4 text-amber-600" />
+                  <AlertDescription className="text-amber-700 dark:text-amber-300 text-xs">
+                    Le USDT sera crédité instantanément sur votre wallet. Vous pourrez ensuite le conserver ou le reconvertir en fiat (étape 2).
+                  </AlertDescription>
+                </Alert>
+
+                <Button type="submit" className="w-full bg-cyan-600 hover:bg-cyan-700" disabled={step1Loading}>
+                  {step1Loading ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Conversion en cours...</> : `Convertir en USDT →`}
                 </Button>
+
+                <button
+                  type="button"
+                  onClick={() => setExchangeStep(2)}
+                  className="w-full text-xs text-muted-foreground hover:text-foreground text-center underline underline-offset-2"
+                >
+                  J'ai déjà des USDT → aller directement à l'étape 2
+                </button>
               </form>
             </Form>
           </CardContent>
         </Card>
       )}
 
-      {/* ═══════════════════════════ EXCHANGE ═══════════════════════════ */}
-      {tab === "exchange" && (
-        <>
-          {/* Progress stepper */}
-          <div className="flex items-center gap-2 px-1">
-            {[1, 2].map((s) => (
-              <div key={s} className="flex items-center gap-2 flex-1">
-                <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold transition-colors ${
-                  exchangeStep === s
-                    ? "bg-cyan-600 text-white"
-                    : s < exchangeStep
-                    ? "bg-emerald-500 text-white"
-                    : "bg-muted text-muted-foreground"
-                }`}>
-                  {s < exchangeStep ? "✓" : s}
+      {/* ─── Step 2: USDT → Fiat ─── */}
+      {exchangeStep === 2 && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <span className="w-6 h-6 rounded-full bg-cyan-600 text-white text-xs flex items-center justify-center font-bold">2</span>
+              Convertir USDT → Fiat
+            </CardTitle>
+            <CardDescription>
+              Votre USDT sera verrouillé. L'admin vous enverra les fonds sur votre numéro mobile money sous 24-48h.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <Form {...step2Form}>
+              <form onSubmit={step2Form.handleSubmit(onSubmitStep2)} className="space-y-5">
+
+                <div className="rounded-lg bg-muted/50 border p-3 flex items-center gap-3">
+                  <Lock className="h-4 w-4 text-amber-500 flex-shrink-0" />
+                  <div className="text-xs text-muted-foreground">
+                    <span className="font-semibold text-foreground">USDT disponible : {usdtBalance.toFixed(4)} USDT</span><br />
+                    Le montant demandé sera bloqué jusqu'à la confirmation de l'admin.
+                  </div>
                 </div>
-                <div className="flex-1">
-                  <p className={`text-xs font-semibold ${exchangeStep >= s ? "text-foreground" : "text-muted-foreground"}`}>
-                    {s === 1 ? "Fiat → USDT" : "USDT → Fiat"}
-                  </p>
-                  <p className="text-[10px] text-muted-foreground">
-                    {s === 1 ? "Automatique" : "Confirmation admin 24-48h"}
-                  </p>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <FormField
+                    control={step2Form.control}
+                    name="amountUsdt"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Montant USDT</FormLabel>
+                        <FormControl>
+                          <Input type="number" step="0.01" placeholder="10" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={step2Form.control}
+                    name="toCurrency"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Devise cible</FormLabel>
+                        <Select onValueChange={field.onChange} defaultValue={field.value}>
+                          <FormControl>
+                            <SelectTrigger>
+                              <SelectValue />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent modal={false}>
+                            {FIAT_CURRENCIES.map(c => (
+                              <SelectItem key={c.value} value={c.value}>{c.value}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
                 </div>
-                {s < 2 && <ArrowRight className="w-4 h-4 text-muted-foreground" />}
-              </div>
-            ))}
-          </div>
 
-          {/* USDT wallet balance display */}
-          <div className="rounded-xl bg-gradient-to-br from-cyan-600 via-sky-600 to-blue-700 p-4 text-white flex items-center justify-between">
-            <div>
-              <p className="text-xs text-white/70 font-medium mb-0.5">Wallet USDT</p>
-              <p className="text-2xl font-extrabold">{formatCurrency(usdtBalance, "USDT")}</p>
-            </div>
-            <div className="text-right">
-              <Badge className="bg-white/15 text-white border-white/20">TRC-20</Badge>
-            </div>
-          </div>
-
-          {/* ─── Step 1: Fiat → USDT ─── */}
-          {exchangeStep === 1 && (
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <span className="w-6 h-6 rounded-full bg-cyan-600 text-white text-xs flex items-center justify-center font-bold">1</span>
-                  Convertir Fiat → USDT
-                </CardTitle>
-                <CardDescription>
-                  Vos fonds XAF/XOF/CDF seront immédiatement convertis en USDT au taux du marché.
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <Form {...step1Form}>
-                  <form onSubmit={step1Form.handleSubmit(onSubmitStep1)} className="space-y-5">
-                    <FormField
-                      control={step1Form.control}
-                      name="fromCurrency"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Devise source</FormLabel>
-                          <Select onValueChange={field.onChange} defaultValue={field.value}>
-                            <FormControl>
-                              <SelectTrigger>
-                                <SelectValue />
-                              </SelectTrigger>
-                            </FormControl>
-                            <SelectContent modal={false}>
-                              {FIAT_CURRENCIES.map(c => (
-                                <SelectItem key={c.value} value={c.value}>
-                                  {c.value} — Solde : {formatCurrency(getBalance(c.value), c.value)}
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-
-                    <FormField
-                      control={step1Form.control}
-                      name="amount"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Montant à convertir ({fromCurrency})</FormLabel>
-                          <FormControl>
-                            <Input type="number" placeholder="16000" {...field} />
-                          </FormControl>
-                          {fxInfo && (
-                            <FormDescription className="text-xs">
-                              Minimum : {fxInfo.minAmount.toLocaleString("fr")} {fromCurrency} (≈ 16 000 XAF)
-                            </FormDescription>
-                          )}
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-
-                    {/* FX Rate Preview */}
-                    {(fxLoading || fxInfo) && (
-                      <div className="rounded-lg border border-cyan-200 bg-cyan-50 dark:bg-cyan-900/20 dark:border-cyan-700/30 p-4 space-y-2">
-                        <p className="text-xs font-semibold text-cyan-700 dark:text-cyan-300 uppercase tracking-wide">Aperçu de l'échange</p>
-                        {fxLoading ? (
-                          <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                            <Loader2 className="h-3 w-3 animate-spin" />
-                            Chargement du taux...
-                          </div>
-                        ) : fxInfo && (
-                          <>
-                            <div className="flex justify-between text-sm">
-                              <span className="text-muted-foreground">Taux actuel</span>
-                              <span className="font-mono font-medium">1 USDT ≈ {(1 / fxInfo.rate).toLocaleString("fr", { maximumFractionDigits: 0 })} {fromCurrency}</span>
-                            </div>
-                            <div className="flex justify-between text-sm">
-                              <span className="text-muted-foreground">Frais (2%)</span>
-                              <span className="font-medium text-amber-600">− {(step1Amount * 0.02).toLocaleString("fr", { maximumFractionDigits: 0 })} {fromCurrency}</span>
-                            </div>
-                            <Separator />
-                            <div className="flex justify-between text-sm font-bold">
-                              <span>Vous recevez</span>
-                              <span className="text-cyan-700 dark:text-cyan-300">≈ {(fxInfo.converted * 0.98).toFixed(4)} USDT</span>
-                            </div>
-                          </>
-                        )}
-                      </div>
-                    )}
-
-                    <Alert className="border-amber-200 bg-amber-50 dark:bg-amber-900/20">
-                      <Info className="h-4 w-4 text-amber-600" />
-                      <AlertDescription className="text-amber-700 dark:text-amber-300 text-xs">
-                        Le USDT sera crédité instantanément sur votre wallet. Vous pourrez ensuite le conserver ou le reconvertir en fiat (étape 2).
-                      </AlertDescription>
-                    </Alert>
-
-                    <Button type="submit" className="w-full bg-cyan-600 hover:bg-cyan-700" disabled={step1Loading}>
-                      {step1Loading ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Conversion en cours...</> : `Convertir en USDT →`}
-                    </Button>
-
-                    <button
-                      type="button"
-                      onClick={() => setExchangeStep(2)}
-                      className="w-full text-xs text-muted-foreground hover:text-foreground text-center underline underline-offset-2"
-                    >
-                      J'ai déjà des USDT → aller directement à l'étape 2
-                    </button>
-                  </form>
-                </Form>
-              </CardContent>
-            </Card>
-          )}
-
-          {/* ─── Step 2: USDT → Fiat ─── */}
-          {exchangeStep === 2 && (
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <span className="w-6 h-6 rounded-full bg-cyan-600 text-white text-xs flex items-center justify-center font-bold">2</span>
-                  Convertir USDT → Fiat
-                </CardTitle>
-                <CardDescription>
-                  Votre USDT sera verrouillé. L'admin vous enverra les fonds sur votre numéro mobile money sous 24-48h.
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <Form {...step2Form}>
-                  <form onSubmit={step2Form.handleSubmit(onSubmitStep2)} className="space-y-5">
-
-                    <div className="rounded-lg bg-muted/50 border p-3 flex items-center gap-3">
-                      <Lock className="h-4 w-4 text-amber-500 flex-shrink-0" />
-                      <div className="text-xs text-muted-foreground">
-                        <span className="font-semibold text-foreground">USDT disponible : {usdtBalance.toFixed(4)} USDT</span><br />
-                        Le montant demandé sera bloqué jusqu'à la confirmation de l'admin.
-                      </div>
+                {fxInfo2 && step2Usdt > 0 && (
+                  <div className="rounded-lg border bg-muted/30 p-4 space-y-2">
+                    <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Estimation</p>
+                    <div className="flex justify-between text-sm">
+                      <span className="text-muted-foreground">Taux indicatif</span>
+                      <span className="font-mono">1 USDT ≈ {(fxInfo2.rate).toLocaleString("fr", { maximumFractionDigits: 0 })} {toCurrency}</span>
                     </div>
-
-                    <div className="grid grid-cols-2 gap-4">
-                      <FormField
-                        control={step2Form.control}
-                        name="amountUsdt"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Montant USDT</FormLabel>
-                            <FormControl>
-                              <Input type="number" step="0.01" placeholder="10" {...field} />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                      <FormField
-                        control={step2Form.control}
-                        name="toCurrency"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Devise cible</FormLabel>
-                            <Select onValueChange={field.onChange} defaultValue={field.value}>
-                              <FormControl>
-                                <SelectTrigger>
-                                  <SelectValue />
-                                </SelectTrigger>
-                              </FormControl>
-                              <SelectContent modal={false}>
-                                {FIAT_CURRENCIES.map(c => (
-                                  <SelectItem key={c.value} value={c.value}>{c.value}</SelectItem>
-                                ))}
-                              </SelectContent>
-                            </Select>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
+                    <div className="flex justify-between text-sm">
+                      <span className="text-muted-foreground">Frais (2%)</span>
+                      <span className="text-amber-600">− {(step2Usdt * 0.02).toFixed(4)} USDT</span>
                     </div>
-
-                    {fxInfo2 && step2Usdt > 0 && (
-                      <div className="rounded-lg border bg-muted/30 p-4 space-y-2">
-                        <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Estimation</p>
-                        <div className="flex justify-between text-sm">
-                          <span className="text-muted-foreground">Taux indicatif</span>
-                          <span className="font-mono">1 USDT ≈ {(fxInfo2.rate).toLocaleString("fr", { maximumFractionDigits: 0 })} {toCurrency}</span>
-                        </div>
-                        <div className="flex justify-between text-sm">
-                          <span className="text-muted-foreground">Frais (2%)</span>
-                          <span className="text-amber-600">− {(step2Usdt * 0.02).toFixed(4)} USDT</span>
-                        </div>
-                        <Separator />
-                        <div className="flex justify-between font-bold text-sm">
-                          <span>Estimation reçue</span>
-                          <span className="text-emerald-600">≈ {(fxInfo2.converted * 0.98).toLocaleString("fr", { maximumFractionDigits: 0 })} {toCurrency}</span>
-                        </div>
-                        <p className="text-[10px] text-muted-foreground">Le montant final peut varier légèrement selon le taux au moment de la confirmation.</p>
-                      </div>
-                    )}
-
-                    <FormField
-                      control={step2Form.control}
-                      name="phone"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Numéro Mobile Money (pour recevoir les fonds)</FormLabel>
-                          <FormControl>
-                            <Input type="tel" placeholder="+237 6XX XXX XXX" {...field} />
-                          </FormControl>
-                          <FormDescription className="text-xs">
-                            L'admin vous enverra les {toCurrency} sur ce numéro via Mobile Money.
-                          </FormDescription>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-
-                    <Alert className="border-amber-200 bg-amber-50 dark:bg-amber-900/20">
-                      <Info className="h-4 w-4 text-amber-600" />
-                      <AlertTitle className="text-amber-700 dark:text-amber-300 text-sm">Confirmation admin requise</AlertTitle>
-                      <AlertDescription className="text-amber-600 dark:text-amber-400 text-xs mt-1">
-                        Votre USDT sera verrouillé immédiatement. L'admin traitera votre demande sous 24-48h. Aucune autre transaction USDT ne sera possible pendant ce délai.
-                      </AlertDescription>
-                    </Alert>
-
-                    <div className="flex gap-3">
-                      <Button type="button" variant="outline" className="flex-1" onClick={() => setExchangeStep(1)}>
-                        ← Retour
-                      </Button>
-                      <Button type="submit" className="flex-1 bg-cyan-600 hover:bg-cyan-700" disabled={step2Loading}>
-                        {step2Loading ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Envoi...</> : "Envoyer la demande"}
-                      </Button>
+                    <Separator />
+                    <div className="flex justify-between font-bold text-sm">
+                      <span>Estimation reçue</span>
+                      <span className="text-emerald-600">≈ {(fxInfo2.converted * 0.98).toLocaleString("fr", { maximumFractionDigits: 0 })} {toCurrency}</span>
                     </div>
-                  </form>
-                </Form>
-              </CardContent>
-            </Card>
-          )}
-        </>
+                    <p className="text-[10px] text-muted-foreground">Le montant final peut varier légèrement selon le taux au moment de la confirmation.</p>
+                  </div>
+                )}
+
+                <FormField
+                  control={step2Form.control}
+                  name="phone"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Numéro Mobile Money (pour recevoir les fonds)</FormLabel>
+                      <FormControl>
+                        <Input type="tel" placeholder="+237 6XX XXX XXX" {...field} />
+                      </FormControl>
+                      <FormDescription className="text-xs">
+                        L'admin vous enverra les {toCurrency} sur ce numéro via Mobile Money.
+                      </FormDescription>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <Alert className="border-amber-200 bg-amber-50 dark:bg-amber-900/20">
+                  <Info className="h-4 w-4 text-amber-600" />
+                  <AlertTitle className="text-amber-700 dark:text-amber-300 text-sm">Confirmation admin requise</AlertTitle>
+                  <AlertDescription className="text-amber-600 dark:text-amber-400 text-xs mt-1">
+                    Votre USDT sera verrouillé immédiatement. L'admin traitera votre demande sous 24-48h. Aucune autre transaction USDT ne sera possible pendant ce délai.
+                  </AlertDescription>
+                </Alert>
+
+                <div className="flex gap-3">
+                  <Button type="button" variant="outline" className="flex-1" onClick={() => setExchangeStep(1)}>
+                    ← Retour
+                  </Button>
+                  <Button type="submit" className="flex-1 bg-cyan-600 hover:bg-cyan-700" disabled={step2Loading}>
+                    {step2Loading ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Envoi...</> : "Envoyer la demande"}
+                  </Button>
+                </div>
+              </form>
+            </Form>
+          </CardContent>
+        </Card>
       )}
     </div>
   );
