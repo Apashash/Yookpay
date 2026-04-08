@@ -229,7 +229,7 @@ export default function ApiKeys() {
 
       {/* ── Key detail dialog ── */}
       <Dialog open={!!selectedKey} onOpenChange={(open) => { if (!open) { setSelectedKey(null); setShowKey(false); } }}>
-        <DialogContent className="sm:max-w-md">
+        <DialogContent className="sm:max-w-md overflow-hidden">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <Key className="h-5 w-5 text-primary" />
@@ -241,29 +241,29 @@ export default function ApiKeys() {
           {selectedKey && (
             <div className="space-y-4 py-1">
               {/* Status */}
-              <div className="flex items-center justify-between text-sm">
-                <span className="text-muted-foreground">Statut</span>
-                <Badge variant="outline" className="text-green-600 border-green-200 bg-green-50 dark:bg-green-950/20 dark:border-green-800">
+              <div className="flex items-center justify-between gap-3 text-sm">
+                <span className="text-muted-foreground shrink-0">Statut</span>
+                <Badge variant="outline" className="text-green-600 border-green-200 bg-green-50 dark:bg-green-950/20 dark:border-green-800 shrink-0">
                   Active
                 </Badge>
               </div>
 
               {/* Created */}
-              <div className="flex items-center justify-between text-sm">
-                <span className="text-muted-foreground flex items-center gap-1.5">
+              <div className="flex items-center justify-between gap-3 text-sm">
+                <span className="text-muted-foreground flex items-center gap-1.5 shrink-0">
                   <Calendar className="h-3.5 w-3.5" />
                   Date de création
                 </span>
-                <span className="font-medium">{fmtDate(selectedKey.createdAt)}</span>
+                <span className="font-medium text-right">{fmtDate(selectedKey.createdAt)}</span>
               </div>
 
               {/* Last used */}
-              <div className="flex items-center justify-between text-sm">
-                <span className="text-muted-foreground flex items-center gap-1.5">
+              <div className="flex items-center justify-between gap-3 text-sm">
+                <span className="text-muted-foreground flex items-center gap-1.5 shrink-0">
                   <Clock className="h-3.5 w-3.5" />
                   Dernière utilisation
                 </span>
-                <span className="font-medium">
+                <span className="font-medium text-right">
                   {selectedKey.lastUsedAt ? fmtDate(selectedKey.lastUsedAt) : "Jamais utilisée"}
                 </span>
               </div>
