@@ -576,24 +576,6 @@ export default function AdminUserDetail() {
         </CardContent>
       </Card>
 
-      {/* Recent transactions */}
-      {recentTransactions.length > 0 && (
-        <Card>
-          <CardHeader><CardTitle className="text-base">Transactions récentes</CardTitle></CardHeader>
-          <CardContent>
-            <div className="space-y-2">
-              {recentTransactions.slice(0, 5).map((tx) => (
-                <div key={tx.id} className="flex items-center justify-between text-sm">
-                  <span className="text-muted-foreground">{TX_LABELS[tx.type] ?? tx.type}</span>
-                  <span className="font-mono font-semibold">{parseFloat(tx.amount).toLocaleString("en-US", { minimumFractionDigits: tx.currency === "USDT" ? 4 : 0, maximumFractionDigits: tx.currency === "USDT" ? 4 : 0 })} {tx.currency}</span>
-                  <Badge variant="outline" className="text-xs">{tx.status}</Badge>
-                  <span className="text-xs text-muted-foreground">{fmtDate(tx.createdAt)}</span>
-                </div>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
-      )}
     </div>
   );
 }
