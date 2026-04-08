@@ -292,32 +292,35 @@ export default function Transfer() {
                         <Loader2 className="h-3 w-3 animate-spin" />
                         Chargement du taux...
                       </div>
-                    ) : fxInfo && (
-                      <>
-                        <div className="flex justify-between text-sm">
-                          <span className="text-muted-foreground">Taux actuel</span>
-                          <span className="font-mono font-medium">1 USDT ≈ {(1 / fxInfo.rate).toLocaleString("fr", { maximumFractionDigits: 0 })} {fromCurrency}</span>
-                        </div>
-                        <div className="flex justify-between text-sm">
-                          <span className="text-muted-foreground">Frais ({((fxInfo.feeRate ?? 0.02) * 100).toFixed(1)}%)</span>
-                          <span className="font-medium text-amber-600">− {(step1Amount * (fxInfo.feeRate ?? 0.02)).toLocaleString("fr", { maximumFractionDigits: 0 })} {fromCurrency}</span>
-                        </div>
-                        <Separator />
-                        <div className="flex justify-between text-sm font-bold">
-                          <span>Vous recevez</span>
-                          <span className="text-cyan-700 dark:text-cyan-300">≈ {(fxInfo.converted * (1 - (fxInfo.feeRate ?? 0.02))).toFixed(4)} USDT</span>
-                        </div>
-                      </>
-                    )}
+                    ) : fxInfo && (() => {
+                        const feeRate = fxInfo.feeRate ?? 0.02;
+                        const grossUsdt = fxInfo.converted;
+                        const feeUsdt = grossUsdt * feeRate;
+                        const netUsdt = grossUsdt - feeUsdt;
+                        return (
+                          <>
+                            <div className="flex justify-between text-sm">
+                              <span className="text-muted-foreground">Taux</span>
+                              <span className="font-mono font-medium">1 USDT = {(1 / fxInfo.rate).toLocaleString("fr", { maximumFractionDigits: 0 })} {fromCurrency}</span>
+                            </div>
+                            <div className="flex justify-between text-sm">
+                              <span className="text-muted-foreground">Montant brut</span>
+                              <span className="font-mono">{grossUsdt.toFixed(4)} USDT</span>
+                            </div>
+                            <div className="flex justify-between text-sm">
+                              <span className="text-muted-foreground">Frais ({(feeRate * 100).toFixed(1)}%)</span>
+                              <span className="font-mono text-amber-600">− {feeUsdt.toFixed(4)} USDT</span>
+                            </div>
+                            <Separator />
+                            <div className="flex justify-between text-sm font-bold">
+                              <span>Reçu dans wallet USDT</span>
+                              <span className="text-cyan-700 dark:text-cyan-300">≈ {netUsdt.toFixed(4)} USDT</span>
+                            </div>
+                          </>
+                        );
+                      })()}
                   </div>
                 )}
-
-                <Alert className="border-amber-200 bg-amber-50 dark:bg-amber-900/20">
-                  <Info className="h-4 w-4 text-amber-600" />
-                  <AlertDescription className="text-amber-700 dark:text-amber-300 text-xs">
-                    Le USDT sera crédité instantanément sur votre wallet. Vous pourrez ensuite le conserver ou le reconvertir en fiat (étape 2).
-                  </AlertDescription>
-                </Alert>
 
                 <Button type="submit" className="w-full bg-cyan-600 hover:bg-cyan-700" disabled={step1Loading}>
                   {step1Loading ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Conversion en cours...</> : `Convertir en USDT →`}
