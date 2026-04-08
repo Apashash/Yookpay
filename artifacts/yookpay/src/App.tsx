@@ -15,6 +15,7 @@ import Transactions from "@/pages/transactions";
 import Settings from "@/pages/settings";
 import Services from "@/pages/services";
 import ApiKeys from "@/pages/api-keys";
+import ApiKeyDetail from "@/pages/api-key-detail";
 import Kyc from "@/pages/kyc";
 import AdminDashboard from "@/pages/admin/index";
 import AdminUsers from "@/pages/admin/users";
@@ -77,6 +78,7 @@ function Router() {
       <Route path="/settings"  component={() => <ProtectedRoute component={Settings} />} />
       <Route path="/services"  component={() => <ProtectedRoute component={Services} />} />
       <Route path="/api-keys"  component={() => <ProtectedRoute component={ApiKeys} />} />
+      <Route path="/api-keys/:id" component={() => <ProtectedRoute component={ApiKeyDetail} />} />
       <Route path="/kyc"              component={() => <ProtectedRoute component={Kyc} />} />
       
       {/* Admin Routes */}

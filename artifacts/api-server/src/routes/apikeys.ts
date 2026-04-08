@@ -79,6 +79,37 @@ router.post("/", authMiddleware, async (req: AuthRequest, res) => {
   }
 });
 
+// GET /api-keys/:id — get a single key (no raw key)
+router.get("/:id", authMiddleware, async (req: AuthRequest, res) => {
+  const id = parseInt(req.params.id);
+  if (isNaN(id)) {
+    res.status(400).json({ error: "ValidationError", message: "Invalid key ID" });
+    return;
+  }
+  try {
+    const [key] = await db
+      .select()
+      .from(apiKeysTable)
+      .where(and(eq(apiKeysTable.id, id), eq(apiKeysTable.userId, req.userId!)))
+      .limit(1);
+    if (!key) {
+      res.status(404).json({ error: "NotFound", message: "Clé introuvable" });
+      return;
+    }
+    res.json({
+      id: key.id,
+      name: key.name,
+      prefix: key.keyPrefix,
+      active: key.active,
+      lastUsedAt: key.lastUsedAt,
+      createdAt: key.createdAt,
+    });
+  } catch (err) {
+    req.log.error({ err }, "Get API key error");
+    res.status(500).json({ error: "InternalError", message: "Failed to get key" });
+  }
+});
+
 // POST /api-keys/:id/regenerate — revoke old key, create new one with same name
 router.post("/:id/regenerate", authMiddleware, async (req: AuthRequest, res) => {
   const id = parseInt(req.params.id);
