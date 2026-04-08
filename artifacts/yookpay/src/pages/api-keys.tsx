@@ -28,7 +28,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
-import { Copy, Plus, Trash2, Key, ShieldCheck, Clock, Check, RefreshCw, Calendar } from "lucide-react";
+import { Copy, Plus, Trash2, Key, ShieldCheck, Clock, Check, RefreshCw, Calendar, Eye, EyeOff } from "lucide-react";
 
 interface ApiKey {
   id: number;
@@ -66,6 +66,7 @@ export default function ApiKeys() {
   const [newKeyDialog, setNewKeyDialog] = useState(false);
   const [revealedKey, setRevealedKey] = useState<{ id: number; rawKey: string; name: string } | null>(null);
   const [selectedKey, setSelectedKey] = useState<ApiKey | null>(null);
+  const [showKey, setShowKey] = useState(false);
 
   const { data, isLoading } = useQuery<{ keys: ApiKey[] }>({
     queryKey: ["api-keys"],
@@ -227,7 +228,7 @@ export default function ApiKeys() {
       )}
 
       {/* ── Key detail dialog ── */}
-      <Dialog open={!!selectedKey} onOpenChange={(open) => !open && setSelectedKey(null)}>
+      <Dialog open={!!selectedKey} onOpenChange={(open) => { if (!open) { setSelectedKey(null); setShowKey(false); } }}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
@@ -269,17 +270,26 @@ export default function ApiKeys() {
 
               <Separator />
 
-              {/* Masked key + copy prefix */}
+              {/* Masked key + eye toggle + copy */}
               <div className="space-y-2">
-                <Label className="text-xs text-muted-foreground">Clé API (masquée)</Label>
+                <Label className="text-xs text-muted-foreground">Clé API</Label>
                 <div className="flex items-center gap-2">
-                  <code className="flex-1 text-xs font-mono bg-muted border rounded px-3 py-2 text-muted-foreground">
-                    {selectedKey.prefix}••••••••••••••••••••
+                  <code className="flex-1 text-xs font-mono bg-muted border rounded px-3 py-2 text-muted-foreground tracking-wide">
+                    {showKey ? selectedKey.prefix : `${selectedKey.prefix.slice(0, 8)}${"•".repeat(28)}`}
                   </code>
-                  <CopyButton text={selectedKey.prefix} label="Copier le préfixe" />
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    className="h-9 w-9 flex-shrink-0"
+                    onClick={() => setShowKey((v) => !v)}
+                    title={showKey ? "Masquer" : "Afficher le préfixe"}
+                  >
+                    {showKey ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                  </Button>
+                  <CopyButton text={selectedKey.prefix} label="" />
                 </div>
                 <p className="text-xs text-muted-foreground">
-                  La clé complète n'est affichée qu'une seule fois à la création. Pour la retrouver, régénérez la clé.
+                  Seul le préfixe est visible. La clé complète n'est affichée qu'une fois à la création — régénérez-la pour en obtenir une nouvelle.
                 </p>
               </div>
 
