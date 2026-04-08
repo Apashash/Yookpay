@@ -97,8 +97,10 @@ export default function Deposit() {
   const [cryptoAmountUsdt, setCryptoAmountUsdt] = useState("20");
   const [cryptoResult, setCryptoResult] = useState<{
     payAddress: string | null; npPaymentId: string | null; payAmount: number; payCurrency: string; network: string; message: string;
+    transaction?: { id: number; status: string };
   } | null>(null);
   const [cryptoLoading, setCryptoLoading] = useState(false);
+  const [cryptoPollStatus, setCryptoPollStatus] = useState<"waiting" | "success" | "failed">("waiting");
   const [copied, setCopied] = useState(false);
 
   // Fetch minimum deposit amount from NowPayments (public endpoint, no auth needed)
@@ -146,6 +148,27 @@ export default function Deposit() {
     qc.invalidateQueries({ queryKey: getGetWalletsQueryKey() });
     qc.invalidateQueries({ queryKey: getGetDashboardSummaryQueryKey() });
   }, [qc]);
+
+  // Crypto deposit polling — check status every 10s after address generated
+  useEffect(() => {
+    if (!cryptoResult?.transaction?.id) return;
+    setCryptoPollStatus("waiting");
+    const txId = cryptoResult.transaction.id;
+    const interval = setInterval(async () => {
+      try {
+        const tx = await customFetch<{ status: string }>(`/api/transactions/${txId}`);
+        if (tx.status === "SUCCESS") {
+          setCryptoPollStatus("success");
+          refreshWallet();
+          clearInterval(interval);
+        } else if (tx.status === "FAILED") {
+          setCryptoPollStatus("failed");
+          clearInterval(interval);
+        }
+      } catch { /* ignore, keep polling */ }
+    }, 10_000);
+    return () => clearInterval(interval);
+  }, [cryptoResult, refreshWallet]);
 
   // Countdown: 8-minute visual timer (server handles actual expiry via background worker)
   useEffect(() => {
@@ -485,8 +508,45 @@ export default function Deposit() {
                   {cryptoLoading ? "Génération en cours..." : "Générer une adresse de dépôt"}
                 </Button>
               </>
+            ) : cryptoPollStatus === "success" ? (
+              /* ── Succès ── */
+              <div className="flex flex-col items-center gap-4 py-6">
+                <div className="h-16 w-16 rounded-full bg-emerald-100 dark:bg-emerald-900/40 flex items-center justify-center">
+                  <Check className="h-9 w-9 text-emerald-600" />
+                </div>
+                <div className="text-center">
+                  <p className="text-lg font-bold text-emerald-700 dark:text-emerald-400">Dépôt réussi !</p>
+                  <p className="text-sm text-muted-foreground mt-1">
+                    {cryptoResult.payAmount} USDT ont été crédités sur votre wallet YookPay.
+                  </p>
+                </div>
+                <Button className="w-full bg-emerald-600 hover:bg-emerald-700" onClick={() => setLocation("/dashboard")}>
+                  Voir mon wallet
+                </Button>
+              </div>
+            ) : cryptoPollStatus === "failed" ? (
+              /* ── Échec ── */
+              <div className="flex flex-col items-center gap-4 py-6">
+                <div className="h-16 w-16 rounded-full bg-red-100 dark:bg-red-900/40 flex items-center justify-center">
+                  <Info className="h-9 w-9 text-red-600" />
+                </div>
+                <div className="text-center">
+                  <p className="text-lg font-bold text-red-700 dark:text-red-400">Dépôt échoué</p>
+                  <p className="text-sm text-muted-foreground mt-1">La transaction n'a pas été confirmée. Contactez le support si des fonds ont été envoyés.</p>
+                </div>
+                <div className="flex gap-2 w-full">
+                  <Button variant="outline" className="flex-1" onClick={() => { setCryptoResult(null); setCryptoAmountUsdt(cryptoMinAmount.toString()); setCryptoPollStatus("waiting"); }}>
+                    Réessayer
+                  </Button>
+                  <Button variant="outline" className="flex-1" onClick={() => setLocation("/dashboard")}>
+                    Dashboard
+                  </Button>
+                </div>
+              </div>
             ) : (
+              /* ── En attente + spinner ── */
               <div className="space-y-4">
+                {/* Adresse */}
                 <div className="rounded-lg bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 p-4">
                   <p className="text-xs text-emerald-700 dark:text-emerald-300 font-semibold uppercase mb-3">Adresse de dépôt USDT TRC-20</p>
                   {cryptoResult.payAddress ? (
@@ -512,14 +572,21 @@ export default function Deposit() {
                     <p className="text-sm text-muted-foreground">{cryptoResult.message}</p>
                   )}
                 </div>
-                <Alert className="border-amber-200 bg-amber-50 dark:bg-amber-900/20">
-                  <Info className="h-4 w-4 text-amber-600" />
-                  <AlertDescription className="text-amber-700 dark:text-amber-400 text-xs">
-                    {cryptoResult.message}
-                  </AlertDescription>
-                </Alert>
+
+                {/* Spinner de vérification */}
+                <div className="flex items-center gap-3 rounded-lg border border-cyan-200 bg-cyan-50 dark:bg-cyan-900/20 p-4">
+                  <svg className="h-5 w-5 text-cyan-600 animate-spin flex-shrink-0" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                  </svg>
+                  <div>
+                    <p className="text-sm font-medium text-cyan-700 dark:text-cyan-300">Vérification du paiement en cours…</p>
+                    <p className="text-xs text-cyan-600 dark:text-cyan-400 mt-0.5">La confirmation blockchain peut prendre 5 à 20 minutes. Cette page se met à jour automatiquement.</p>
+                  </div>
+                </div>
+
                 <div className="flex gap-2">
-                  <Button variant="outline" className="flex-1" onClick={() => { setCryptoResult(null); setCryptoAmountUsdt("10"); }}>
+                  <Button variant="outline" className="flex-1" onClick={() => { setCryptoResult(null); setCryptoAmountUsdt(cryptoMinAmount.toString()); setCryptoPollStatus("waiting"); }}>
                     Nouveau dépôt
                   </Button>
                   <Button variant="outline" className="flex-1" onClick={() => setLocation("/dashboard")}>

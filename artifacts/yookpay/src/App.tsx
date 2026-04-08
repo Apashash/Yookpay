@@ -26,6 +26,7 @@ import AdminPixPayConfig from "@/pages/admin/pixpay-config";
 import AdminTransactions from "@/pages/admin/transactions";
 import AdminTransactionDetail from "@/pages/admin/transaction-detail";
 import AdminExchanges from "@/pages/admin/exchanges";
+import AdminFees from "@/pages/admin/fees";
 import NotFound from "@/pages/not-found";
 
 const queryClient = new QueryClient();
@@ -94,6 +95,7 @@ function Router() {
       <Route path="/admin/transactions" component={() => <AdminRoute component={AdminTransactions} />} />
       <Route path="/admin/transactions/:id" component={() => <AdminRoute component={AdminTransactionDetail} />} />
       <Route path="/admin/exchanges"        component={() => <AdminRoute component={AdminExchanges} />} />
+      <Route path="/admin/fees"             component={() => <AdminRoute component={AdminFees} />} />
 
       <Route component={NotFound} />
     </Switch>

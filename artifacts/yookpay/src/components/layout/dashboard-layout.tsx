@@ -20,6 +20,7 @@ import {
   Zap,
   Coins,
   History,
+  BadgeDollarSign,
 } from "lucide-react";
 import { YookPayLogo } from "@/components/yookpay-logo";
 import { Button } from "@/components/ui/button";
@@ -67,6 +68,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
     { href: "/admin/pixpay-config", label: "PixPay",         icon: Zap },
     { href: "/admin/transactions",  label: "Transactions",   icon: History },
     { href: "/admin/exchanges",     label: "Échanges USDT",  icon: Coins },
+    { href: "/admin/fees",          label: "Grille des frais", icon: BadgeDollarSign },
   ];
 
   const pageTitle = location.split("/")[1] || "Dashboard";
