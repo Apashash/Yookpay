@@ -349,6 +349,14 @@ router.post("/deposit", authMiddleware, transactionRateLimit, async (req: AuthRe
       return;
     }
 
+    // ─── Fee semantics based on feeBearer ───────────────────────────────────
+    // SENDER pays   → user enters NET (wallet credit). Phone is charged net+fee.
+    // RECIPIENT pays → user enters GROSS (phone charge). Wallet credits gross-fee.
+    const feeAmt = feeBreakdown.feeAmount;
+    const pixPayAmount   = feeBearer === "SENDER" ? amount + feeAmt : amount;
+    const walletNetAmount = feeBearer === "SENDER" ? amount          : Math.max(amount - feeAmt, 0);
+    // ─────────────────────────────────────────────────────────────────────────
+
     const [tx] = await db
       .insert(transactionsTable)
       .values({
@@ -356,27 +364,27 @@ router.post("/deposit", authMiddleware, transactionRateLimit, async (req: AuthRe
         type: "DEPOSIT",
         status: "PENDING",
         amount: amount.toString(),
-        fee: feeBreakdown.feeAmount.toString(),
-        netAmount: feeBreakdown.netAmount.toString(),
+        fee: feeAmt.toString(),
+        netAmount: walletNetAmount.toString(),
         currency,
         country,
         operator,
         phone,
         reference,
         feeRate: feeBreakdown.feeRate.toString(),
-        metadata: { initiatedAt: new Date().toISOString(), feeBearer, flow },
+        metadata: { initiatedAt: new Date().toISOString(), feeBearer, flow, pixPayAmount },
       })
       .returning();
 
     req.log.info(
-      { txId: tx.id, reference, userId: req.userId, amount, currency, operator, country, flow },
+      { txId: tx.id, reference, userId: req.userId, amount, pixPayAmount, walletNetAmount, currency, operator, country, flow, feeBearer },
       "Deposit transaction created — calling PixPay"
     );
 
     const pixParams: PixPayCallParams = {
       currency,
       serviceId,
-      amount,
+      amount: pixPayAmount,
       phone,
       customData: reference,
       omOtp,
@@ -490,13 +498,19 @@ router.post("/withdraw", authMiddleware, transactionRateLimit, async (req: AuthR
       };
     }
 
-    // SENDER pays: wallet must cover amount + fee (netAmount)
-    // RECIPIENT pays: wallet only needs to cover the gross amount
-    const requiredBalance = feeBearer === "RECIPIENT" ? feeBreakdown.grossAmount : feeBreakdown.netAmount;
-    if (balance < requiredBalance) {
+    // ─── Fee semantics based on feeBearer ───────────────────────────────────
+    // SENDER pays   → user enters NET (phone receives). Wallet debited net+fee.
+    // RECIPIENT pays → user enters GROSS (wallet debit). Phone receives gross-fee.
+    const wdFeeAmt = feeBreakdown.feeAmount;
+    const walletDebit  = feeBearer === "SENDER" ? amount + wdFeeAmt : amount;
+    const pixPayAmount = feeBearer === "SENDER" ? amount             : Math.max(amount - wdFeeAmt, 0);
+    const phoneNetAmount = pixPayAmount; // what phone actually receives
+    // ─────────────────────────────────────────────────────────────────────────
+
+    if (balance < walletDebit) {
       res.status(400).json({
         error: "InsufficientFunds",
-        message: `Solde du portefeuille ${currency} insuffisant pour couvrir le montant${feeBearer === "SENDER" ? " et les frais" : ""} (nécessaire : ${requiredBalance.toLocaleString("fr-FR")} ${currency}, disponible : ${balance.toLocaleString("fr-FR")} ${currency})`,
+        message: `Solde du portefeuille ${currency} insuffisant pour couvrir le montant${feeBearer === "SENDER" ? " et les frais" : ""} (nécessaire : ${walletDebit.toLocaleString("fr-FR")} ${currency}, disponible : ${balance.toLocaleString("fr-FR")} ${currency})`,
       });
       return;
     }
@@ -513,9 +527,8 @@ router.post("/withdraw", authMiddleware, transactionRateLimit, async (req: AuthR
       return;
     }
 
-    // Deduct wallet BEFORE calling PixPay (IPN will refund on FAILED)
-    const debitAmount = requiredBalance;
-    const newBalance = parseFloat(wallet.balance) - debitAmount;
+    // Deduct wallet BEFORE calling PixPay (IPN/expiry will refund on FAILED)
+    const newBalance = parseFloat(wallet.balance) - walletDebit;
     await db
       .update(walletsTable)
       .set({ balance: Math.max(newBalance, 0).toFixed(2), updatedAt: new Date() })
@@ -528,27 +541,27 @@ router.post("/withdraw", authMiddleware, transactionRateLimit, async (req: AuthR
         type: "WITHDRAWAL",
         status: "PENDING",
         amount: amount.toString(),
-        fee: feeBreakdown.feeAmount.toString(),
-        netAmount: feeBreakdown.netAmount.toString(),
+        fee: wdFeeAmt.toString(),
+        netAmount: phoneNetAmount.toString(), // what phone receives (refund = netAmount + fee = walletDebit)
         currency,
         country,
         operator,
         phone,
         reference,
         feeRate: feeBreakdown.feeRate.toString(),
-        metadata: { initiatedAt: new Date().toISOString(), feeBearer, flow },
+        metadata: { initiatedAt: new Date().toISOString(), feeBearer, flow, walletDebit, pixPayAmount },
       })
       .returning();
 
     req.log.info(
-      { txId: tx.id, reference, userId: req.userId, amount, currency, operator, flow },
+      { txId: tx.id, reference, userId: req.userId, amount, pixPayAmount, walletDebit, currency, operator, flow, feeBearer },
       "Withdrawal transaction created — wallet reserved — calling PixPay"
     );
 
     const pixParams: PixPayCallParams = {
       currency,
       serviceId,
-      amount,
+      amount: pixPayAmount,
       phone,
       customData: reference,
     };

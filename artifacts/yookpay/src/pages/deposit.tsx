@@ -188,7 +188,10 @@ export default function Deposit() {
       phone: data.phone,
       feeBearer,
     };
-    if (data.omOtp) body["omOtp"] = data.omOtp;
+    // Cameroon: OTP silently sent as "0000" — user doesn't need to enter it
+    const isCmOtp = flow === "OTP" && data.country === "CM";
+    const otpToSend = isCmOtp ? "0000" : data.omOtp;
+    if (otpToSend) body["omOtp"] = otpToSend;
 
     depositMutation.mutate(
       { data: body as Parameters<typeof depositMutation.mutate>[0]["data"] },
@@ -482,8 +485,8 @@ export default function Deposit() {
                 />
               )}
 
-              {/* Instructions spécifiques à l'opérateur */}
-              {flow === "OTP" && (
+              {/* Instructions spécifiques à l'opérateur — OTP masqué pour le Cameroun */}
+              {flow === "OTP" && country !== "CM" && (
                 <Alert className="border-orange-200 bg-orange-50 dark:bg-orange-900/20">
                   <Info className="h-4 w-4 text-orange-600" />
                   <AlertTitle className="text-orange-700 dark:text-orange-300">Code OTP Orange Money requis</AlertTitle>
@@ -552,8 +555,8 @@ export default function Deposit() {
                 )}
               />
 
-              {/* OTP Orange Money */}
-              {flow === "OTP" && (
+              {/* OTP Orange Money — masqué pour le Cameroun (envoyé en arrière-plan) */}
+              {flow === "OTP" && country !== "CM" && (
                 <FormField
                   control={form.control}
                   name="omOtp"
@@ -585,8 +588,8 @@ export default function Deposit() {
                   <FormItem>
                     <FormLabel>
                       {feeBearer === "SENDER"
-                        ? `Montant à envoyer${currency ? ` (${currency})` : ""}`
-                        : `Montant que vous souhaitez recevoir${currency ? ` (${currency})` : ""}`}
+                        ? `Montant à créditer dans votre wallet${currency ? ` (${currency})` : ""}`
+                        : `Montant prélevé sur le téléphone${currency ? ` (${currency})` : ""}`}
                     </FormLabel>
                     <FormControl>
                       <Input type="number" placeholder="1000" data-testid="input-amount" {...field} />
@@ -596,55 +599,41 @@ export default function Deposit() {
                 )}
               />
 
-              {/* Résumé frais */}
-              {feePreview && (
-                <div className="bg-muted rounded-lg p-4 space-y-2 border border-border">
-                  <h4 className="text-sm font-semibold mb-3">Résumé de la transaction</h4>
-
-                  {feeBearer === "SENDER" ? (
-                    <>
-                      <div className="flex justify-between text-sm">
-                        <span className="text-muted-foreground">Montant envoyé</span>
-                        <span>{formatCurrency(feePreview.grossAmount, feePreview.currency)}</span>
-                      </div>
-                      <div className="flex justify-between text-sm">
-                        <span className="text-muted-foreground">Frais ({(feePreview.feeRate * 100).toFixed(1)}%) — à charge de l'envoyeur</span>
-                        <span className="text-rose-500">− {formatCurrency(feePreview.feeAmount, feePreview.currency)}</span>
-                      </div>
-                      <Separator className="my-2" />
-                      <div className="flex justify-between font-semibold">
-                        <span>Vous recevrez dans le wallet</span>
-                        <span className="text-emerald-600">{formatCurrency(feePreview.netAmount, feePreview.currency)}</span>
-                      </div>
-                    </>
-                  ) : (
-                    <>
-                      <div className="flex justify-between text-sm">
-                        <span className="text-muted-foreground">Vous souhaitez recevoir</span>
-                        <span>{formatCurrency(feePreview.grossAmount, feePreview.currency)}</span>
-                      </div>
-                      <div className="flex justify-between text-sm">
-                        <span className="text-muted-foreground">Frais ({(feePreview.feeRate * 100).toFixed(1)}%) — à votre charge</span>
-                        <span className="text-rose-500">+ {formatCurrency(feePreview.feeAmount, feePreview.currency)}</span>
-                      </div>
-                      <Separator className="my-2" />
-                      <div className="flex justify-between font-semibold">
-                        <span>L'envoyeur doit envoyer</span>
-                        <span className="text-primary">{formatCurrency(feePreview.grossAmount + feePreview.feeAmount, feePreview.currency)}</span>
-                      </div>
-                      <div className="flex justify-between text-sm text-emerald-600 font-medium">
-                        <span>Vous recevrez dans le wallet</span>
-                        <span>{formatCurrency(feePreview.grossAmount, feePreview.currency)}</span>
-                      </div>
-                    </>
-                  )}
-                </div>
-              )}
+              {/* Résumé frais — calcul correct selon feeBearer */}
+              {feePreview && (() => {
+                const amt = Number(amount) || 0;
+                const fee = Math.max(Math.round(amt * feePreview.feeRate), 1);
+                // SENDER pays: phone charged amt+fee, wallet gets amt (entered)
+                // RECIPIENT pays: phone charged amt (entered), wallet gets amt-fee
+                const phoneCharged  = feeBearer === "SENDER" ? amt + fee : amt;
+                const walletCredit  = feeBearer === "SENDER" ? amt        : Math.max(amt - fee, 0);
+                return (
+                  <div className="bg-muted rounded-lg p-4 space-y-2 border border-border">
+                    <h4 className="text-sm font-semibold mb-3">Résumé de la transaction</h4>
+                    <div className="flex justify-between text-sm">
+                      <span className="text-muted-foreground">Montant prélevé sur le téléphone</span>
+                      <span>{formatCurrency(phoneCharged, feePreview.currency)}</span>
+                    </div>
+                    <div className="flex justify-between text-sm">
+                      <span className="text-muted-foreground">
+                        Frais YookPay ({(feePreview.feeRate * 100).toFixed(1)}%)
+                        {feeBearer === "SENDER" ? " — à charge de l'envoyeur" : " — à votre charge"}
+                      </span>
+                      <span className="text-rose-500">− {formatCurrency(fee, feePreview.currency)}</span>
+                    </div>
+                    <Separator className="my-2" />
+                    <div className="flex justify-between font-semibold">
+                      <span>Vous recevrez dans le wallet</span>
+                      <span className="text-emerald-600">{formatCurrency(walletCredit, feePreview.currency)}</span>
+                    </div>
+                  </div>
+                );
+              })()}
 
               <Button
                 type="submit"
                 className="w-full"
-                disabled={depositMutation.isPending || !country || !operator || (flow === "OTP" && !form.watch("omOtp"))}
+                disabled={depositMutation.isPending || !country || !operator || (flow === "OTP" && country !== "CM" && !form.watch("omOtp"))}
                 data-testid="button-submit-deposit"
               >
                 {depositMutation.isPending ? "Traitement en cours..." : "Initier le dépôt"}
