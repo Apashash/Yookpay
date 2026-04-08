@@ -338,8 +338,9 @@ export default function Deposit() {
               <Alert className="border-amber-200 bg-amber-50 dark:bg-amber-900/20">
                 <Info className="h-4 w-4 text-amber-600" />
                 <AlertTitle className="text-amber-700 dark:text-amber-300">Transaction Orange Money en attente</AlertTitle>
-                <AlertDescription className="text-amber-600 dark:text-amber-400">
-                  Votre dépôt Orange Money a été soumis avec votre OTP. Vous recevrez une confirmation par SMS.
+                <AlertDescription className="text-amber-600 dark:text-amber-400 space-y-1">
+                  <p>Vous recevrez une notification sur votre téléphone — entrez votre PIN pour confirmer la transaction.</p>
+                  <p className="text-xs opacity-80">Si vous ne recevez pas la notification, composez le code USSD de votre opérateur pour confirmer manuellement.</p>
                 </AlertDescription>
               </Alert>
             )}
