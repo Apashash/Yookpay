@@ -193,12 +193,18 @@ export async function runStartupMigrations(): Promise<void> {
         business_category VARCHAR(200),
         business_type VARCHAR(50),
         signature_data TEXT,
+        niu_number VARCHAR(100),
+        rccm_number VARCHAR(100),
         kyb_status VARCHAR(20) NOT NULL DEFAULT 'NOT_STARTED',
         admin_notes TEXT,
         created_at TIMESTAMP DEFAULT NOW() NOT NULL,
         updated_at TIMESTAMP DEFAULT NOW() NOT NULL
       )
     `);
+
+    // 7c. Add niu_number / rccm_number to existing kyc_profiles (idempotent)
+    await client.query(`ALTER TABLE kyc_profiles ADD COLUMN IF NOT EXISTS niu_number VARCHAR(100)`);
+    await client.query(`ALTER TABLE kyc_profiles ADD COLUMN IF NOT EXISTS rccm_number VARCHAR(100)`);
 
     // 7. Create platform_config table (key-value for Wave business_name_id, etc.)
     await client.query(`

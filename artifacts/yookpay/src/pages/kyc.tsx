@@ -164,6 +164,8 @@ const kybSchema = z.object({
   businessWebsite:     z.string().max(500).optional().default(""),
   businessCategory:    z.string().min(1, "Sélectionnez une catégorie"),
   businessType:        z.string().min(1, "Sélectionnez le type d'entreprise"),
+  niuNumber:           z.string().max(100).optional().default(""),
+  rccmNumber:          z.string().max(100).optional().default(""),
 });
 
 type KycValues = z.infer<typeof kycSchema>;
@@ -437,6 +439,8 @@ export default function Kyc() {
     if (profile.businessWebsite)     kybForm.setValue("businessWebsite",     profile.businessWebsite ?? "");
     if (profile.businessCategory)    kybForm.setValue("businessCategory",    profile.businessCategory);
     if (profile.businessType)        kybForm.setValue("businessType",        profile.businessType);
+    if (profile.niuNumber)           kybForm.setValue("niuNumber",           profile.niuNumber ?? "");
+    if (profile.rccmNumber)          kybForm.setValue("rccmNumber",          profile.rccmNumber ?? "");
   }, [profile]);
 
   const kycMutation = useMutation({
@@ -698,6 +702,28 @@ export default function Kyc() {
                     <FormMessage />
                   </FormItem>
                 )} />
+
+                <div className="grid grid-cols-2 gap-4">
+                  <FormField control={kybForm.control} name="niuNumber" render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Numéro NIU</FormLabel>
+                      <FormControl>
+                        <Input placeholder="Ex : P012345678901N" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )} />
+
+                  <FormField control={kybForm.control} name="rccmNumber" render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Numéro RCCM</FormLabel>
+                      <FormControl>
+                        <Input placeholder="Ex : RC/DLA/2023/B/1234" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )} />
+                </div>
               </CardContent>
             </Card>
 

@@ -114,6 +114,8 @@ router.post("/kyb", authMiddleware, async (req: AuthRequest, res) => {
     businessWebsite:     z.string().max(500).optional().default(""),
     businessCategory:    z.string().min(1).max(200),
     businessType:        z.string().min(1).max(50),
+    niuNumber:           z.string().max(100).optional().default(""),
+    rccmNumber:          z.string().max(100).optional().default(""),
     signatureData:       z.string().min(1),
     statutsFile:         z.object({ name: z.string(), data: z.string() }).optional(),
     rccmFile:            z.object({ name: z.string(), data: z.string() }).optional(),
@@ -127,23 +129,25 @@ router.post("/kyb", authMiddleware, async (req: AuthRequest, res) => {
     return;
   }
 
-  const { businessDescription, businessWebsite, businessCategory, businessType, signatureData,
-    statutsFile, rccmFile, niuFile, planLocFile } = parse.data;
+  const { businessDescription, businessWebsite, businessCategory, businessType, niuNumber, rccmNumber,
+    signatureData, statutsFile, rccmFile, niuFile, planLocFile } = parse.data;
   const client = await pool.connect();
 
   try {
     await client.query(`
-      INSERT INTO kyc_profiles (user_id, business_description, business_website, business_category, business_type, signature_data, kyb_status, updated_at)
-      VALUES ($1, $2, $3, $4, $5, $6, 'PENDING', NOW())
+      INSERT INTO kyc_profiles (user_id, business_description, business_website, business_category, business_type, niu_number, rccm_number, signature_data, kyb_status, updated_at)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 'PENDING', NOW())
       ON CONFLICT (user_id) DO UPDATE SET
         business_description = EXCLUDED.business_description,
         business_website = EXCLUDED.business_website,
         business_category = EXCLUDED.business_category,
         business_type = EXCLUDED.business_type,
+        niu_number = EXCLUDED.niu_number,
+        rccm_number = EXCLUDED.rccm_number,
         signature_data = EXCLUDED.signature_data,
         kyb_status = 'PENDING',
         updated_at = NOW()
-    `, [req.userId, businessDescription, businessWebsite, businessCategory, businessType, signatureData]);
+    `, [req.userId, businessDescription, businessWebsite, businessCategory, businessType, niuNumber, rccmNumber, signatureData]);
 
     const kybDocs: Array<[string, typeof statutsFile]> = [
       ["KYB_STATUTS",  statutsFile],

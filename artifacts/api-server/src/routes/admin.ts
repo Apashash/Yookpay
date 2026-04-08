@@ -491,6 +491,8 @@ router.get("/kyc", async (req: AuthRequest, res) => {
         businessWebsite: p.business_website,
         businessCategory: p.business_category,
         businessType: p.business_type,
+        niuNumber: p.niu_number,
+        rccmNumber: p.rccm_number,
         kybStatus: p.kyb_status,
         adminNotes: p.admin_notes,
         createdAt: p.created_at,

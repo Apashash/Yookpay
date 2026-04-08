@@ -26,6 +26,7 @@ interface KycProfile {
   docType: string | null; docNumber: string | null; kycStatus: string;
   businessDescription: string | null; businessWebsite: string | null;
   businessCategory: string | null; businessType: string | null;
+  niuNumber: string | null; rccmNumber: string | null;
   kybStatus: string; adminNotes: string | null; hasSignature: boolean;
   createdAt: string; updatedAt: string;
 }
@@ -315,6 +316,14 @@ export default function AdminKycQueue() {
                 <div className="grid grid-cols-2 gap-x-6 gap-y-2 text-sm">
                   <div><span className="text-muted-foreground">Catégorie</span><p className="font-medium">{selected.profile.businessCategory ?? "—"}</p></div>
                   <div><span className="text-muted-foreground">Forme juridique</span><p className="font-medium">{selected.profile.businessType ?? "—"}</p></div>
+                  <div>
+                    <span className="text-muted-foreground">Numéro NIU</span>
+                    <p className="font-medium font-mono">{selected.profile.niuNumber || "—"}</p>
+                  </div>
+                  <div>
+                    <span className="text-muted-foreground">Numéro RCCM</span>
+                    <p className="font-medium font-mono">{selected.profile.rccmNumber || "—"}</p>
+                  </div>
                   {selected.profile.businessWebsite && (
                     <div className="col-span-2">
                       <span className="text-muted-foreground">Site web</span>
