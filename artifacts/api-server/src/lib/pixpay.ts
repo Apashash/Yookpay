@@ -107,6 +107,60 @@ export async function callPixPayAirtime(params: PixPayCallParams): Promise<PixPa
   };
 }
 
+export type PixPayStatusResult = {
+  transactionId: string;
+  state: string;
+  isSuccess: boolean;
+  isFailed: boolean;
+  isPending: boolean;
+};
+
+/**
+ * Query PixPay for the current status of a transaction.
+ * Endpoint: GET /api_v1/transaction/status?transaction_id=...&api_key=...
+ */
+export async function getPixPayTransactionStatus(
+  pixTransactionId: string,
+  currency: string,
+): Promise<PixPayStatusResult | null> {
+  const apiKey = getApiKey(currency);
+  const baseUrl = getBaseUrl().replace("/transaction", "");
+  const url = `${baseUrl}/transaction/status?transaction_id=${encodeURIComponent(pixTransactionId)}&api_key=${encodeURIComponent(apiKey)}`;
+
+  try {
+    const res = await fetch(url, { signal: AbortSignal.timeout(15_000) });
+    const json = (await res.json()) as {
+      data?: Record<string, unknown>;
+      message?: string;
+      statut_code?: number;
+    };
+
+    if (!res.ok) {
+      logger.warn({ pixTransactionId, status: res.status }, "PixPay status check non-200");
+      return null;
+    }
+
+    const data = json.data ?? {};
+    const rawState = String(data["state"] ?? data["status"] ?? "").toUpperCase().trim();
+
+    const isSuccess = ["SUCCESSFUL", "SUCCESS", "SUCCESSFULL", "COMPLETED"].includes(rawState);
+    const isFailed  = ["FAILED", "REJECTED", "CANCELLED", "ERROR"].includes(rawState);
+
+    logger.info({ pixTransactionId, rawState, isSuccess, isFailed }, "PixPay status check result");
+
+    return {
+      transactionId: pixTransactionId,
+      state: rawState,
+      isSuccess,
+      isFailed,
+      isPending: !isSuccess && !isFailed,
+    };
+  } catch (err) {
+    logger.warn({ err, pixTransactionId }, "PixPay status check error");
+    return null;
+  }
+}
+
 export async function confirmQmoney(pixTransactionId: string, otp: string): Promise<void> {
   const confirmUrl =
     process.env["PIXPAY_ENV"] === "production"

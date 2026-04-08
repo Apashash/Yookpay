@@ -14,7 +14,7 @@ import {
   type Operator,
   type TransactionType,
 } from "../services/feeService";
-import { callPixPayAirtime, getOperatorFlow, type PixPayCallParams } from "../lib/pixpay";
+import { callPixPayAirtime, getOperatorFlow, getPixPayTransactionStatus, type PixPayCallParams } from "../lib/pixpay";
 import { z } from "zod";
 
 const OPERATOR_LABELS: Record<string, string> = {
@@ -157,6 +157,74 @@ router.get("/:id", authMiddleware, async (req: AuthRequest, res) => {
       res.status(404).json({ error: "NotFound", message: "Transaction not found" });
       return;
     }
+
+    // Auto-sync with PixPay when transaction is stuck in PENDING and we have a provider reference
+    if (tx.status === "PENDING" && tx.providerReference) {
+      try {
+        const pixStatus = await getPixPayTransactionStatus(tx.providerReference, tx.currency);
+        if (pixStatus && (pixStatus.isSuccess || pixStatus.isFailed)) {
+          const newStatus = pixStatus.isSuccess ? "SUCCESS" : "FAILED";
+          req.log.info({ txId: tx.id, pixStatus: pixStatus.state, newStatus }, "Auto-sync from PixPay status check");
+
+          await db
+            .update(transactionsTable)
+            .set({
+              status: newStatus,
+              metadata: {
+                ...(tx.metadata as object ?? {}),
+                pixStateSynced: pixStatus.state,
+                syncedAt: new Date().toISOString(),
+              },
+              updatedAt: new Date(),
+            })
+            .where(eq(transactionsTable.id, tx.id));
+
+          if (pixStatus.isSuccess && tx.type === "DEPOSIT") {
+            const [wallet] = await db
+              .select()
+              .from(walletsTable)
+              .where(and(eq(walletsTable.userId, tx.userId), eq(walletsTable.currency, tx.currency)))
+              .limit(1);
+            if (wallet) {
+              const credit = parseFloat(tx.netAmount);
+              await db
+                .update(walletsTable)
+                .set({ balance: (parseFloat(wallet.balance) + credit).toFixed(2), updatedAt: new Date() })
+                .where(eq(walletsTable.id, wallet.id));
+              req.log.info({ txId: tx.id, credit, currency: tx.currency }, "Auto-sync DEPOSIT credited wallet");
+            }
+          } else if (pixStatus.isFailed && tx.type === "WITHDRAWAL") {
+            const [wallet] = await db
+              .select()
+              .from(walletsTable)
+              .where(and(eq(walletsTable.userId, tx.userId), eq(walletsTable.currency, tx.currency)))
+              .limit(1);
+            if (wallet) {
+              const refund = parseFloat(tx.netAmount) + parseFloat(tx.fee);
+              await db
+                .update(walletsTable)
+                .set({ balance: (parseFloat(wallet.balance) + refund).toFixed(2), updatedAt: new Date() })
+                .where(eq(walletsTable.id, wallet.id));
+              req.log.info({ txId: tx.id, refund, currency: tx.currency }, "Auto-sync WITHDRAWAL FAILED refunded wallet");
+            }
+          }
+
+          // Re-fetch the updated transaction
+          const [updated] = await db
+            .select()
+            .from(transactionsTable)
+            .where(eq(transactionsTable.id, id))
+            .limit(1);
+          if (updated) {
+            res.json(formatTx(updated));
+            return;
+          }
+        }
+      } catch (syncErr) {
+        req.log.warn({ syncErr, txId: tx.id }, "PixPay auto-sync failed — returning current status");
+      }
+    }
+
     res.json(formatTx(tx));
   } catch (err) {
     req.log.error({ err }, "Get transaction by id error");

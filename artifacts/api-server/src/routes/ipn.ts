@@ -29,9 +29,11 @@ router.post("/pixpay", async (req: Request, res: Response) => {
     return;
   }
 
-  const state = (body.state ?? "").toUpperCase();
-  const isSuccess = state === "SUCCESS" || state === "SUCCESSFULL" || state === "COMPLETED";
-  const isFailed = state === "FAILED" || state === "REJECTED" || state === "CANCELLED";
+  const state = (body.state ?? "").toUpperCase().trim();
+  // PixPay confirmed states: "SUCCESSFUL" (main), "SUCCESS", "SUCCESSFULL" (legacy typo), "COMPLETED"
+  const isSuccess = state === "SUCCESSFUL" || state === "SUCCESS" || state === "SUCCESSFULL" || state === "COMPLETED";
+  // PixPay failure states
+  const isFailed  = state === "FAILED" || state === "REJECTED" || state === "CANCELLED" || state === "ERROR";
 
   if (!isSuccess && !isFailed) {
     res.status(200).json({ ok: true, note: "intermediate_state_ignored" });
