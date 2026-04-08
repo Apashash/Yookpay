@@ -69,9 +69,15 @@ type DepositResult = {
 
 type PollStatus = "PENDING" | "SUCCESS" | "FAILED";
 
-const COUNTDOWN_SECONDS = 30;
+const COUNTDOWN_SECONDS = 8 * 60; // 8 minutes
 const CIRCLE_RADIUS = 52;
 const CIRCLE_CIRCUMFERENCE = 2 * Math.PI * CIRCLE_RADIUS;
+
+function formatMMSS(seconds: number): string {
+  const m = Math.floor(seconds / 60);
+  const s = seconds % 60;
+  return `${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`;
+}
 
 export default function Deposit() {
   const { toast } = useToast();
@@ -89,7 +95,7 @@ export default function Deposit() {
     qc.invalidateQueries({ queryKey: getGetDashboardSummaryQueryKey() });
   }, [qc]);
 
-  // Countdown: 30s timer for deposit confirmation
+  // Countdown: 8-minute visual timer (server handles actual expiry via background worker)
   useEffect(() => {
     if (!pendingResult) return;
     setPollStatus("PENDING");
@@ -98,7 +104,6 @@ export default function Deposit() {
       setTimeLeft((prev) => {
         if (prev <= 1) {
           clearInterval(timer);
-          setPollStatus((ps) => (ps === "PENDING" ? "FAILED" : ps));
           return 0;
         }
         return prev - 1;
@@ -227,9 +232,9 @@ export default function Deposit() {
     const circleColor =
       pollStatus === "SUCCESS" ? "#22c55e"
       : pollStatus === "FAILED" ? "#ef4444"
-      : timeLeft > 15 ? "#22c55e"
-      : timeLeft > 7 ? "#f59e0b"
-      : "#ef4444";
+      : timeLeft > 240 ? "#22c55e"   // > 4 min → vert
+      : timeLeft > 60  ? "#f59e0b"   // > 1 min → orange
+      : "#ef4444";                    // ≤ 1 min → rouge
 
     return (
       <div className="max-w-2xl mx-auto">
@@ -254,7 +259,7 @@ export default function Deposit() {
                 ? "Votre wallet a été crédité avec succès."
                 : pollStatus === "FAILED"
                 ? "Le paiement n'a pas été validé dans le délai imparti. Votre wallet n'a pas été débité."
-                : "Confirmez le paiement sur votre téléphone. Le statut est mis à jour automatiquement."}
+                : "Confirmez le paiement sur votre téléphone. Le statut se met à jour automatiquement."}
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
@@ -262,24 +267,37 @@ export default function Deposit() {
             {/* SVG Countdown Circle — visible only while PENDING */}
             {pollStatus === "PENDING" && (
               <div className="flex flex-col items-center gap-1 my-2">
-                <svg width="120" height="120" viewBox="0 0 120 120">
-                  <circle cx="60" cy="60" r={CIRCLE_RADIUS} fill="none" stroke="#e5e7eb" strokeWidth="8" />
+                <svg width="140" height="140" viewBox="0 0 140 140">
+                  <circle cx="70" cy="70" r={CIRCLE_RADIUS} fill="none" stroke="#e5e7eb" strokeWidth="8" />
                   <circle
-                    cx="60" cy="60" r={CIRCLE_RADIUS}
+                    cx="70" cy="70" r={CIRCLE_RADIUS}
                     fill="none"
                     stroke={circleColor}
                     strokeWidth="8"
                     strokeDasharray={CIRCLE_CIRCUMFERENCE}
                     strokeDashoffset={dashOffset}
                     strokeLinecap="round"
-                    transform="rotate(-90 60 60)"
+                    transform="rotate(-90 70 70)"
                     style={{ transition: "stroke-dashoffset 1s linear, stroke 0.5s ease" }}
                   />
-                  <text x="60" y="62" textAnchor="middle" fontSize="26" fontWeight="bold" fill="currentColor">{timeLeft}</text>
-                  <text x="60" y="78" textAnchor="middle" fontSize="10" fill="#9ca3af">secondes</text>
+                  <text x="70" y="66" textAnchor="middle" fontSize="22" fontWeight="bold" fill="currentColor">
+                    {formatMMSS(timeLeft)}
+                  </text>
+                  <text x="70" y="84" textAnchor="middle" fontSize="10" fill="#9ca3af">restantes</text>
                 </svg>
-                <p className="text-xs text-muted-foreground">Vérification automatique toutes les 3s</p>
+                <p className="text-xs text-muted-foreground text-center">Vérification automatique toutes les 3s</p>
               </div>
+            )}
+
+            {/* Safe navigation notice */}
+            {pollStatus === "PENDING" && (
+              <Alert className="border-emerald-200 bg-emerald-50 dark:bg-emerald-900/20">
+                <Info className="h-4 w-4 text-emerald-600" />
+                <AlertTitle className="text-emerald-700 dark:text-emerald-300 text-sm">Vous pouvez quitter cette page</AlertTitle>
+                <AlertDescription className="text-emerald-600 dark:text-emerald-400 text-xs mt-0.5">
+                  Votre paiement continuera d'être traité en arrière-plan. Consultez vos transactions pour suivre l'état.
+                </AlertDescription>
+              </Alert>
             )}
 
             {/* Wave SMS link */}

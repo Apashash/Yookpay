@@ -1,6 +1,7 @@
 import app from "./app";
 import { logger } from "./lib/logger";
 import { runStartupMigrations } from "./lib/migrations";
+import { startExpiryWorker } from "./lib/expiryWorker";
 
 const rawPort = process.env["PORT"];
 
@@ -24,5 +25,6 @@ runStartupMigrations().then(() => {
     }
 
     logger.info({ port }, "Server listening");
+    startExpiryWorker();
   });
 });
