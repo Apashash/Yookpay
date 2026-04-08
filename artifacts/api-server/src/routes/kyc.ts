@@ -21,7 +21,24 @@ router.get("/", authMiddleware, async (req: AuthRequest, res) => {
       `SELECT * FROM kyc_profiles WHERE user_id = $1 LIMIT 1`,
       [req.userId]
     );
-    const profile = profileRes.rows[0] ?? null;
+    const raw = profileRes.rows[0] ?? null;
+    const profile = raw ? {
+      userId:              raw.user_id,
+      fullName:            raw.full_name,
+      dateOfBirth:         raw.date_of_birth,
+      docType:             raw.doc_type,
+      docNumber:           raw.doc_number,
+      kycStatus:           raw.kyc_status,
+      kybStatus:           raw.kyb_status,
+      businessDescription: raw.business_description,
+      businessWebsite:     raw.business_website,
+      businessCategory:    raw.business_category,
+      businessType:        raw.business_type,
+      niuNumber:           raw.niu_number,
+      rccmNumber:          raw.rccm_number,
+      signatureData:       raw.signature_data,
+      adminNotes:          raw.admin_notes,
+    } : null;
 
     const docs = await db
       .select({

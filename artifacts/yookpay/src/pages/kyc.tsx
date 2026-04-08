@@ -444,10 +444,10 @@ export default function Kyc() {
     if (profile.businessType)        kybForm.setValue("businessType",        profile.businessType);
     if (profile.niuNumber)           kybForm.setValue("niuNumber",           profile.niuNumber ?? "");
     if (profile.rccmNumber)          kybForm.setValue("rccmNumber",          profile.rccmNumber ?? "");
-    // Auto-jump to step 2 if identity already saved (first load only)
+    // Auto-jump to step 2 if identity already registered (regardless of status)
     if (!stepAutoSet) {
       setStepAutoSet(true);
-      if (profile.fullName && profile.kycStatus !== "NOT_STARTED") {
+      if (profile.fullName) {
         setStep(2);
       }
     }
