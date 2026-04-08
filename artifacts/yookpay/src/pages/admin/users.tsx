@@ -214,7 +214,7 @@ export default function AdminUsers() {
                     {activeWallets.length > 0 ? (
                       activeWallets.map((w) => (
                         <span key={w.currency} className="text-xs font-semibold tabular-nums text-foreground">
-                          {parseFloat(w.balance).toLocaleString("fr-FR")} <span className="text-muted-foreground font-normal">{w.currency}</span>
+                          {parseFloat(w.balance).toLocaleString("en-US", { minimumFractionDigits: w.currency === "USDT" ? 4 : 0, maximumFractionDigits: w.currency === "USDT" ? 4 : 0 })} <span className="text-muted-foreground font-normal">{w.currency}</span>
                         </span>
                       ))
                     ) : (

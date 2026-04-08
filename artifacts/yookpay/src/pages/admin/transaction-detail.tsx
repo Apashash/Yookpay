@@ -35,7 +35,8 @@ interface AdminTxDetail {
 }
 
 function formatAmount(n: number, currency: string) {
-  return n.toLocaleString("fr-FR", { maximumFractionDigits: 0 }) + " " + currency;
+  const dec = currency === "USDT" ? 4 : 0;
+  return n.toLocaleString("en-US", { minimumFractionDigits: dec, maximumFractionDigits: dec }) + " " + currency;
 }
 
 function fmtDate(d: string) {

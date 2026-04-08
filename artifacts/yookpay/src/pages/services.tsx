@@ -42,8 +42,8 @@ function pct(rate: number) {
 }
 
 function fmtFee(entry: FeeEntry, currency: string) {
-  const max = entry.maxFee !== null ? ` – max ${entry.maxFee.toLocaleString("fr-FR")} ${currency}` : "";
-  return `min ${entry.minFee.toLocaleString("fr-FR")} ${currency}${max}`;
+  const max = entry.maxFee !== null ? ` – max ${entry.maxFee.toLocaleString("en-US")} ${currency}` : "";
+  return `min ${entry.minFee.toLocaleString("en-US")} ${currency}${max}`;
 }
 
 function FeeCell({ entry, currency }: { entry: FeeEntry; currency: string }) {

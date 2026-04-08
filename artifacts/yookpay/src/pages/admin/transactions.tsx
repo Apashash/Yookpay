@@ -45,7 +45,7 @@ interface TxPage {
 
 function fmt(n: number, currency: string) {
   const dec = currency === "USDT" ? 4 : 0;
-  return n.toLocaleString("fr-FR", { minimumFractionDigits: dec, maximumFractionDigits: dec }) + " " + currency;
+  return n.toLocaleString("en-US", { minimumFractionDigits: dec, maximumFractionDigits: dec }) + " " + currency;
 }
 
 // Extract exchange metadata from a transaction

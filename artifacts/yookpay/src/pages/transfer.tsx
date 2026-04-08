@@ -108,7 +108,7 @@ export default function Transfer() {
 
   const onSubmitStep1 = async (data: Step1Values) => {
     if (fxInfo && data.amount < fxInfo.minAmount) {
-      step1Form.setError("amount", { message: `Montant minimum : ${fxInfo.minAmount.toLocaleString("fr")} ${data.fromCurrency}` });
+      step1Form.setError("amount", { message: `Montant minimum : ${fxInfo.minAmount.toLocaleString("en-US")} ${data.fromCurrency}` });
       return;
     }
     setStep1Loading(true);
@@ -280,7 +280,7 @@ export default function Transfer() {
                       </FormControl>
                       {fxInfo && (
                         <FormDescription className="text-xs">
-                          Minimum : {fxInfo.minAmount.toLocaleString("fr")} {fromCurrency} (≈ {(fxInfo.minAmount * fxInfo.rate).toFixed(2)} USDT)
+                          Minimum : {fxInfo.minAmount.toLocaleString("en-US")} {fromCurrency} (≈ {(fxInfo.minAmount * fxInfo.rate).toFixed(2)} USDT)
                         </FormDescription>
                       )}
                       <FormMessage />
@@ -306,7 +306,7 @@ export default function Transfer() {
                           <>
                             <div className="flex justify-between text-sm">
                               <span className="text-muted-foreground">Taux</span>
-                              <span className="font-mono font-medium">1 USDT = {(1 / fxInfo.rate).toLocaleString("fr", { maximumFractionDigits: 0 })} {fromCurrency}</span>
+                              <span className="font-mono font-medium">1 USDT = {(1 / fxInfo.rate).toLocaleString("en-US", { maximumFractionDigits: 0 })} {fromCurrency}</span>
                             </div>
                             <div className="flex justify-between text-sm">
                               <span className="text-muted-foreground">Montant brut</span>
@@ -411,7 +411,7 @@ export default function Transfer() {
                     <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Estimation</p>
                     <div className="flex justify-between text-sm">
                       <span className="text-muted-foreground">Taux indicatif</span>
-                      <span className="font-mono">1 USDT ≈ {(fxInfo2.rate).toLocaleString("fr", { maximumFractionDigits: 0 })} {toCurrency}</span>
+                      <span className="font-mono">1 USDT ≈ {(fxInfo2.rate).toLocaleString("en-US", { maximumFractionDigits: 0 })} {toCurrency}</span>
                     </div>
                     <div className="flex justify-between text-sm">
                       <span className="text-muted-foreground">Frais ({((fxInfo2.feeRate ?? 0.02) * 100).toFixed(1)}%)</span>
@@ -420,7 +420,7 @@ export default function Transfer() {
                     <Separator />
                     <div className="flex justify-between font-bold text-sm">
                       <span>Estimation reçue</span>
-                      <span className="text-emerald-600">≈ {(fxInfo2.converted * (1 - (fxInfo2.feeRate ?? 0.02))).toLocaleString("fr", { maximumFractionDigits: 0 })} {toCurrency}</span>
+                      <span className="text-emerald-600">≈ {(fxInfo2.converted * (1 - (fxInfo2.feeRate ?? 0.02))).toLocaleString("en-US", { maximumFractionDigits: 0 })} {toCurrency}</span>
                     </div>
                     <p className="text-[10px] text-muted-foreground">Le montant final peut varier légèrement selon le taux au moment de la confirmation.</p>
                   </div>

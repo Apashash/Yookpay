@@ -246,7 +246,7 @@ function WalletBalanceEditor({
     <div className="flex items-center justify-between">
       <div>
         <span className="text-xs font-mono text-muted-foreground">{wallet.currency}</span>
-        <span className="ml-2 font-semibold tabular-nums">{parseFloat(wallet.balance).toLocaleString("fr-FR")}</span>
+        <span className="ml-2 font-semibold tabular-nums">{parseFloat(wallet.balance).toLocaleString("en-US", { minimumFractionDigits: wallet.currency === "USDT" ? 4 : 0, maximumFractionDigits: wallet.currency === "USDT" ? 4 : 0 })}</span>
       </div>
       <Button size="icon" variant="ghost" className="h-7 w-7 text-muted-foreground hover:text-foreground"
         onClick={() => { setValue(parseFloat(wallet.balance).toFixed(2)); setEditing(true); }}>
@@ -585,7 +585,7 @@ export default function AdminUserDetail() {
               {recentTransactions.slice(0, 5).map((tx) => (
                 <div key={tx.id} className="flex items-center justify-between text-sm">
                   <span className="text-muted-foreground">{TX_LABELS[tx.type] ?? tx.type}</span>
-                  <span className="font-mono font-semibold">{parseFloat(tx.amount).toLocaleString("fr-FR")} {tx.currency}</span>
+                  <span className="font-mono font-semibold">{parseFloat(tx.amount).toLocaleString("en-US", { minimumFractionDigits: tx.currency === "USDT" ? 4 : 0, maximumFractionDigits: tx.currency === "USDT" ? 4 : 0 })} {tx.currency}</span>
                   <Badge variant="outline" className="text-xs">{tx.status}</Badge>
                   <span className="text-xs text-muted-foreground">{fmtDate(tx.createdAt)}</span>
                 </div>

@@ -109,7 +109,7 @@ function ConversionCard({
             <div>
               <p className="text-xs text-muted-foreground">Montant minimum</p>
               <p className="text-2xl font-bold mt-0.5">
-                {initialMin.toLocaleString("fr-FR")}
+                {initialMin.toLocaleString("en-US")}
               </p>
             </div>
           </div>
