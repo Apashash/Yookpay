@@ -53,7 +53,6 @@ type Step1Values = z.infer<typeof step1Schema>;
 const step2Schema = z.object({
   amountUsdt: z.coerce.number().min(1, "Minimum 1 USDT"),
   toCurrency: z.enum(["XAF", "XOF", "CDF"]),
-  phone: z.string().min(6, "Numéro de téléphone requis"),
 });
 type Step2Values = z.infer<typeof step2Schema>;
 
@@ -127,7 +126,7 @@ export default function Transfer() {
   // ─── Exchange Step 2 form ───────────────────────────────────────────────────
   const step2Form = useForm<Step2Values>({
     resolver: zodResolver(step2Schema),
-    defaultValues: { amountUsdt: 1, toCurrency: "XAF", phone: "" },
+    defaultValues: { amountUsdt: 1, toCurrency: "XAF" },
   });
   const step2Usdt = step2Form.watch("amountUsdt");
   const toCurrency = step2Form.watch("toCurrency");
@@ -346,7 +345,7 @@ export default function Transfer() {
               Convertir USDT → Fiat
             </CardTitle>
             <CardDescription>
-              Votre USDT sera verrouillé. L'admin vous enverra les fonds sur votre numéro mobile money sous 24-48h.
+              Votre USDT sera verrouillé. L'admin créditera directement votre wallet fiat sous 24-48h.
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -419,28 +418,11 @@ export default function Transfer() {
                   </div>
                 )}
 
-                <FormField
-                  control={step2Form.control}
-                  name="phone"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Numéro Mobile Money (pour recevoir les fonds)</FormLabel>
-                      <FormControl>
-                        <Input type="tel" placeholder="+237 6XX XXX XXX" {...field} />
-                      </FormControl>
-                      <FormDescription className="text-xs">
-                        L'admin vous enverra les {toCurrency} sur ce numéro via Mobile Money.
-                      </FormDescription>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
                 <Alert className="border-amber-200 bg-amber-50 dark:bg-amber-900/20">
                   <Info className="h-4 w-4 text-amber-600" />
                   <AlertTitle className="text-amber-700 dark:text-amber-300 text-sm">Confirmation admin requise</AlertTitle>
                   <AlertDescription className="text-amber-600 dark:text-amber-400 text-xs mt-1">
-                    Votre USDT sera verrouillé immédiatement. L'admin traitera votre demande sous 24-48h. Aucune autre transaction USDT ne sera possible pendant ce délai.
+                    Votre USDT sera verrouillé immédiatement. L'admin créditera votre wallet {toCurrency} sous 24-48h. Aucune autre transaction USDT ne sera possible pendant ce délai.
                   </AlertDescription>
                 </Alert>
 

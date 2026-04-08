@@ -1077,14 +1077,13 @@ router.post("/exchange-step2", authMiddleware, transactionRateLimit, async (req:
   const schema = z.object({
     amountUsdt: z.number().min(1, "Minimum 1 USDT"),
     toCurrency: z.enum(["XAF", "XOF", "CDF"]),
-    phone: z.string().min(6, "Numéro de téléphone requis pour recevoir le paiement"),
   });
   const parse = schema.safeParse(req.body);
   if (!parse.success) {
     res.status(400).json({ error: "ValidationError", message: parse.error.errors[0]?.message ?? "Paramètres invalides" });
     return;
   }
-  const { amountUsdt, toCurrency, phone } = parse.data;
+  const { amountUsdt, toCurrency } = parse.data;
 
   try {
     const [usdtWallet] = await db
@@ -1145,7 +1144,6 @@ router.post("/exchange-step2", authMiddleware, transactionRateLimit, async (req:
         currency: "USDT",
         country: (countryMap[toCurrency] ?? "CM") as any,
         operator: "EXCHANGE",
-        phone,
         reference,
         feeRate: feeRate.toString(),
         metadata: {
@@ -1155,7 +1153,6 @@ router.post("/exchange-step2", authMiddleware, transactionRateLimit, async (req:
           amountUsdt,
           estimatedFiat,
           rate,
-          phone,
           pendingSince: new Date().toISOString(),
         },
       })
@@ -1174,8 +1171,7 @@ router.post("/exchange-step2", authMiddleware, transactionRateLimit, async (req:
       estimatedFiat: parseFloat(estimatedFiat.toFixed(2)),
       rate,
       fee,
-      phone,
-      message: `Demande envoyée à l'admin. Vous recevrez ${estimatedFiat.toFixed(0)} ${toCurrency} sur le ${phone} sous 24-48h après confirmation.`,
+      message: `Demande envoyée à l'admin. Votre wallet ${toCurrency} sera crédité de ≈ ${estimatedFiat.toFixed(0)} ${toCurrency} sous 24-48h après confirmation.`,
     });
   } catch (err) {
     req.log.error({ err }, "Exchange step2 error");
