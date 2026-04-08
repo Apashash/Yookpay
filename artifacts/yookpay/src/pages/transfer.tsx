@@ -83,21 +83,26 @@ export default function Transfer() {
   const fromCurrency = step1Form.watch("fromCurrency");
   const step1Amount = step1Form.watch("amount");
 
-  // Fetch FX rate for step 1
+  // Reset fxInfo when currency changes so stale data from another currency never shows
+  useEffect(() => {
+    setFxInfo(null);
+  }, [fromCurrency]);
+
+  // Fetch FX rate for step 1 (debounced 500ms)
   useEffect(() => {
     if (!fromCurrency || !step1Amount || step1Amount <= 0) return;
     let active = true;
     setFxLoading(true);
     const id = setTimeout(async () => {
       try {
-        const data = await customFetch<{ rate: number; converted: number; minAmount: number }>(
+        const data = await customFetch<{ rate: number; converted: number; minAmount: number; feeRate: number }>(
           `/api/transactions/fx-rate?from=${fromCurrency}&to=USDT&amount=${step1Amount}`
         );
         if (active) setFxInfo(data);
-      } catch { /* silent */ } finally {
+      } catch { if (active) setFxLoading(false); return; } finally {
         if (active) setFxLoading(false);
       }
-    }, 400);
+    }, 500);
     return () => { active = false; clearTimeout(id); };
   }, [fromCurrency, step1Amount]);
 
@@ -283,14 +288,14 @@ export default function Transfer() {
                   )}
                 />
 
-                {/* FX Rate Preview */}
-                {(fxLoading || fxInfo) && (
+                {/* FX Rate Preview — always visible when amount > 0 */}
+                {step1Amount > 0 && (
                   <div className="rounded-lg border border-cyan-200 bg-cyan-50 dark:bg-cyan-900/20 dark:border-cyan-700/30 p-4 space-y-2">
                     <p className="text-xs font-semibold text-cyan-700 dark:text-cyan-300 uppercase tracking-wide">Aperçu de l'échange</p>
-                    {fxLoading ? (
+                    {(fxLoading || !fxInfo) ? (
                       <div className="flex items-center gap-2 text-sm text-muted-foreground">
                         <Loader2 className="h-3 w-3 animate-spin" />
-                        Chargement du taux...
+                        Calcul en cours...
                       </div>
                     ) : fxInfo && (() => {
                         const feeRate = fxInfo.feeRate ?? 0.02;
