@@ -55,7 +55,7 @@ function ConversionCard({
       setEditing(false);
     },
     onError: (err: any) => {
-      const msg = String(err?.message ?? "Erreur inconnue").replace(/^HTTP\s+\d+\s+[^:]+:\s*/i, "");
+      const msg = String(err?.message ?? "Erreur inconnue").replace(/^HTTP\s+\d+[^:]*:\s*/i, "");
       toast({ variant: "destructive", title: "Erreur", description: msg });
     },
   });

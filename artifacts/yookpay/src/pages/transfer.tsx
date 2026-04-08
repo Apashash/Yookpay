@@ -117,7 +117,7 @@ export default function Transfer() {
       setExchangeStep(2);
     } catch (err: any) {
       const raw = err?.error?.message || err?.message || "Erreur lors de l'échange";
-      toast({ variant: "destructive", title: "Échec de l'échange", description: raw.replace(/^HTTP\s+\d+\s+[^:]+:\s*/i, "") });
+      toast({ variant: "destructive", title: "Échec de l'échange", description: raw.replace(/^HTTP\s+\d+[^:]*:\s*/i, "") });
     } finally {
       setStep1Loading(false);
     }
@@ -158,7 +158,7 @@ export default function Transfer() {
       setLocation("/dashboard");
     } catch (err: any) {
       const raw = err?.error?.message || err?.message || "Erreur";
-      toast({ variant: "destructive", title: "Échec", description: raw.replace(/^HTTP\s+\d+\s+[^:]+:\s*/i, "") });
+      toast({ variant: "destructive", title: "Échec", description: raw.replace(/^HTTP\s+\d+[^:]*:\s*/i, "") });
     } finally {
       setStep2Loading(false);
     }

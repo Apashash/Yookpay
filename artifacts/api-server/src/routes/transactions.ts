@@ -832,8 +832,10 @@ router.post("/crypto-deposit", authMiddleware, transactionRateLimit, async (req:
       req.log.error({ err: npErr }, "NowPayments API error");
       // Clean up the pending transaction since NowPayments failed
       await db.delete(transactionsTable).where(eq(transactionsTable.id, tx.id));
-      const detail = npErr?.message ?? "Erreur inconnue";
-      res.status(502).json({ error: "NowPaymentsError", message: `Erreur NowPayments : ${detail}` });
+      // Extract the meaningful part of the NowPayments error (strip "NowPayments API error 4xx: " prefix)
+      const rawMsg: string = npErr?.message ?? "Erreur NowPayments inconnue";
+      const detail = rawMsg.replace(/^NowPayments API error \d+:\s*/i, "");
+      res.status(400).json({ error: "NowPaymentsError", message: detail });
       return;
     }
 

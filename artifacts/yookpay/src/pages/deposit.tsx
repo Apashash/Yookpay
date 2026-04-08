@@ -119,7 +119,7 @@ export default function Deposit() {
       toast({ title: "Adresse générée", description: "Envoyez vos USDT à l'adresse ci-dessous." });
     } catch (err: any) {
       const raw = err?.error?.message || err?.message || "Erreur";
-      toast({ variant: "destructive", title: "Erreur", description: raw.replace(/^HTTP\s+\d+\s+[^:]+:\s*/i, "") });
+      toast({ variant: "destructive", title: "Erreur", description: raw.replace(/^HTTP\s+\d+[^:]*:\s*/i, "") });
     } finally {
       setCryptoLoading(false);
     }
@@ -255,7 +255,7 @@ export default function Deposit() {
             (err as { error?: { message?: string } })?.error?.message ||
             (err as { message?: string })?.message ||
             "Une erreur s'est produite lors du traitement.";
-          const msg = raw.replace(/^HTTP\s+\d+\s+[^:]+:\s*/i, "");
+          const msg = raw.replace(/^HTTP\s+\d+[^:]*:\s*/i, "");
           toast({ variant: "destructive", title: "Échec du dépôt", description: msg });
         },
       }

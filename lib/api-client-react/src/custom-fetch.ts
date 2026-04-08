@@ -149,7 +149,7 @@ function truncate(text: string, maxLength = 300): string {
 }
 
 function buildErrorMessage(response: Response, data: unknown): string {
-  const prefix = `HTTP ${response.status} ${response.statusText}`;
+  const prefix = `HTTP ${response.status}`;
 
   if (typeof data === "string") {
     const text = data.trim();

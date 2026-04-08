@@ -102,7 +102,7 @@ export default function AdminExchanges() {
     },
     onError: (err: any) => {
       const msg = err?.error?.message || err?.message || "Erreur";
-      toast({ variant: "destructive", title: "Échec", description: msg.replace(/^HTTP\s+\d+\s+[^:]+:\s*/i, "") });
+      toast({ variant: "destructive", title: "Échec", description: msg.replace(/^HTTP\s+\d+[^:]*:\s*/i, "") });
     },
   });
 
@@ -119,7 +119,7 @@ export default function AdminExchanges() {
     },
     onError: (err: any) => {
       const msg = err?.error?.message || err?.message || "Erreur";
-      toast({ variant: "destructive", title: "Échec", description: msg.replace(/^HTTP\s+\d+\s+[^:]+:\s*/i, "") });
+      toast({ variant: "destructive", title: "Échec", description: msg.replace(/^HTTP\s+\d+[^:]*:\s*/i, "") });
     },
   });
 
@@ -135,7 +135,7 @@ export default function AdminExchanges() {
       queryClient.invalidateQueries({ queryKey: ["admin-usdt-rates"] });
     } catch (err: any) {
       const msg = err?.error?.message || err?.message || "Erreur";
-      toast({ variant: "destructive", title: "Échec", description: msg.replace(/^HTTP\s+\d+\s+[^:]+:\s*/i, "") });
+      toast({ variant: "destructive", title: "Échec", description: msg.replace(/^HTTP\s+\d+[^:]*:\s*/i, "") });
     } finally {
       setSavingPair(null);
     }

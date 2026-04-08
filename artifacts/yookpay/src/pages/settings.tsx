@@ -102,7 +102,7 @@ export default function Settings() {
       form.reset();
     } catch (err: unknown) {
       const raw = (err as { message?: string })?.message ?? "Une erreur s'est produite.";
-      const msg = raw.replace(/^HTTP\s+\d+\s+[^:]+:\s*/i, "");
+      const msg = raw.replace(/^HTTP\s+\d+[^:]*:\s*/i, "");
       toast({ variant: "destructive", title: "Échec", description: msg });
     } finally {
       setIsChangingPwd(false);
@@ -122,7 +122,7 @@ export default function Settings() {
       setLocation("/login");
     } catch (err: unknown) {
       const raw = (err as { message?: string })?.message ?? "Une erreur s'est produite.";
-      const msg = raw.replace(/^HTTP\s+\d+\s+[^:]+:\s*/i, "");
+      const msg = raw.replace(/^HTTP\s+\d+[^:]*:\s*/i, "");
       toast({ variant: "destructive", title: "Échec", description: msg });
     } finally {
       setIsDeleting(false);
