@@ -1,8 +1,11 @@
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import {
   useGetTransactions,
   getGetTransactionsQueryKey,
+  getGetWalletsQueryKey,
+  getGetDashboardSummaryQueryKey,
 } from "@workspace/api-client-react";
+import { useQueryClient } from "@tanstack/react-query";
 import { formatCurrency, formatDate } from "@/lib/format";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
@@ -38,6 +41,7 @@ import {
   ArrowRightLeft,
   Copy,
   Check,
+  RefreshCw,
 } from "lucide-react";
 import { COUNTRIES } from "@/lib/countries";
 
@@ -59,12 +63,17 @@ type Tx = {
   updatedAt: string | Date;
 };
 
-function StatusBadge({ status }: { status: string }) {
+function StatusBadge({ status, pulse }: { status: string; pulse?: boolean }) {
   switch (status) {
     case "SUCCESS":
       return <Badge className="bg-emerald-500/15 text-emerald-600 hover:bg-emerald-500/25 border-emerald-500/20">Réussi</Badge>;
     case "PENDING":
-      return <Badge className="bg-amber-500/15 text-amber-600 hover:bg-amber-500/25 border-amber-500/20">En attente</Badge>;
+      return (
+        <Badge className="bg-amber-500/15 text-amber-600 hover:bg-amber-500/25 border-amber-500/20">
+          {pulse && <span className="inline-block w-1.5 h-1.5 rounded-full bg-amber-500 mr-1.5 animate-pulse" />}
+          En attente
+        </Badge>
+      );
     case "FAILED":
       return <Badge className="bg-rose-500/15 text-rose-600 hover:bg-rose-500/25 border-rose-500/20">Échoué</Badge>;
     default:
@@ -74,14 +83,10 @@ function StatusBadge({ status }: { status: string }) {
 
 function TypeIcon({ type }: { type: string }) {
   switch (type) {
-    case "DEPOSIT":
-      return <ArrowDownCircle className="h-5 w-5 text-emerald-500" />;
-    case "WITHDRAWAL":
-      return <ArrowUpCircle className="h-5 w-5 text-rose-500" />;
-    case "TRANSFER":
-      return <ArrowRightLeft className="h-5 w-5 text-blue-500" />;
-    default:
-      return null;
+    case "DEPOSIT":    return <ArrowDownCircle className="h-5 w-5 text-emerald-500" />;
+    case "WITHDRAWAL": return <ArrowUpCircle className="h-5 w-5 text-rose-500" />;
+    case "TRANSFER":   return <ArrowRightLeft className="h-5 w-5 text-blue-500" />;
+    default:           return null;
   }
 }
 
@@ -119,7 +124,6 @@ function TransactionDetail({ tx, open, onClose }: { tx: Tx | null; open: boolean
   if (!tx) return null;
 
   const country = tx.country ? COUNTRIES.find((c) => c.code === tx.country) : null;
-
   const isDeposit  = tx.type === "DEPOSIT";
   const isWithdraw = tx.type === "WITHDRAWAL";
 
@@ -133,7 +137,6 @@ function TransactionDetail({ tx, open, onClose }: { tx: Tx | null; open: boolean
           </SheetTitle>
         </SheetHeader>
 
-        {/* Status + Montant principal */}
         <div className="bg-muted rounded-xl p-5 text-center mb-6">
           <div className="mb-2"><StatusBadge status={tx.status} /></div>
           <div className="text-3xl font-bold mt-2">
@@ -144,7 +147,6 @@ function TransactionDetail({ tx, open, onClose }: { tx: Tx | null; open: boolean
           <div className="text-xs text-muted-foreground mt-1">{formatDate(tx.createdAt)}</div>
         </div>
 
-        {/* Référence */}
         <div className="mb-4">
           <p className="text-xs text-muted-foreground mb-1">Référence</p>
           <div className="flex items-center bg-muted rounded-lg px-3 py-2">
@@ -155,7 +157,6 @@ function TransactionDetail({ tx, open, onClose }: { tx: Tx | null; open: boolean
 
         <Separator className="my-4" />
 
-        {/* Détails financiers */}
         <div>
           <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-1">Détails financiers</p>
           <DetailRow label="Montant brut" value={formatCurrency(tx.amount, tx.currency)} />
@@ -175,7 +176,6 @@ function TransactionDetail({ tx, open, onClose }: { tx: Tx | null; open: boolean
 
         <Separator className="my-4" />
 
-        {/* Informations de transaction */}
         <div>
           <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-1">Informations</p>
           <DetailRow label="Type" value={typeLabel(tx.type)} />
@@ -212,7 +212,8 @@ function TransactionDetail({ tx, open, onClose }: { tx: Tx | null; open: boolean
 }
 
 export default function Transactions() {
-  const [page, setPage]     = useState(1);
+  const qc = useQueryClient();
+  const [page, setPage]       = useState(1);
   const [status, setStatus]   = useState<string>("ALL");
   const [currency, setCurrency] = useState<string>("ALL");
   const [selectedTx, setSelectedTx] = useState<Tx | null>(null);
@@ -222,9 +223,49 @@ export default function Transactions() {
   if (status !== "ALL")   params.status   = status;
   if (currency !== "ALL") params.currency = currency;
 
-  const { data, isLoading } = useGetTransactions(params as never, {
-    query: { queryKey: getGetTransactionsQueryKey(params as never) },
+  // Track previous statuses to detect changes from PENDING → something else
+  const prevStatusMapRef = useRef<Record<number, string>>({});
+
+  const { data, isLoading, isFetching, refetch } = useGetTransactions(params as never, {
+    query: {
+      queryKey: getGetTransactionsQueryKey(params as never),
+      // Poll every 3s while there are PENDING transactions on the current page
+      refetchInterval: (query) => {
+        const txs = (query.state.data as { transactions?: { status: string }[] } | undefined)?.transactions;
+        return txs?.some((tx) => tx.status === "PENDING") ? 3000 : false;
+      },
+    },
   });
+
+  // When statuses change (PENDING → SUCCESS/FAILED), refresh wallet balance
+  useEffect(() => {
+    if (!data?.transactions) return;
+    const current: Record<number, string> = {};
+    let changed = false;
+    for (const tx of data.transactions) {
+      current[tx.id] = tx.status;
+      const prev = prevStatusMapRef.current[tx.id];
+      if (prev === "PENDING" && tx.status !== "PENDING") {
+        changed = true;
+      }
+    }
+    if (changed) {
+      qc.invalidateQueries({ queryKey: getGetWalletsQueryKey() });
+      qc.invalidateQueries({ queryKey: getGetDashboardSummaryQueryKey() });
+    }
+    prevStatusMapRef.current = current;
+  }, [data, qc]);
+
+  // Keep selectedTx in sync with latest data from polling
+  useEffect(() => {
+    if (!selectedTx || !data?.transactions) return;
+    const updated = data.transactions.find((tx) => tx.id === selectedTx.id);
+    if (updated && updated.status !== selectedTx.status) {
+      setSelectedTx(updated as unknown as Tx);
+    }
+  }, [data, selectedTx]);
+
+  const hasPending = data?.transactions.some((tx) => tx.status === "PENDING") ?? false;
 
   const openDetail = (tx: Tx) => {
     setSelectedTx(tx);
@@ -235,7 +276,15 @@ export default function Transactions() {
     <div className="space-y-6">
       <Card>
         <CardHeader className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-          <CardTitle>Historique des transactions</CardTitle>
+          <div className="flex items-center gap-3">
+            <CardTitle>Historique des transactions</CardTitle>
+            {hasPending && (
+              <span className="flex items-center gap-1.5 text-xs text-amber-600 bg-amber-500/10 border border-amber-500/20 rounded-full px-2.5 py-1">
+                <span className="inline-block w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse" />
+                Mise à jour auto
+              </span>
+            )}
+          </div>
           <div className="flex flex-col sm:flex-row gap-3">
             <Select value={status} onValueChange={(v) => { setStatus(v); setPage(1); }}>
               <SelectTrigger className="w-[150px]" data-testid="filter-status">
@@ -260,6 +309,17 @@ export default function Transactions() {
                 <SelectItem value="CDF">CDF</SelectItem>
               </SelectContent>
             </Select>
+
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => refetch()}
+              disabled={isFetching}
+              className="gap-1.5"
+            >
+              <RefreshCw className={`h-3.5 w-3.5 ${isFetching ? "animate-spin" : ""}`} />
+              Actualiser
+            </Button>
           </div>
         </CardHeader>
 
@@ -311,7 +371,9 @@ export default function Transactions() {
                       <TableCell>{formatCurrency(tx.amount, tx.currency)}</TableCell>
                       <TableCell>{formatCurrency(tx.netAmount, tx.currency)}</TableCell>
                       <TableCell className="text-sm text-muted-foreground whitespace-nowrap">{formatDate(tx.createdAt)}</TableCell>
-                      <TableCell className="text-right"><StatusBadge status={tx.status} /></TableCell>
+                      <TableCell className="text-right">
+                        <StatusBadge status={tx.status} pulse={tx.status === "PENDING"} />
+                      </TableCell>
                     </TableRow>
                   ))
                 )}
@@ -319,7 +381,6 @@ export default function Transactions() {
             </Table>
           </div>
 
-          {/* Pagination */}
           {data && data.totalPages > 1 && (
             <div className="flex items-center justify-between mt-4">
               <div className="text-sm text-muted-foreground">
