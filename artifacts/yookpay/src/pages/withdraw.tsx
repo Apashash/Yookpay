@@ -83,7 +83,7 @@ export default function Withdraw() {
   const [withdrawMode, setWithdrawMode] = useState<"mobile" | "crypto">("mobile");
   const [cryptoAddress, setCryptoAddress] = useState("");
   const [cryptoAmount, setCryptoAmount] = useState("10");
-  const [cryptoNetwork, setCryptoNetwork] = useState<"TRC20" | "ERC20">("TRC20");
+  const cryptoNetwork = "TRC20" as const;
   const [cryptoLoading, setCryptoLoading] = useState(false);
 
   const handleCryptoWithdraw = async () => {
@@ -346,30 +346,24 @@ export default function Withdraw() {
           <CardHeader>
             <CardTitle>Retrait USDT vers crypto</CardTitle>
             <CardDescription>
-              Retirez vos USDT vers une adresse externe. Frais 1%. Disponible sur TRC-20 (Tron) et ERC-20 (Ethereum).
+              Retirez vos USDT vers une adresse externe. Frais 1%. Disponible sur TRC-20 (Tron).
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-5">
             <div>
               <label className="text-sm font-medium block mb-1.5">Réseau</label>
-              <div className="flex gap-2">
-                {(["TRC20", "ERC20"] as const).map((n) => (
-                  <button key={n} type="button"
-                    onClick={() => setCryptoNetwork(n)}
-                    className={`flex-1 py-2 rounded-lg border text-sm font-semibold transition-all ${cryptoNetwork === n ? "border-cyan-500 bg-cyan-500/10 text-cyan-700" : "border-input text-muted-foreground hover:bg-muted"}`}>
-                    {n === "TRC20" ? "TRC-20 (Tron)" : "ERC-20 (Ethereum)"}
-                  </button>
-                ))}
+              <div className="py-2 px-3 rounded-lg border border-cyan-500 bg-cyan-500/10 text-cyan-700 text-sm font-semibold text-center">
+                TRC-20 (Tron)
               </div>
             </div>
             <div>
-              <label className="text-sm font-medium block mb-1.5">Adresse {cryptoNetwork} de destination</label>
+              <label className="text-sm font-medium block mb-1.5">Adresse TRC-20 de destination</label>
               <input
                 type="text"
                 className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm font-mono ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                 value={cryptoAddress}
                 onChange={(e) => setCryptoAddress(e.target.value)}
-                placeholder={cryptoNetwork === "TRC20" ? "Txxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx" : "0x..."}
+                placeholder="Txxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
               />
             </div>
             <div>
@@ -391,7 +385,7 @@ export default function Withdraw() {
               <Info className="h-4 w-4 text-amber-600" />
               <AlertTitle className="text-amber-700 dark:text-amber-300 text-sm">Vérifiez l'adresse</AlertTitle>
               <AlertDescription className="text-amber-600 dark:text-amber-400 text-xs mt-1">
-                Assurez-vous que l'adresse est sur le réseau <strong>{cryptoNetwork === "TRC20" ? "TRC-20 (Tron)" : "ERC-20 (Ethereum)"}</strong>. Les fonds envoyés sur un mauvais réseau sont irrécupérables.
+                Assurez-vous que l'adresse est sur le réseau <strong>TRC-20 (Tron)</strong>. Les fonds envoyés sur un mauvais réseau sont irrécupérables.
               </AlertDescription>
             </Alert>
             <Button className="w-full bg-cyan-600 hover:bg-cyan-700" onClick={handleCryptoWithdraw} disabled={cryptoLoading}>
