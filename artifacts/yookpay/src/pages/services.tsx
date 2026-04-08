@@ -11,12 +11,7 @@ import {
   AccordionItem,
   AccordionTrigger,
 } from "@/components/ui/accordion";
-import { Info, Star } from "lucide-react";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger,
-} from "@/components/ui/tooltip";
+import { Info } from "lucide-react";
 
 interface FeeEntry {
   rate: number;
@@ -56,14 +51,6 @@ function FeeCell({ entry, currency }: { entry: FeeEntry; currency: string }) {
     <div className="text-right">
       <div className="flex items-center justify-end gap-1.5">
         <span className="font-semibold text-foreground">{pct(entry.rate)}</span>
-        {entry.isCustom && (
-          <Tooltip>
-            <TooltipTrigger>
-              <Star className="h-3 w-3 text-amber-500 fill-amber-400" />
-            </TooltipTrigger>
-            <TooltipContent>Taux personnalisé par l'admin</TooltipContent>
-          </Tooltip>
-        )}
       </div>
       <div className="text-xs text-muted-foreground mt-0.5">{fmtFee(entry, currency)}</div>
     </div>
@@ -88,14 +75,6 @@ export default function Services() {
           Frais appliqués par pays et par opérateur pour chaque type de transaction.
         </p>
       </div>
-
-      {/* Legend */}
-      {data?.hasCustomFees && (
-        <div className="flex items-center gap-2 p-3 bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800 rounded-lg text-sm text-amber-800 dark:text-amber-300">
-          <Star className="h-4 w-4 fill-amber-400 text-amber-500 flex-shrink-0" />
-          <span>Les taux marqués d'une étoile sont des tarifs personnalisés configurés par votre gestionnaire de compte.</span>
-        </div>
-      )}
 
       {/* Summary stats */}
       {data && (
@@ -148,10 +127,6 @@ export default function Services() {
           {COUNTRIES.map((country) => {
             const fees = data.fees[country.code];
             if (!fees) return null;
-            const hasCustom = fees.operators.some(
-              (op) => op.deposit.isCustom || op.withdrawal.isCustom || op.transfer.isCustom
-            );
-
             return (
               <AccordionItem
                 key={country.code}
@@ -164,9 +139,6 @@ export default function Services() {
                     <div className="text-left">
                       <div className="flex items-center gap-2">
                         <span className="font-semibold text-base">{country.name}</span>
-                        {hasCustom && (
-                          <Star className="h-3.5 w-3.5 text-amber-500 fill-amber-400" />
-                        )}
                       </div>
                       <div className="flex items-center gap-2 mt-0.5">
                         <Badge variant="outline" className="text-xs font-mono">
