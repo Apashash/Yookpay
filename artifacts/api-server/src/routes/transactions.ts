@@ -13,12 +13,16 @@ import {
   calculateFeeWithRate,
   generateReference,
   CURRENCY_MAP,
+  FEE_TABLE,
   type Country,
   type Operator,
   type TransactionType,
 } from "../services/feeService";
+
 import { callPixPayAirtime, getOperatorFlow, getPixPayTransactionStatus, type PixPayCallParams } from "../lib/pixpay";
 import { z } from "zod";
+
+const DEFAULT_MARGIN = 0.015; // YookPay margin applied on top of PixPay fee
 
 const OPERATOR_LABELS: Record<string, string> = {
   MTN:      "MTN Mobile Money",
@@ -53,13 +57,21 @@ async function getUserOperatorFeeRate(
       "SELECT pixpay_deposit, pixpay_withdrawal, margin_deposit, margin_withdrawal FROM user_operator_fees WHERE user_id = $1 AND country = $2 AND operator = $3",
       [userId, country, operator]
     );
-    if (!result.rows.length) return undefined;
-    const r = result.rows[0];
-    if (type === "DEPOSIT") {
-      return parseFloat(r.pixpay_deposit) + parseFloat(r.margin_deposit);
-    } else {
-      return parseFloat(r.pixpay_withdrawal) + parseFloat(r.margin_withdrawal);
+    if (result.rows.length) {
+      // Use custom config: PixPay fee + YookPay margin as configured by admin
+      const r = result.rows[0];
+      if (type === "DEPOSIT") {
+        return parseFloat(r.pixpay_deposit) + parseFloat(r.margin_deposit);
+      } else {
+        return parseFloat(r.pixpay_withdrawal) + parseFloat(r.margin_withdrawal);
+      }
     }
+    // No custom config → apply default PixPay rate + DEFAULT_MARGIN
+    const defaultRate = FEE_TABLE[country as Country]?.[operator as Operator]?.[type]?.rate;
+    if (defaultRate !== undefined) {
+      return defaultRate + DEFAULT_MARGIN;
+    }
+    return undefined;
   } catch {
     return undefined;
   }
@@ -555,17 +567,8 @@ router.post("/withdraw", authMiddleware, transactionRateLimit, async (req: AuthR
         ? calculateFeeWithRate(amount, country as Country, operator as Operator, "WITHDRAWAL", userRate)
         : calculateFee(amount, country as Country, operator as Operator, "WITHDRAWAL");
     } catch {
-      // Fallback: use a default fee of 2% if no specific config exists
-      const fee = Math.round(amount * 0.02);
-      feeBreakdown = {
-        grossAmount: amount,
-        feeRate: 0.02,
-        feeAmount: fee,
-        netAmount: amount + fee,
-        currency,
-        operator,
-        country,
-      };
+      res.status(400).json({ error: "BadRequest", message: "Impossible de calculer les frais pour cet opérateur." });
+      return;
     }
 
     // ─── Fee semantics based on feeBearer ───────────────────────────────────
