@@ -175,7 +175,7 @@ export default function Register() {
                           <SelectValue placeholder="Sélectionner votre pays" />
                         </SelectTrigger>
                       </FormControl>
-                      <SelectContent>
+                      <SelectContent className="max-h-64 overflow-y-auto">
                         {COUNTRIES.map((c) => (
                           <SelectItem key={c.code} value={c.code}>
                             <span className="flex items-center gap-2">
