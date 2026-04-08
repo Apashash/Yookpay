@@ -915,12 +915,14 @@ router.post("/crypto-withdraw", authMiddleware, transactionRateLimit, async (req
       .where(and(eq(walletsTable.userId, req.userId!), eq(walletsTable.currency, "USDT")))
       .limit(1);
 
+    const lockedUsdtBal = parseFloat((usdtWallet as any)?.locked_balance ?? "0");
     const available = usdtWallet
-      ? parseFloat(usdtWallet.balance) - parseFloat((usdtWallet as any).locked_balance ?? "0")
+      ? parseFloat(usdtWallet.balance) - lockedUsdtBal
       : 0;
 
     if (available < amountUsdt) {
-      res.status(400).json({ error: "InsufficientFunds", message: `Solde USDT disponible insuffisant (${available.toFixed(2)} USDT)` });
+      const lockedMsg = lockedUsdtBal > 0 ? ` (${lockedUsdtBal.toFixed(4)} USDT verrouillés en échange en attente d'admin)` : "";
+      res.status(400).json({ error: "InsufficientFunds", message: `Solde USDT disponible insuffisant — ${available.toFixed(4)} USDT disponibles${lockedMsg}` });
       return;
     }
 
@@ -1140,18 +1142,8 @@ router.post("/exchange-step2", authMiddleware, transactionRateLimit, async (req:
     const available = totalBal - lockedBal;
 
     if (available < amountUsdt) {
-      res.status(400).json({ error: "InsufficientFunds", message: `Solde USDT disponible insuffisant (${available.toFixed(2)} USDT disponibles)` });
-      return;
-    }
-
-    // Check for pending step2 exchange
-    const pending = await db.execute(sql`
-      SELECT id FROM crypto_exchanges
-      WHERE user_id = ${req.userId!} AND status = 'PENDING_ADMIN'
-      LIMIT 1
-    `);
-    if (pending.rows.length > 0) {
-      res.status(400).json({ error: "PendingExchange", message: "Vous avez déjà une demande d'échange en attente. Attendez la confirmation de l'admin avant d'en créer une nouvelle." });
+      const lockedMsg = lockedBal > 0 ? ` (${lockedBal.toFixed(4)} USDT verrouillés en échange en cours)` : "";
+      res.status(400).json({ error: "InsufficientFunds", message: `Solde USDT disponible insuffisant — ${available.toFixed(4)} USDT disponibles${lockedMsg}` });
       return;
     }
 

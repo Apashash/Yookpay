@@ -59,6 +59,7 @@ router.get("/summary", authMiddleware, async (req: AuthRequest, res) => {
         userId: w.userId,
         currency: w.currency,
         balance: parseFloat(w.balance),
+        lockedBalance: parseFloat((w as any).locked_balance ?? "0"),
         country: w.country,
         updatedAt: w.updatedAt,
       })),

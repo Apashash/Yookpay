@@ -238,10 +238,27 @@ export default function Dashboard() {
                 {formatCurrency(wallet.balance, wallet.currency)}
               </div>
 
-              <div className="relative mt-4 flex items-center gap-1 text-white/70 text-xs">
-                <TrendingUp className="w-3.5 h-3.5" />
-                <span>Solde disponible</span>
-              </div>
+              {wallet.currency === "USDT" && (wallet as any).lockedBalance > 0 ? (
+                <div className="relative mt-3 space-y-1">
+                  <div className="flex items-center justify-between text-xs">
+                    <span className="text-white/60">Disponible</span>
+                    <span className="text-white font-semibold">
+                      {formatCurrency(wallet.balance - (wallet as any).lockedBalance, "USDT")}
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between text-xs">
+                    <span className="text-amber-300/80">Verrouillé (échange)</span>
+                    <span className="text-amber-300 font-semibold">
+                      {formatCurrency((wallet as any).lockedBalance, "USDT")}
+                    </span>
+                  </div>
+                </div>
+              ) : (
+                <div className="relative mt-4 flex items-center gap-1 text-white/70 text-xs">
+                  <TrendingUp className="w-3.5 h-3.5" />
+                  <span>Solde disponible</span>
+                </div>
+              )}
             </div>
           );
         })}
