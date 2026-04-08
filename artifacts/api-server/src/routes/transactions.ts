@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { db } from "@workspace/db";
+import { db, pool } from "@workspace/db";
 import { transactionsTable, walletsTable, userFeesTable } from "@workspace/db/schema";
 import { eq, and, desc, count } from "drizzle-orm";
 import { sql } from "drizzle-orm";
@@ -36,6 +36,34 @@ const OPERATOR_LABELS: Record<string, string> = {
 
 const GLOBAL_COUNTRY = "ZZ";
 const GLOBAL_OPERATOR = "GLOBAL";
+
+// Look up the effective fee rate from user_operator_fees (new: pixpay + margin)
+// Returns total rate (decimal) or undefined if no custom config
+async function getUserOperatorFeeRate(
+  userId: number,
+  country: string,
+  operator: string,
+  type: "DEPOSIT" | "WITHDRAWAL",
+): Promise<number | undefined> {
+  try {
+    const result = await pool.query<{
+      pixpay_deposit: string; pixpay_withdrawal: string;
+      margin_deposit: string; margin_withdrawal: string;
+    }>(
+      "SELECT pixpay_deposit, pixpay_withdrawal, margin_deposit, margin_withdrawal FROM user_operator_fees WHERE user_id = $1 AND country = $2 AND operator = $3",
+      [userId, country, operator]
+    );
+    if (!result.rows.length) return undefined;
+    const r = result.rows[0];
+    if (type === "DEPOSIT") {
+      return parseFloat(r.pixpay_deposit) + parseFloat(r.margin_deposit);
+    } else {
+      return parseFloat(r.pixpay_withdrawal) + parseFloat(r.margin_withdrawal);
+    }
+  } catch {
+    return undefined;
+  }
+}
 
 // Look up the effective fee rate for a user (specific > global > undefined=default)
 async function getUserFeeRate(
@@ -283,7 +311,11 @@ router.post("/fee-preview", authMiddleware, async (req: AuthRequest, res) => {
 
   const { amount, country, operator, type } = parse.data;
   try {
-    const userRate = await getUserFeeRate(req.userId!, country, operator, type as TransactionType);
+    const opRate = (type === "DEPOSIT" || type === "WITHDRAWAL")
+      ? await getUserOperatorFeeRate(req.userId!, country, operator, type)
+      : undefined;
+    const legacyRate = opRate !== undefined ? undefined : await getUserFeeRate(req.userId!, country, operator, type as TransactionType);
+    const userRate = opRate ?? legacyRate;
     const breakdown = userRate !== undefined
       ? calculateFeeWithRate(amount, country as Country, operator as Operator, type as TransactionType, userRate)
       : calculateFee(amount, country as Country, operator as Operator, type as TransactionType);
@@ -368,7 +400,9 @@ router.post("/deposit", authMiddleware, transactionRateLimit, async (req: AuthRe
   }
 
   try {
-    const userRate = await getUserFeeRate(req.userId!, country, operator, "DEPOSIT");
+    const opRate  = await getUserOperatorFeeRate(req.userId!, country, operator, "DEPOSIT");
+    const legacyRate = opRate !== undefined ? undefined : await getUserFeeRate(req.userId!, country, operator, "DEPOSIT");
+    const userRate = opRate ?? legacyRate;
     const feeBreakdown = userRate !== undefined
       ? calculateFeeWithRate(amount, country as Country, operator as Operator, "DEPOSIT", userRate)
       : calculateFee(amount, country as Country, operator as Operator, "DEPOSIT");
@@ -514,7 +548,9 @@ router.post("/withdraw", authMiddleware, transactionRateLimit, async (req: AuthR
 
     let feeBreakdown;
     try {
-      const userRate = await getUserFeeRate(req.userId!, country, operator, "WITHDRAWAL");
+      const opRate = await getUserOperatorFeeRate(req.userId!, country, operator, "WITHDRAWAL");
+      const legacyRate = opRate !== undefined ? undefined : await getUserFeeRate(req.userId!, country, operator, "WITHDRAWAL");
+      const userRate = opRate ?? legacyRate;
       feeBreakdown = userRate !== undefined
         ? calculateFeeWithRate(amount, country as Country, operator as Operator, "WITHDRAWAL", userRate)
         : calculateFee(amount, country as Country, operator as Operator, "WITHDRAWAL");

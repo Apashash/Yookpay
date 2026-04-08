@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { customFetch } from "@workspace/api-client-react";
 import { Link, useParams } from "wouter";
@@ -29,6 +29,7 @@ import { COUNTRIES, OPERATOR_LABELS } from "@/lib/countries";
 import {
   ArrowLeft, CheckCircle2, XCircle, Clock, ShieldCheck,
   Pencil, RotateCcw, Check, X, Star, Ban, Unlock, Wallet,
+  Save, Loader2, RefreshCw,
 } from "lucide-react";
 
 interface RateCell {
@@ -256,12 +257,254 @@ function WalletBalanceEditor({
   );
 }
 
+// ─── Country metadata ──────────────────────────────────────────────────────────
+const COUNTRY_GROUPS: Array<{
+  currency: string;
+  label: string;
+  flag: string;
+  countries: Array<{ code: string; name: string; operators: string[] }>;
+}> = [
+  {
+    currency: "XAF", label: "Afrique Centrale (XAF)", flag: "🌍",
+    countries: [
+      { code: "CM", name: "Cameroun",     operators: ["MTN", "ORANGE"] },
+      { code: "CG", name: "Congo",        operators: ["MTN", "AIRTEL"] },
+      { code: "GA", name: "Gabon",        operators: ["AIRTEL", "MTN"] },
+    ],
+  },
+  {
+    currency: "XOF", label: "Afrique de l'Ouest (XOF)", flag: "🌍",
+    countries: [
+      { code: "CI", name: "Côte d'Ivoire", operators: ["MTN", "ORANGE", "MOOV", "WAVE"] },
+      { code: "SN", name: "Sénégal",       operators: ["ORANGE", "FREE", "WAVE"] },
+      { code: "BF", name: "Burkina Faso",  operators: ["ORANGE", "MOOV"] },
+      { code: "BJ", name: "Bénin",         operators: ["MTN", "MOOV"] },
+      { code: "GM", name: "Gambie",         operators: ["AFRICELL", "QMONEY"] },
+      { code: "GN", name: "Guinée",         operators: ["MTN", "ORANGE", "CELLCOM"] },
+      { code: "ML", name: "Mali",           operators: ["ORANGE", "MOOV"] },
+      { code: "TG", name: "Togo",           operators: ["TOGOCEL", "MOOV"] },
+    ],
+  },
+  {
+    currency: "CDF", label: "RD Congo (CDF)", flag: "🇨🇩",
+    countries: [
+      { code: "CD", name: "RD Congo", operators: ["VODACOM", "AIRTEL", "ORANGE", "AFRICELL"] },
+    ],
+  },
+];
+
+interface OpFeeRow {
+  country: string;
+  operator: string;
+  pixpayDeposit: number;
+  pixpayWithdrawal: number;
+  marginDeposit: number;
+  marginWithdrawal: number;
+  isCustom: boolean;
+}
+
+function PctInput({ value, onChange }: { value: number; onChange: (v: number) => void }) {
+  const [local, setLocal] = useState((value * 100).toFixed(2));
+  useEffect(() => { setLocal((value * 100).toFixed(2)); }, [value]);
+  return (
+    <div className="relative">
+      <input
+        type="number"
+        step="0.01"
+        min="0"
+        max="100"
+        value={local}
+        onChange={(e) => {
+          setLocal(e.target.value);
+          const parsed = parseFloat(e.target.value);
+          if (!isNaN(parsed)) onChange(parsed / 100);
+        }}
+        className="w-16 text-xs text-right pr-4 border border-border rounded px-1.5 py-1 focus:outline-none focus:ring-1 focus:ring-primary bg-background"
+      />
+      <span className="absolute right-1.5 top-1/2 -translate-y-1/2 text-[10px] text-muted-foreground">%</span>
+    </div>
+  );
+}
+
+function OperatorFeesSection({ userId }: { userId: number }) {
+  const { toast } = useToast();
+  const qc = useQueryClient();
+
+  const { data: fees, isLoading, refetch } = useQuery<OpFeeRow[]>({
+    queryKey: ["operator-fees", userId],
+    queryFn: () => customFetch<OpFeeRow[]>(`/api/admin/users/${userId}/operator-fees`),
+    enabled: userId > 0,
+  });
+
+  // Local editable state: key = "CM__MTN"
+  const [local, setLocal] = useState<Record<string, OpFeeRow>>({});
+  const [dirty, setDirty] = useState(false);
+
+  useEffect(() => {
+    if (!fees) return;
+    const map: Record<string, OpFeeRow> = {};
+    for (const row of fees) {
+      map[`${row.country}__${row.operator}`] = { ...row };
+    }
+    setLocal(map);
+    setDirty(false);
+  }, [fees]);
+
+  const saveMutation = useMutation({
+    mutationFn: () =>
+      customFetch(`/api/admin/users/${userId}/operator-fees`, {
+        method: "PUT",
+        body: JSON.stringify(Object.values(local)),
+      }),
+    onSuccess: () => {
+      toast({ title: "Frais enregistrés avec succès" });
+      setDirty(false);
+      qc.invalidateQueries({ queryKey: ["operator-fees", userId] });
+    },
+    onError: () => toast({ title: "Erreur de sauvegarde", variant: "destructive" }),
+  });
+
+  const update = (country: string, operator: string, field: keyof OpFeeRow, value: number) => {
+    const key = `${country}__${operator}`;
+    setLocal((prev) => ({
+      ...prev,
+      [key]: { ...prev[key], country, operator, [field]: value, isCustom: true },
+    }));
+    setDirty(true);
+  };
+
+  const getRow = (country: string, operator: string): OpFeeRow => {
+    const key = `${country}__${operator}`;
+    return local[key] ?? { country, operator, pixpayDeposit: 0, pixpayWithdrawal: 0, marginDeposit: 0.015, marginWithdrawal: 0.015, isCustom: false };
+  };
+
+  if (isLoading) {
+    return (
+      <Card>
+        <CardHeader><CardTitle className="text-base">Configuration des frais</CardTitle></CardHeader>
+        <CardContent><Skeleton className="h-40 w-full" /></CardContent>
+      </Card>
+    );
+  }
+
+  return (
+    <Card>
+      <CardHeader>
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <CardTitle className="text-base">Configuration des frais par opérateur</CardTitle>
+            <p className="text-xs text-muted-foreground mt-1">
+              Frais PixPay (coût réel) + Marge YookPay (votre profit). Total = frais facturés à l'utilisateur.
+            </p>
+          </div>
+          <div className="flex items-center gap-2 flex-shrink-0">
+            <Button size="sm" variant="outline" className="h-8 gap-1.5 text-xs" onClick={() => refetch()}>
+              <RefreshCw className="h-3 w-3" />
+              Actualiser
+            </Button>
+            {dirty && (
+              <Button
+                size="sm"
+                className="h-8 gap-1.5 text-xs bg-emerald-600 hover:bg-emerald-700"
+                onClick={() => saveMutation.mutate()}
+                disabled={saveMutation.isPending}
+              >
+                {saveMutation.isPending ? <Loader2 className="h-3 w-3 animate-spin" /> : <Save className="h-3 w-3" />}
+                Sauvegarder
+              </Button>
+            )}
+          </div>
+        </div>
+        {dirty && (
+          <div className="text-xs text-amber-600 bg-amber-50 border border-amber-200 rounded px-2.5 py-1.5 flex items-center gap-1.5">
+            <span className="w-2 h-2 rounded-full bg-amber-500 inline-block" />
+            Modifications non sauvegardées — cliquez sur Sauvegarder pour appliquer.
+          </div>
+        )}
+      </CardHeader>
+      <CardContent className="p-0">
+        <Accordion type="multiple" defaultValue={["XAF", "XOF", "CDF"]} className="divide-y">
+          {COUNTRY_GROUPS.map((group) => (
+            <AccordionItem key={group.currency} value={group.currency} className="border-0">
+              <AccordionTrigger className="px-4 py-3 hover:no-underline hover:bg-muted/20 [&[data-state=open]]:bg-muted/30">
+                <div className="flex items-center gap-2">
+                  <span className="font-semibold text-sm">{group.label}</span>
+                </div>
+              </AccordionTrigger>
+              <AccordionContent className="p-0">
+                {group.countries.map((country) => (
+                  <div key={country.code} className="border-t">
+                    {/* Country sub-header */}
+                    <div className="flex items-center gap-2 px-4 py-2 bg-muted/10">
+                      <span className="text-sm font-medium text-muted-foreground">
+                        {COUNTRIES.find((c) => c.code === country.code)?.flag} {country.name}
+                      </span>
+                    </div>
+                    {/* Column headers */}
+                    <div className="grid grid-cols-[140px_1fr_1fr_1fr_1fr_80px_80px] gap-1 px-4 py-1.5 bg-muted/5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground border-b">
+                      <div>Opérateur</div>
+                      <div className="text-center text-blue-600">PixPay Dépôt</div>
+                      <div className="text-center text-blue-600">PixPay Retrait</div>
+                      <div className="text-center text-violet-600">Marge Dépôt</div>
+                      <div className="text-center text-violet-600">Marge Retrait</div>
+                      <div className="text-center text-emerald-600">Total Dép.</div>
+                      <div className="text-center text-emerald-600">Total Ret.</div>
+                    </div>
+                    {country.operators.map((op) => {
+                      const row = getRow(country.code, op);
+                      const totalDeposit = row.pixpayDeposit + row.marginDeposit;
+                      const totalWithdrawal = row.pixpayWithdrawal + row.marginWithdrawal;
+                      return (
+                        <div
+                          key={op}
+                          className={`grid grid-cols-[140px_1fr_1fr_1fr_1fr_80px_80px] gap-1 px-4 py-2 items-center border-b last:border-0 ${row.isCustom ? "bg-violet-50/40 dark:bg-violet-900/10" : ""}`}
+                        >
+                          <div>
+                            <p className="text-xs font-semibold">{op}</p>
+                            {row.isCustom && <span className="text-[9px] text-violet-600 font-medium">Personnalisé</span>}
+                          </div>
+                          {/* PixPay Deposit */}
+                          <div className="flex justify-center">
+                            <PctInput value={row.pixpayDeposit} onChange={(v) => update(country.code, op, "pixpayDeposit", v)} />
+                          </div>
+                          {/* PixPay Withdrawal */}
+                          <div className="flex justify-center">
+                            <PctInput value={row.pixpayWithdrawal} onChange={(v) => update(country.code, op, "pixpayWithdrawal", v)} />
+                          </div>
+                          {/* Margin Deposit */}
+                          <div className="flex justify-center">
+                            <PctInput value={row.marginDeposit} onChange={(v) => update(country.code, op, "marginDeposit", v)} />
+                          </div>
+                          {/* Margin Withdrawal */}
+                          <div className="flex justify-center">
+                            <PctInput value={row.marginWithdrawal} onChange={(v) => update(country.code, op, "marginWithdrawal", v)} />
+                          </div>
+                          {/* Totals (read-only) */}
+                          <div className="text-center">
+                            <span className="text-xs font-bold text-emerald-700">{(totalDeposit * 100).toFixed(2)}%</span>
+                          </div>
+                          <div className="text-center">
+                            <span className="text-xs font-bold text-emerald-700">{(totalWithdrawal * 100).toFixed(2)}%</span>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                ))}
+              </AccordionContent>
+            </AccordionItem>
+          ))}
+        </Accordion>
+      </CardContent>
+    </Card>
+  );
+}
+
 export default function AdminUserDetail() {
   const params = useParams<{ id: string }>();
   const userId = parseInt(params.id ?? "0");
   const qc = useQueryClient();
   const { toast } = useToast();
-  const [openCountries, setOpenCountries] = useState<string[]>(["CM"]);
 
   const { data, isLoading } = useQuery<UserDetail>({
     queryKey: ["admin-user", userId],
@@ -302,14 +545,9 @@ export default function AdminUserDetail() {
 
   if (!data) return <div className="text-center py-12 text-muted-foreground">Utilisateur introuvable.</div>;
 
-  const { user, wallets, effectiveRates, fullFeeTable, kycDocuments, recentTransactions } = data;
+  const { user, wallets, kycDocuments } = data;
 
   const refresh = () => qc.invalidateQueries({ queryKey: ["admin-user", userId] });
-
-  const hasAnyCustom = effectiveRates.some((r) => r.isCustom) ||
-    Object.values(fullFeeTable ?? {}).some((c) =>
-      c.operators.some((o) => o.deposit.source === "specific" || o.withdrawal.source === "specific" || o.transfer.source === "specific")
-    );
 
   return (
     <div className="max-w-5xl mx-auto space-y-6">
@@ -444,110 +682,8 @@ export default function AdminUserDetail() {
         </Card>
       </div>
 
-      {/* Legend */}
-      {hasAnyCustom && (
-        <div className="flex items-center gap-2 p-2.5 bg-amber-50 border border-amber-200 rounded-lg text-xs text-amber-800">
-          <Star className="h-3.5 w-3.5 fill-amber-400 text-amber-500 flex-shrink-0" />
-          <span>
-            <span className="text-amber-600 font-semibold">★ Amber</span> = surcharge spécifique ·{" "}
-            <span className="text-blue-600 font-semibold">Bleu</span> = taux global personnalisé ·{" "}
-            <span className="font-semibold">Noir</span> = taux par défaut
-          </span>
-        </div>
-      )}
-
-      {/* Full fee table by country */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base">Frais par pays et opérateur</CardTitle>
-          <p className="text-xs text-muted-foreground">
-            Survolez un taux pour modifier. ↺ réinitialise la surcharge spécifique.
-          </p>
-        </CardHeader>
-        <CardContent className="p-0">
-          {fullFeeTable && (
-            <Accordion
-              type="multiple"
-              value={openCountries}
-              onValueChange={setOpenCountries}
-              className="divide-y"
-            >
-              {COUNTRIES.map((country) => {
-                const countryData = fullFeeTable[country.code];
-                if (!countryData) return null;
-
-                const hasSpecific = countryData.operators.some(
-                  (op) => op.deposit.source === "specific" || op.withdrawal.source === "specific" || op.transfer.source === "specific"
-                );
-
-                return (
-                  <AccordionItem key={country.code} value={country.code} className="border-0">
-                    <AccordionTrigger className="px-4 py-3 hover:no-underline hover:bg-muted/20 [&[data-state=open]]:bg-muted/30">
-                      <div className="flex items-center gap-3">
-                        <span className="text-xl">{country.flag}</span>
-                        <div className="text-left">
-                          <div className="flex items-center gap-2">
-                            <span className="font-semibold text-sm">{country.name}</span>
-                            {hasSpecific && <Star className="h-3 w-3 text-amber-500 fill-amber-400" />}
-                          </div>
-                          <div className="flex items-center gap-2 mt-0.5">
-                            <span className="text-xs font-mono text-muted-foreground">{countryData.currency}</span>
-                            <span className="text-xs text-muted-foreground">
-                              {countryData.operators.length} opérateur{countryData.operators.length > 1 ? "s" : ""}
-                            </span>
-                          </div>
-                        </div>
-                      </div>
-                    </AccordionTrigger>
-
-                    <AccordionContent className="p-0">
-                      <div className="border-t">
-                        {/* Column headers */}
-                        <div className="grid grid-cols-3 px-4 py-2 bg-muted/20 text-xs font-medium text-muted-foreground uppercase tracking-wide">
-                          <div>Opérateur</div>
-                          <div className="text-right">Dépôt</div>
-                          <div className="text-right">Retrait</div>
-                        </div>
-                        {countryData.operators.map((op, idx) => (
-                          <div
-                            key={op.name}
-                            className={`grid grid-cols-3 gap-2 px-4 py-3 items-center hover:bg-muted/10 ${
-                              idx !== countryData.operators.length - 1 ? "border-b" : ""
-                            }`}
-                          >
-                            <div>
-                              <p className="text-sm font-medium">{op.name}</p>
-                              <p className="text-xs text-muted-foreground leading-tight">
-                                {OPERATOR_LABELS[op.name] ?? op.name}
-                              </p>
-                            </div>
-                            <EditableCell
-                              cell={op.deposit}
-                              userId={userId}
-                              country={country.code}
-                              operator={op.name}
-                              txType="DEPOSIT"
-                              onSaved={refresh}
-                            />
-                            <EditableCell
-                              cell={op.withdrawal}
-                              userId={userId}
-                              country={country.code}
-                              operator={op.name}
-                              txType="WITHDRAWAL"
-                              onSaved={refresh}
-                            />
-                          </div>
-                        ))}
-                      </div>
-                    </AccordionContent>
-                  </AccordionItem>
-                );
-              })}
-            </Accordion>
-          )}
-        </CardContent>
-      </Card>
+      {/* Operator Fees Editor */}
+      <OperatorFeesSection userId={userId} />
 
       {/* KYC Documents */}
       <Card>

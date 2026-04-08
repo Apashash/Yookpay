@@ -410,6 +410,127 @@ router.delete("/users/:id/fees/:feeId", async (req: AuthRequest, res) => {
   }
 });
 
+// All operators per country from feeService FEE_TABLE
+const ALL_OPERATOR_FEES: Array<{ country: string; operator: string; pixpayDeposit: number; pixpayWithdrawal: number }> = [
+  // XAF — 1.5%
+  { country: "CM", operator: "MTN",      pixpayDeposit: 0.015, pixpayWithdrawal: 0.015 },
+  { country: "CM", operator: "ORANGE",   pixpayDeposit: 0.015, pixpayWithdrawal: 0.015 },
+  { country: "CG", operator: "MTN",      pixpayDeposit: 0.015, pixpayWithdrawal: 0.015 },
+  { country: "CG", operator: "AIRTEL",   pixpayDeposit: 0.015, pixpayWithdrawal: 0.015 },
+  { country: "GA", operator: "AIRTEL",   pixpayDeposit: 0.015, pixpayWithdrawal: 0.015 },
+  { country: "GA", operator: "MTN",      pixpayDeposit: 0.015, pixpayWithdrawal: 0.015 },
+  // XOF — 1.9%
+  { country: "CI", operator: "MTN",      pixpayDeposit: 0.019, pixpayWithdrawal: 0.019 },
+  { country: "CI", operator: "ORANGE",   pixpayDeposit: 0.019, pixpayWithdrawal: 0.019 },
+  { country: "CI", operator: "MOOV",     pixpayDeposit: 0.019, pixpayWithdrawal: 0.019 },
+  { country: "CI", operator: "WAVE",     pixpayDeposit: 0.019, pixpayWithdrawal: 0.019 },
+  { country: "SN", operator: "ORANGE",   pixpayDeposit: 0.019, pixpayWithdrawal: 0.019 },
+  { country: "SN", operator: "FREE",     pixpayDeposit: 0.019, pixpayWithdrawal: 0.019 },
+  { country: "SN", operator: "WAVE",     pixpayDeposit: 0.019, pixpayWithdrawal: 0.019 },
+  { country: "BF", operator: "ORANGE",   pixpayDeposit: 0.019, pixpayWithdrawal: 0.019 },
+  { country: "BF", operator: "MOOV",     pixpayDeposit: 0.019, pixpayWithdrawal: 0.019 },
+  { country: "BJ", operator: "MTN",      pixpayDeposit: 0.019, pixpayWithdrawal: 0.019 },
+  { country: "BJ", operator: "MOOV",     pixpayDeposit: 0.019, pixpayWithdrawal: 0.019 },
+  { country: "GM", operator: "AFRICELL", pixpayDeposit: 0.019, pixpayWithdrawal: 0.019 },
+  { country: "GM", operator: "QMONEY",   pixpayDeposit: 0.019, pixpayWithdrawal: 0.019 },
+  { country: "GN", operator: "MTN",      pixpayDeposit: 0.019, pixpayWithdrawal: 0.019 },
+  { country: "GN", operator: "ORANGE",   pixpayDeposit: 0.019, pixpayWithdrawal: 0.019 },
+  { country: "GN", operator: "CELLCOM",  pixpayDeposit: 0.019, pixpayWithdrawal: 0.019 },
+  { country: "ML", operator: "ORANGE",   pixpayDeposit: 0.019, pixpayWithdrawal: 0.019 },
+  { country: "ML", operator: "MOOV",     pixpayDeposit: 0.019, pixpayWithdrawal: 0.019 },
+  { country: "TG", operator: "TOGOCEL",  pixpayDeposit: 0.019, pixpayWithdrawal: 0.019 },
+  { country: "TG", operator: "MOOV",     pixpayDeposit: 0.019, pixpayWithdrawal: 0.019 },
+  // CDF — 3.0% dépôt / 3.5% retrait
+  { country: "CD", operator: "VODACOM",  pixpayDeposit: 0.030, pixpayWithdrawal: 0.035 },
+  { country: "CD", operator: "AIRTEL",   pixpayDeposit: 0.030, pixpayWithdrawal: 0.035 },
+  { country: "CD", operator: "ORANGE",   pixpayDeposit: 0.030, pixpayWithdrawal: 0.035 },
+  { country: "CD", operator: "AFRICELL", pixpayDeposit: 0.030, pixpayWithdrawal: 0.035 },
+];
+
+// GET /admin/users/:id/operator-fees — get all operator fees for a user (merged defaults + overrides)
+router.get("/users/:id/operator-fees", async (req: AuthRequest, res) => {
+  const userId = parseInt(req.params.id);
+  if (isNaN(userId)) {
+    res.status(400).json({ error: "ValidationError", message: "Invalid user ID" });
+    return;
+  }
+  try {
+    const rows = await pool.query<{
+      country: string; operator: string;
+      pixpay_deposit: string; pixpay_withdrawal: string;
+      margin_deposit: string; margin_withdrawal: string;
+    }>(
+      "SELECT country, operator, pixpay_deposit, pixpay_withdrawal, margin_deposit, margin_withdrawal FROM user_operator_fees WHERE user_id = $1",
+      [userId]
+    );
+    const saved = new Map(rows.rows.map((r) => [`${r.country}__${r.operator}`, r]));
+
+    const result = ALL_OPERATOR_FEES.map((def) => {
+      const key = `${def.country}__${def.operator}`;
+      const row = saved.get(key);
+      return {
+        country: def.country,
+        operator: def.operator,
+        pixpayDeposit:    row ? parseFloat(row.pixpay_deposit)    : def.pixpayDeposit,
+        pixpayWithdrawal: row ? parseFloat(row.pixpay_withdrawal) : def.pixpayWithdrawal,
+        marginDeposit:    row ? parseFloat(row.margin_deposit)    : 0.015,
+        marginWithdrawal: row ? parseFloat(row.margin_withdrawal) : 0.015,
+        isCustom: !!row,
+      };
+    });
+
+    res.json(result);
+  } catch (err) {
+    req.log.error({ err }, "Get operator fees error");
+    res.status(500).json({ error: "InternalError", message: "Failed to get operator fees" });
+  }
+});
+
+// PUT /admin/users/:id/operator-fees — bulk upsert operator fees for a user
+router.put("/users/:id/operator-fees", async (req: AuthRequest, res) => {
+  const userId = parseInt(req.params.id);
+  if (isNaN(userId)) {
+    res.status(400).json({ error: "ValidationError", message: "Invalid user ID" });
+    return;
+  }
+
+  const rowSchema = z.object({
+    country: z.string().length(2),
+    operator: z.string().min(2).max(20),
+    pixpayDeposit: z.number().min(0).max(1),
+    pixpayWithdrawal: z.number().min(0).max(1),
+    marginDeposit: z.number().min(0).max(1),
+    marginWithdrawal: z.number().min(0).max(1),
+  });
+  const schema = z.array(rowSchema).min(1);
+  const parse = schema.safeParse(req.body);
+  if (!parse.success) {
+    res.status(400).json({ error: "ValidationError", message: "Données invalides" });
+    return;
+  }
+
+  try {
+    for (const row of parse.data) {
+      await pool.query(
+        `INSERT INTO user_operator_fees (user_id, country, operator, pixpay_deposit, pixpay_withdrawal, margin_deposit, margin_withdrawal, updated_at)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, NOW())
+         ON CONFLICT (user_id, country, operator) DO UPDATE SET
+           pixpay_deposit = EXCLUDED.pixpay_deposit,
+           pixpay_withdrawal = EXCLUDED.pixpay_withdrawal,
+           margin_deposit = EXCLUDED.margin_deposit,
+           margin_withdrawal = EXCLUDED.margin_withdrawal,
+           updated_at = NOW()`,
+        [userId, row.country, row.operator, row.pixpayDeposit, row.pixpayWithdrawal, row.marginDeposit, row.marginWithdrawal]
+      );
+    }
+    req.log.info({ adminId: req.userId, userId, count: parse.data.length }, "Operator fees updated");
+    res.json({ success: true, message: `${parse.data.length} frais mis à jour` });
+  } catch (err) {
+    req.log.error({ err }, "Put operator fees error");
+    res.status(500).json({ error: "InternalError", message: "Failed to update operator fees" });
+  }
+});
+
 // PATCH /admin/kyc/:docId — verify or reject a KYC document
 router.patch("/kyc/:docId", async (req: AuthRequest, res) => {
   const docId = parseInt(req.params.docId);

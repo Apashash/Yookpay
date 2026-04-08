@@ -273,6 +273,23 @@ export async function runStartupMigrations(): Promise<void> {
       }
     }
 
+    // 10. Create user_operator_fees table (PixPay fee + YookPay margin per user/country/operator)
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS user_operator_fees (
+        id SERIAL PRIMARY KEY,
+        user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        country VARCHAR(2) NOT NULL,
+        operator VARCHAR(20) NOT NULL,
+        pixpay_deposit NUMERIC(6,4) NOT NULL,
+        pixpay_withdrawal NUMERIC(6,4) NOT NULL,
+        margin_deposit NUMERIC(6,4) NOT NULL DEFAULT 0.015,
+        margin_withdrawal NUMERIC(6,4) NOT NULL DEFAULT 0.015,
+        created_at TIMESTAMP DEFAULT NOW() NOT NULL,
+        updated_at TIMESTAMP DEFAULT NOW() NOT NULL,
+        UNIQUE(user_id, country, operator)
+      )
+    `);
+
     logger.info("Startup migrations completed successfully");
   } catch (err) {
     logger.error({ err }, "Startup migration error");
