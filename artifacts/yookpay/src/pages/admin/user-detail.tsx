@@ -440,16 +440,6 @@ function OperatorFeesSection({ userId }: { userId: number }) {
                         {COUNTRIES.find((c) => c.code === country.code)?.flag} {country.name}
                       </span>
                     </div>
-                    {/* Column headers */}
-                    <div className="grid grid-cols-[140px_1fr_1fr_1fr_1fr_80px_80px] gap-1 px-4 py-1.5 bg-muted/5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground border-b">
-                      <div>Opérateur</div>
-                      <div className="text-center text-blue-600">PixPay Dépôt</div>
-                      <div className="text-center text-blue-600">PixPay Retrait</div>
-                      <div className="text-center text-violet-600">Marge Dépôt</div>
-                      <div className="text-center text-violet-600">Marge Retrait</div>
-                      <div className="text-center text-emerald-600">Total Dép.</div>
-                      <div className="text-center text-emerald-600">Total Ret.</div>
-                    </div>
                     {country.operators.map((op) => {
                       const row = getRow(country.code, op);
                       const totalDeposit = row.pixpayDeposit + row.marginDeposit;
@@ -457,34 +447,45 @@ function OperatorFeesSection({ userId }: { userId: number }) {
                       return (
                         <div
                           key={op}
-                          className={`grid grid-cols-[140px_1fr_1fr_1fr_1fr_80px_80px] gap-1 px-4 py-2 items-center border-b last:border-0 ${row.isCustom ? "bg-violet-50/40 dark:bg-violet-900/10" : ""}`}
+                          className={`px-4 py-3 border-b last:border-0 ${row.isCustom ? "bg-violet-50/40 dark:bg-violet-900/10" : ""}`}
                         >
-                          <div>
-                            <p className="text-xs font-semibold">{op}</p>
-                            {row.isCustom && <span className="text-[9px] text-violet-600 font-medium">Personnalisé</span>}
+                          {/* Operator name */}
+                          <div className="flex items-center gap-2 mb-2">
+                            <p className="text-xs font-bold">{op}</p>
+                            {row.isCustom && (
+                              <span className="text-[9px] bg-violet-100 text-violet-700 font-semibold px-1.5 py-0.5 rounded-full">
+                                Personnalisé
+                              </span>
+                            )}
                           </div>
-                          {/* PixPay Deposit */}
-                          <div className="flex justify-center">
-                            <PctInput value={row.pixpayDeposit} onChange={(v) => update(country.code, op, "pixpayDeposit", v)} />
+                          {/* Dépôt row */}
+                          <div className="grid grid-cols-[60px_1fr_1fr_60px] gap-2 items-center mb-1.5">
+                            <span className="text-[10px] font-semibold text-muted-foreground uppercase">Dépôt</span>
+                            <div>
+                              <p className="text-[9px] text-blue-500 font-medium mb-0.5 text-center">PixPay</p>
+                              <PctInput value={row.pixpayDeposit} onChange={(v) => update(country.code, op, "pixpayDeposit", v)} />
+                            </div>
+                            <div>
+                              <p className="text-[9px] text-violet-500 font-medium mb-0.5 text-center">Marge</p>
+                              <PctInput value={row.marginDeposit} onChange={(v) => update(country.code, op, "marginDeposit", v)} />
+                            </div>
+                            <div className="text-center">
+                              <p className="text-[9px] text-emerald-500 font-medium mb-0.5">Total</p>
+                              <span className="text-xs font-bold text-emerald-700">{(totalDeposit * 100).toFixed(2)}%</span>
+                            </div>
                           </div>
-                          {/* PixPay Withdrawal */}
-                          <div className="flex justify-center">
-                            <PctInput value={row.pixpayWithdrawal} onChange={(v) => update(country.code, op, "pixpayWithdrawal", v)} />
-                          </div>
-                          {/* Margin Deposit */}
-                          <div className="flex justify-center">
-                            <PctInput value={row.marginDeposit} onChange={(v) => update(country.code, op, "marginDeposit", v)} />
-                          </div>
-                          {/* Margin Withdrawal */}
-                          <div className="flex justify-center">
-                            <PctInput value={row.marginWithdrawal} onChange={(v) => update(country.code, op, "marginWithdrawal", v)} />
-                          </div>
-                          {/* Totals (read-only) */}
-                          <div className="text-center">
-                            <span className="text-xs font-bold text-emerald-700">{(totalDeposit * 100).toFixed(2)}%</span>
-                          </div>
-                          <div className="text-center">
-                            <span className="text-xs font-bold text-emerald-700">{(totalWithdrawal * 100).toFixed(2)}%</span>
+                          {/* Retrait row */}
+                          <div className="grid grid-cols-[60px_1fr_1fr_60px] gap-2 items-center">
+                            <span className="text-[10px] font-semibold text-muted-foreground uppercase">Retrait</span>
+                            <div>
+                              <PctInput value={row.pixpayWithdrawal} onChange={(v) => update(country.code, op, "pixpayWithdrawal", v)} />
+                            </div>
+                            <div>
+                              <PctInput value={row.marginWithdrawal} onChange={(v) => update(country.code, op, "marginWithdrawal", v)} />
+                            </div>
+                            <div className="text-center">
+                              <span className="text-xs font-bold text-emerald-700">{(totalWithdrawal * 100).toFixed(2)}%</span>
+                            </div>
                           </div>
                         </div>
                       );
