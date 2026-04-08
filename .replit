@@ -32,3 +32,6 @@ channel = "stable-25_05"
 
 [userenv.production]
 PIXPAY_ENV = "production"
+
+[userenv.shared]
+APP_URL = "https://yookpay.replit.app"

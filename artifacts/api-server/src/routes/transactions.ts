@@ -828,8 +828,13 @@ router.post("/crypto-deposit", authMiddleware, transactionRateLimit, async (req:
           initiatedAt: new Date().toISOString(),
         },
       }).where(eq(transactionsTable.id, tx.id));
-    } catch (npErr) {
-      req.log.warn({ err: npErr }, "NowPayments unavailable - using sandbox mode");
+    } catch (npErr: any) {
+      req.log.error({ err: npErr }, "NowPayments API error");
+      // Clean up the pending transaction since NowPayments failed
+      await db.delete(transactionsTable).where(eq(transactionsTable.id, tx.id));
+      const detail = npErr?.message ?? "Erreur inconnue";
+      res.status(502).json({ error: "NowPaymentsError", message: `Erreur NowPayments : ${detail}` });
+      return;
     }
 
     res.status(201).json({
@@ -839,9 +844,7 @@ router.post("/crypto-deposit", authMiddleware, transactionRateLimit, async (req:
       payAmount,
       payCurrency: "USDTTRC20",
       network: "Tron (TRC-20)",
-      message: payAddress
-        ? "Envoyez exactement le montant USDT indiqué à l'adresse ci-dessous. La transaction sera confirmée sous 10-20 minutes."
-        : "NowPayments non configuré — contactez le support.",
+      message: "Envoyez exactement le montant USDT indiqué à l'adresse ci-dessous. La transaction sera confirmée sous 10-20 minutes.",
     });
   } catch (err) {
     req.log.error({ err }, "Crypto deposit error");
