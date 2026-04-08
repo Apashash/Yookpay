@@ -6,8 +6,32 @@ function apiKey(): string {
   return process.env.NOWPAYMENTS_API_KEY ?? "";
 }
 
-function jwtToken(): string {
-  return process.env.NOWPAYMENTS_JWT_TOKEN ?? "";
+// Obtain a short-lived JWT by logging in with NowPayments credentials
+// Required for mass payouts only — stored in memory, refreshed per request
+async function getNpJwt(): Promise<string> {
+  const email    = process.env.NOWPAYMENTS_EMAIL    ?? "";
+  const password = process.env.NOWPAYMENTS_PASSWORD ?? "";
+
+  if (!email || !password) {
+    throw new Error(
+      "NOWPAYMENTS_EMAIL et NOWPAYMENTS_PASSWORD sont requis pour les retraits crypto. " +
+      "Configurez ces secrets dans les paramètres."
+    );
+  }
+
+  const res = await fetch(`${BASE_URL}/auth`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ email, password }),
+  });
+
+  const body = await res.json() as { token?: string; message?: string };
+  if (!res.ok || !body.token) {
+    throw new Error(
+      `NowPayments auth failed ${res.status}: ${body.message ?? JSON.stringify(body)}`
+    );
+  }
+  return body.token;
 }
 
 // Standard fetch with x-api-key (for deposits / payment creation)
@@ -26,18 +50,20 @@ async function npFetch<T>(path: string, options?: RequestInit): Promise<T> {
 
   const body = await res.json();
   if (!res.ok) {
-    const msg = body?.message ?? body?.error ?? JSON.stringify(body);
+    const msg = (body as { message?: string; error?: string })?.message
+      ?? (body as { error?: string })?.error
+      ?? JSON.stringify(body);
     throw new Error(`NowPayments API error ${res.status}: ${msg}`);
   }
   return body as T;
 }
 
-// Payout fetch with both x-api-key AND Bearer JWT (required for mass payouts)
+// Payout fetch — requires x-api-key + Bearer JWT (mass payouts)
 async function npPayoutFetch<T>(path: string, options?: RequestInit): Promise<T> {
   const key = apiKey();
-  const jwt = jwtToken();
   if (!key) throw new Error("NOWPAYMENTS_API_KEY non configurée");
-  if (!jwt) throw new Error("NOWPAYMENTS_JWT_TOKEN non configuré — JWT requis pour les paiements sortants NowPayments. Activez Mass Payouts dans votre compte NowPayments.");
+
+  const jwt = await getNpJwt();
 
   const res = await fetch(`${BASE_URL}${path}`, {
     ...options,
@@ -51,8 +77,10 @@ async function npPayoutFetch<T>(path: string, options?: RequestInit): Promise<T>
 
   const body = await res.json();
   if (!res.ok) {
-    const msg = body?.message ?? body?.error ?? JSON.stringify(body);
-    throw new Error(`NowPayments API error ${res.status}: ${msg}`);
+    const msg = (body as { message?: string; error?: string })?.message
+      ?? (body as { error?: string })?.error
+      ?? JSON.stringify(body);
+    throw new Error(`NowPayments Payout error ${res.status}: ${msg}`);
   }
   return body as T;
 }
@@ -79,12 +107,12 @@ export async function createNpPayment(params: {
   return npFetch<NpPaymentResult>("/payment", {
     method: "POST",
     body: JSON.stringify({
-      price_amount:     params.priceAmount,
-      price_currency:   params.priceCurrency,
-      pay_currency:     params.payCurrency,
-      order_id:         params.orderId,
+      price_amount:      params.priceAmount,
+      price_currency:    params.priceCurrency,
+      pay_currency:      params.payCurrency,
+      order_id:          params.orderId,
       order_description: params.orderDescription,
-      ipn_callback_url: params.ipnCallbackUrl,
+      ipn_callback_url:  params.ipnCallbackUrl,
     }),
   });
 }
@@ -133,31 +161,47 @@ export async function getNpEstimate(params: {
 }
 
 // ── Mass payout (crypto withdrawal) ──────────────────────────────────────────
-export interface NpPayoutResult {
+// Response shape from POST /v1/payout
+export interface NpPayoutResponse {
   id: string;
   status: string;
-  currency: string;
-  amount: string;
-  address: string;
+  withdrawals: Array<{
+    id: string;
+    address: string;
+    currency: string;
+    amount: string;
+    status: string;
+    extra_id?: string;
+  }>;
 }
 
 export async function createNpPayout(params: {
   address: string;
   amount: number;
-  currency: string;
+  currency: string;   // e.g. "usdttrc20"
   ipnCallbackUrl: string;
   extraId?: string;
-}): Promise<NpPayoutResult> {
-  return npPayoutFetch<NpPayoutResult>("/payout", {
+}): Promise<NpPayoutResponse> {
+  const withdrawal: Record<string, unknown> = {
+    address:          params.address,
+    currency:         params.currency,
+    amount:           params.amount,
+    ipn_callback_url: params.ipnCallbackUrl,
+  };
+  if (params.extraId) withdrawal["extra_id"] = params.extraId;
+
+  return npPayoutFetch<NpPayoutResponse>("/payout", {
     method: "POST",
     body: JSON.stringify({
-      address:          params.address,
-      amount:           params.amount,
-      currency:         params.currency,
       ipn_callback_url: params.ipnCallbackUrl,
-      extra_id:         params.extraId,
+      withdrawals: [withdrawal],
     }),
   });
+}
+
+// ── Get payout status ─────────────────────────────────────────────────────────
+export async function getNpPayoutStatus(payoutId: string): Promise<NpPayoutResponse> {
+  return npPayoutFetch<NpPayoutResponse>(`/payout/${payoutId}`);
 }
 
 // ── IPN signature verification ────────────────────────────────────────────────

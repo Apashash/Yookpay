@@ -1010,6 +1010,7 @@ router.post("/crypto-withdraw", authMiddleware, transactionRateLimit, async (req
         extraId: reference,
       });
       npPayoutId = npResult.id;
+      const withdrawal = npResult.withdrawals?.[0];
 
       await db.update(transactionsTable).set({
         providerReference: npPayoutId,
@@ -1018,6 +1019,7 @@ router.post("/crypto-withdraw", authMiddleware, transactionRateLimit, async (req
           address,
           network,
           npPayoutId,
+          npWithdrawalId: withdrawal?.id ?? null,
           initiatedAt: new Date().toISOString(),
         },
         status: "SUCCESS",
