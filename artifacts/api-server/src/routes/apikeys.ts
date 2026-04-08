@@ -79,6 +79,55 @@ router.post("/", authMiddleware, async (req: AuthRequest, res) => {
   }
 });
 
+// POST /api-keys/:id/regenerate — revoke old key, create new one with same name
+router.post("/:id/regenerate", authMiddleware, async (req: AuthRequest, res) => {
+  const id = parseInt(req.params.id);
+  if (isNaN(id)) {
+    res.status(400).json({ error: "ValidationError", message: "Invalid key ID" });
+    return;
+  }
+
+  try {
+    const [key] = await db
+      .select()
+      .from(apiKeysTable)
+      .where(and(eq(apiKeysTable.id, id), eq(apiKeysTable.userId, req.userId!)))
+      .limit(1);
+
+    if (!key || !key.active) {
+      res.status(404).json({ error: "NotFound", message: "Clé introuvable ou déjà révoquée" });
+      return;
+    }
+
+    // Revoke old key
+    await db
+      .update(apiKeysTable)
+      .set({ active: false })
+      .where(eq(apiKeysTable.id, id));
+
+    // Create new key with same name
+    const { raw, hash, prefix } = generateKey();
+    const [newKey] = await db
+      .insert(apiKeysTable)
+      .values({ userId: req.userId!, keyHash: hash, keyPrefix: prefix, name: key.name })
+      .returning();
+
+    req.log.info({ userId: req.userId, oldKeyId: id, newKeyId: newKey.id }, "API key regenerated");
+
+    res.status(201).json({
+      id: newKey.id,
+      name: newKey.name,
+      prefix: newKey.keyPrefix,
+      rawKey: raw,
+      createdAt: newKey.createdAt,
+      message: "Ancienne clé révoquée. Conservez la nouvelle en lieu sûr.",
+    });
+  } catch (err) {
+    req.log.error({ err }, "Regenerate API key error");
+    res.status(500).json({ error: "InternalError", message: "Failed to regenerate key" });
+  }
+});
+
 // DELETE /api-keys/:id — revoke a key
 router.delete("/:id", authMiddleware, async (req: AuthRequest, res) => {
   const id = parseInt(req.params.id);

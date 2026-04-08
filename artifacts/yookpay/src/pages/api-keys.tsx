@@ -5,7 +5,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
+import { Separator } from "@/components/ui/separator";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   AlertDialog,
@@ -27,7 +28,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
-import { Copy, Plus, Trash2, Key, ShieldCheck, Clock, Check } from "lucide-react";
+import { Copy, Plus, Trash2, Key, ShieldCheck, Clock, Check, RefreshCw, Calendar } from "lucide-react";
 
 interface ApiKey {
   id: number;
@@ -38,7 +39,7 @@ interface ApiKey {
   createdAt: string;
 }
 
-function CopyButton({ text }: { text: string }) {
+function CopyButton({ text, label }: { text: string; label?: string }) {
   const [copied, setCopied] = useState(false);
   const copy = () => {
     navigator.clipboard.writeText(text).then(() => {
@@ -47,14 +48,15 @@ function CopyButton({ text }: { text: string }) {
     });
   };
   return (
-    <Button variant="ghost" size="icon" className="h-7 w-7" onClick={copy}>
+    <Button variant="outline" size="sm" className="gap-2" onClick={copy}>
       {copied ? <Check className="h-3.5 w-3.5 text-green-500" /> : <Copy className="h-3.5 w-3.5" />}
+      {label && <span>{copied ? "Copié !" : label}</span>}
     </Button>
   );
 }
 
 function fmtDate(d: string) {
-  return new Date(d).toLocaleDateString("fr-FR", { day: "2-digit", month: "short", year: "numeric" });
+  return new Date(d).toLocaleDateString("fr-FR", { day: "2-digit", month: "long", year: "numeric" });
 }
 
 export default function ApiKeys() {
@@ -63,6 +65,7 @@ export default function ApiKeys() {
   const [newKeyName, setNewKeyName] = useState("");
   const [newKeyDialog, setNewKeyDialog] = useState(false);
   const [revealedKey, setRevealedKey] = useState<{ id: number; rawKey: string; name: string } | null>(null);
+  const [selectedKey, setSelectedKey] = useState<ApiKey | null>(null);
 
   const { data, isLoading } = useQuery<{ keys: ApiKey[] }>({
     queryKey: ["api-keys"],
@@ -91,7 +94,24 @@ export default function ApiKeys() {
       customFetch(`/api/api-keys/${id}`, { method: "DELETE" }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["api-keys"] });
+      setSelectedKey(null);
       toast({ title: "Clé révoquée", description: "La clé API a été désactivée avec succès." });
+    },
+    onError: (err: Error) => {
+      toast({ title: "Erreur", description: err.message, variant: "destructive" });
+    },
+  });
+
+  const regenerateMutation = useMutation({
+    mutationFn: (id: number) =>
+      customFetch<{ id: number; name: string; prefix: string; rawKey: string; createdAt: string }>(
+        `/api/api-keys/${id}/regenerate`,
+        { method: "POST" }
+      ),
+    onSuccess: (data) => {
+      qc.invalidateQueries({ queryKey: ["api-keys"] });
+      setSelectedKey(null);
+      setRevealedKey({ id: data.id, rawKey: data.rawKey, name: data.name });
     },
     onError: (err: Error) => {
       toast({ title: "Erreur", description: err.message, variant: "destructive" });
@@ -163,7 +183,11 @@ export default function ApiKeys() {
       ) : (
         <div className="space-y-3">
           {activeKeys.map((key) => (
-            <Card key={key.id}>
+            <Card
+              key={key.id}
+              className="cursor-pointer hover:border-primary/50 hover:shadow-sm transition-all"
+              onClick={() => setSelectedKey(key)}
+            >
               <CardContent className="pt-4 pb-4">
                 <div className="flex items-center gap-4">
                   <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
@@ -194,31 +218,7 @@ export default function ApiKeys() {
                       )}
                     </div>
                   </div>
-                  <AlertDialog>
-                    <AlertDialogTrigger asChild>
-                      <Button variant="ghost" size="icon" className="text-destructive hover:text-destructive hover:bg-destructive/10 flex-shrink-0">
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
-                    </AlertDialogTrigger>
-                    <AlertDialogContent>
-                      <AlertDialogHeader>
-                        <AlertDialogTitle>Révoquer cette clé ?</AlertDialogTitle>
-                        <AlertDialogDescription>
-                          La clé <strong>{key.name}</strong> (<code>{key.prefix}…</code>) sera désactivée
-                          immédiatement. Toutes les intégrations utilisant cette clé cesseront de fonctionner.
-                        </AlertDialogDescription>
-                      </AlertDialogHeader>
-                      <AlertDialogFooter>
-                        <AlertDialogCancel>Annuler</AlertDialogCancel>
-                        <AlertDialogAction
-                          className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-                          onClick={() => revokeMutation.mutate(key.id)}
-                        >
-                          Révoquer
-                        </AlertDialogAction>
-                      </AlertDialogFooter>
-                    </AlertDialogContent>
-                  </AlertDialog>
+                  <span className="text-xs text-muted-foreground pr-1">Voir →</span>
                 </div>
               </CardContent>
             </Card>
@@ -226,7 +226,138 @@ export default function ApiKeys() {
         </div>
       )}
 
-      {/* Create key dialog */}
+      {/* ── Key detail dialog ── */}
+      <Dialog open={!!selectedKey} onOpenChange={(open) => !open && setSelectedKey(null)}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Key className="h-5 w-5 text-primary" />
+              {selectedKey?.name}
+            </DialogTitle>
+            <DialogDescription>Détails et actions pour cette clé API.</DialogDescription>
+          </DialogHeader>
+
+          {selectedKey && (
+            <div className="space-y-4 py-1">
+              {/* Status */}
+              <div className="flex items-center justify-between text-sm">
+                <span className="text-muted-foreground">Statut</span>
+                <Badge variant="outline" className="text-green-600 border-green-200 bg-green-50 dark:bg-green-950/20 dark:border-green-800">
+                  Active
+                </Badge>
+              </div>
+
+              {/* Created */}
+              <div className="flex items-center justify-between text-sm">
+                <span className="text-muted-foreground flex items-center gap-1.5">
+                  <Calendar className="h-3.5 w-3.5" />
+                  Date de création
+                </span>
+                <span className="font-medium">{fmtDate(selectedKey.createdAt)}</span>
+              </div>
+
+              {/* Last used */}
+              <div className="flex items-center justify-between text-sm">
+                <span className="text-muted-foreground flex items-center gap-1.5">
+                  <Clock className="h-3.5 w-3.5" />
+                  Dernière utilisation
+                </span>
+                <span className="font-medium">
+                  {selectedKey.lastUsedAt ? fmtDate(selectedKey.lastUsedAt) : "Jamais utilisée"}
+                </span>
+              </div>
+
+              <Separator />
+
+              {/* Masked key + copy prefix */}
+              <div className="space-y-2">
+                <Label className="text-xs text-muted-foreground">Clé API (masquée)</Label>
+                <div className="flex items-center gap-2">
+                  <code className="flex-1 text-xs font-mono bg-muted border rounded px-3 py-2 text-muted-foreground">
+                    {selectedKey.prefix}••••••••••••••••••••
+                  </code>
+                  <CopyButton text={selectedKey.prefix} label="Copier le préfixe" />
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  La clé complète n'est affichée qu'une seule fois à la création. Pour la retrouver, régénérez la clé.
+                </p>
+              </div>
+
+              <Separator />
+
+              {/* Actions */}
+              <div className="space-y-2">
+                <Label className="text-xs text-muted-foreground">Actions</Label>
+
+                {/* Regenerate */}
+                <AlertDialog>
+                  <AlertDialogTrigger asChild>
+                    <Button variant="outline" className="w-full gap-2 justify-start">
+                      <RefreshCw className="h-4 w-4 text-amber-500" />
+                      Régénérer la clé
+                    </Button>
+                  </AlertDialogTrigger>
+                  <AlertDialogContent>
+                    <AlertDialogHeader>
+                      <AlertDialogTitle>Régénérer cette clé ?</AlertDialogTitle>
+                      <AlertDialogDescription>
+                        L'ancienne clé <strong>{selectedKey.name}</strong> (<code>{selectedKey.prefix}…</code>) sera
+                        immédiatement révoquée et remplacée par une nouvelle. Toutes vos intégrations utilisant
+                        l'ancienne clé cesseront de fonctionner.
+                      </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                      <AlertDialogCancel>Annuler</AlertDialogCancel>
+                      <AlertDialogAction
+                        className="bg-amber-500 text-white hover:bg-amber-600"
+                        onClick={() => regenerateMutation.mutate(selectedKey.id)}
+                      >
+                        {regenerateMutation.isPending ? "Régénération…" : "Régénérer"}
+                      </AlertDialogAction>
+                    </AlertDialogFooter>
+                  </AlertDialogContent>
+                </AlertDialog>
+
+                {/* Revoke */}
+                <AlertDialog>
+                  <AlertDialogTrigger asChild>
+                    <Button variant="outline" className="w-full gap-2 justify-start text-destructive hover:text-destructive hover:bg-destructive/10">
+                      <Trash2 className="h-4 w-4" />
+                      Supprimer la clé
+                    </Button>
+                  </AlertDialogTrigger>
+                  <AlertDialogContent>
+                    <AlertDialogHeader>
+                      <AlertDialogTitle>Révoquer cette clé ?</AlertDialogTitle>
+                      <AlertDialogDescription>
+                        La clé <strong>{selectedKey.name}</strong> (<code>{selectedKey.prefix}…</code>) sera désactivée
+                        immédiatement. Toutes les intégrations utilisant cette clé cesseront de fonctionner.
+                      </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                      <AlertDialogCancel>Annuler</AlertDialogCancel>
+                      <AlertDialogAction
+                        className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                        onClick={() => revokeMutation.mutate(selectedKey.id)}
+                      >
+                        Révoquer
+                      </AlertDialogAction>
+                    </AlertDialogFooter>
+                  </AlertDialogContent>
+                </AlertDialog>
+              </div>
+            </div>
+          )}
+
+          <DialogFooter>
+            <Button variant="ghost" className="w-full" onClick={() => setSelectedKey(null)}>
+              Fermer
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* ── Create key dialog ── */}
       <Dialog open={newKeyDialog} onOpenChange={setNewKeyDialog}>
         <DialogContent>
           <DialogHeader>
@@ -264,7 +395,7 @@ export default function ApiKeys() {
         </DialogContent>
       </Dialog>
 
-      {/* Reveal key dialog (shown once after creation) */}
+      {/* ── Reveal key dialog (shown once after creation / regeneration) ── */}
       <Dialog open={!!revealedKey} onOpenChange={() => setRevealedKey(null)}>
         <DialogContent>
           <DialogHeader>
@@ -283,7 +414,16 @@ export default function ApiKeys() {
               <code className="flex-1 text-xs font-mono bg-muted border rounded px-3 py-3 break-all leading-relaxed">
                 {revealedKey?.rawKey}
               </code>
-              {revealedKey && <CopyButton text={revealedKey.rawKey} />}
+              {revealedKey && (
+                <Button
+                  variant="outline"
+                  size="icon"
+                  className="h-9 w-9 flex-shrink-0"
+                  onClick={() => navigator.clipboard.writeText(revealedKey.rawKey)}
+                >
+                  <Copy className="h-4 w-4" />
+                </Button>
+              )}
             </div>
             <p className="text-xs text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800 rounded p-2">
               ⚠ Stockez cette clé dans un gestionnaire de secrets ou une variable d'environnement sécurisée.
