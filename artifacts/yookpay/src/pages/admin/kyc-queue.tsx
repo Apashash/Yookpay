@@ -38,6 +38,7 @@ interface Submission {
 const DOC_LABELS: Record<string, string> = {
   ID_FRONT:    "Pièce d'identité — Recto",
   ID_BACK:     "Pièce d'identité — Verso",
+  SELFIE:      "Selfie avec la pièce d'identité",
   KYB_STATUTS: "Statuts de l'entreprise",
   KYB_RCCM:    "RCCM",
   KYB_NIU:     "NIU",
@@ -276,7 +277,7 @@ export default function AdminKycQueue() {
                 </div>
                 {/* ID docs */}
                 <div className="space-y-1.5">
-                  {selected.documents.filter((d) => ["ID_FRONT", "ID_BACK"].includes(d.type)).map((doc) => (
+                  {selected.documents.filter((d) => ["ID_FRONT", "ID_BACK", "SELFIE"].includes(d.type)).map((doc) => (
                     <div key={doc.id} className="flex items-center justify-between bg-muted/50 rounded-lg px-3 py-2">
                       <span className="text-xs font-medium">{DOC_LABELS[doc.type]}</span>
                       <div className="flex items-center gap-2">

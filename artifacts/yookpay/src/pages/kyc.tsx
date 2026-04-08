@@ -347,8 +347,9 @@ export default function Kyc() {
   const [step, setStep] = useState<1 | 2>(1);
 
   // Files for step 1
-  const [frontFile, setFrontFile] = useState<{ name: string; data: string } | null>(null);
-  const [backFile,  setBackFile]  = useState<{ name: string; data: string } | null>(null);
+  const [frontFile,  setFrontFile]  = useState<{ name: string; data: string } | null>(null);
+  const [backFile,   setBackFile]   = useState<{ name: string; data: string } | null>(null);
+  const [selfieFile, setSelfieFile] = useState<{ name: string; data: string } | null>(null);
   // Files for step 2
   const [statutsFile, setStatutsFile] = useState<{ name: string; data: string } | null>(null);
   const [rccmFile,    setRccmFile]    = useState<{ name: string; data: string } | null>(null);
@@ -390,7 +391,7 @@ export default function Kyc() {
     mutationFn: (values: KycValues) =>
       customFetch("/api/kyc/identity", {
         method: "POST",
-        body: JSON.stringify({ ...values, frontFile, backFile }),
+        body: JSON.stringify({ ...values, frontFile, backFile, selfieFile }),
       }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["kyc"] });
@@ -563,7 +564,17 @@ export default function Kyc() {
                   onChange={setBackFile}
                   required
                 />
-                <p className="text-xs text-muted-foreground">Formats acceptés : JPG, PNG, PDF · Max 10 Mo</p>
+                <FileSlot
+                  label="Selfie avec la pièce d'identité"
+                  accept="image/*"
+                  file={selfieFile}
+                  onChange={setSelfieFile}
+                  required
+                />
+                <p className="text-xs text-muted-foreground">Formats acceptés : JPG, PNG, PDF · Max 10 Mo par fichier</p>
+                <p className="text-xs text-muted-foreground bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800 rounded p-2">
+                  📸 Le selfie doit vous montrer tenant votre pièce d'identité ouverte, lisible, face caméra.
+                </p>
               </CardContent>
             </Card>
 

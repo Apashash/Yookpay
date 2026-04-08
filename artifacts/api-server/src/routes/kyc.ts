@@ -54,6 +54,7 @@ router.post("/identity", authMiddleware, async (req: AuthRequest, res) => {
     docNumber:   z.string().min(1).max(100),
     frontFile:   z.object({ name: z.string(), data: z.string() }).optional(),
     backFile:    z.object({ name: z.string(), data: z.string() }).optional(),
+    selfieFile:  z.object({ name: z.string(), data: z.string() }).optional(),
   });
 
   const parse = schema.safeParse(req.body);
@@ -62,7 +63,7 @@ router.post("/identity", authMiddleware, async (req: AuthRequest, res) => {
     return;
   }
 
-  const { fullName, dateOfBirth, docType, docNumber, frontFile, backFile } = parse.data;
+  const { fullName, dateOfBirth, docType, docNumber, frontFile, backFile, selfieFile } = parse.data;
   const client = await pool.connect();
 
   try {
@@ -79,7 +80,7 @@ router.post("/identity", authMiddleware, async (req: AuthRequest, res) => {
     `, [req.userId, fullName, dateOfBirth, docType, docNumber]);
 
     // Upsert file docs
-    for (const [docTypeKey, file] of [["ID_FRONT", frontFile], ["ID_BACK", backFile]] as const) {
+    for (const [docTypeKey, file] of [["ID_FRONT", frontFile], ["ID_BACK", backFile], ["SELFIE", selfieFile]] as const) {
       if (!file) continue;
       const existing = await db.select({ id: kycDocumentsTable.id })
         .from(kycDocumentsTable)
