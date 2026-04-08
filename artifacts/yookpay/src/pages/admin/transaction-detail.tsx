@@ -24,6 +24,7 @@ interface AdminTxDetail {
   operator: string | null;
   phone: string | null;
   reference: string;
+  providerReference: string | null;
   feeRate: number | null;
   metadata: unknown;
   createdAt: string;
@@ -169,12 +170,21 @@ export default function AdminTransactionDetail() {
 
       {/* Details */}
       <div className="bg-card border rounded-2xl p-5 space-y-0 divide-y">
-        <Row label="Référence">
+        <Row label="Réf. YookPay">
           <div className="flex items-center justify-end gap-1.5">
             <span className="font-mono text-xs break-all">{tx.reference}</span>
             <CopyButton text={tx.reference} />
           </div>
         </Row>
+
+        {tx.providerReference && (
+          <Row label="Réf. PixPay">
+            <div className="flex items-center justify-end gap-1.5">
+              <span className="font-mono text-xs break-all">{tx.providerReference}</span>
+              <CopyButton text={tx.providerReference} />
+            </div>
+          </Row>
+        )}
 
         {tx.country && country && (
           <Row label="Pays">
