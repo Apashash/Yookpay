@@ -770,8 +770,8 @@ router.get("/fx-rate", authMiddleware, async (req: AuthRequest, res) => {
 router.get("/crypto-min-amount", authMiddleware, async (req: AuthRequest, res) => {
   try {
     const minAmount = await getNpMinAmount("usd", "usdttrc20");
-    // Round up to nearest 0.5 for a clean UX
-    const rounded = Math.ceil(minAmount * 2) / 2;
+    // Round up to nearest integer for a clean UX (e.g. 10.826... → 11)
+    const rounded = Math.ceil(minAmount);
     res.json({ minAmount: rounded, currency: "USDT", network: "TRC-20" });
   } catch (err: any) {
     // Fallback to 20 USDT if NowPayments is unreachable
@@ -795,7 +795,7 @@ router.post("/crypto-deposit", authMiddleware, transactionRateLimit, async (req:
   // Validate against NowPayments minimum before creating anything
   try {
     const minAmount = await getNpMinAmount("usd", "usdttrc20");
-    const minRounded = Math.ceil(minAmount * 2) / 2;
+    const minRounded = Math.ceil(minAmount);
     if (amountUsdt < minRounded) {
       res.status(400).json({
         error: "BelowMinimum",
