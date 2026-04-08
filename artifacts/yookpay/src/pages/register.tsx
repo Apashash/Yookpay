@@ -26,7 +26,7 @@ import { YookPayLogo } from "@/components/yookpay-logo";
 import { useEffect, useState } from "react";
 import { useToast } from "@/hooks/use-toast";
 
-import { COUNTRIES } from "@/lib/countries";
+import { COUNTRIES, type CountryCode } from "@/lib/countries";
 
 const registerSchema = z
   .object({
@@ -175,7 +175,7 @@ export default function Register() {
                           <SelectValue placeholder="Sélectionner votre pays" />
                         </SelectTrigger>
                       </FormControl>
-                      <SelectContent className="max-h-64 overflow-y-auto">
+                      <SelectContent modal={false} className="max-h-64 overflow-y-auto">
                         {COUNTRIES.map((c) => (
                           <SelectItem key={c.code} value={c.code}>
                             <span className="flex items-center gap-2">
