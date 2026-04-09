@@ -18,9 +18,12 @@ export function getOperatorFlow(operator: string): OperatorFlow {
 }
 
 export function getApiKey(currency: string): string {
-  const key = process.env[`PIXPAY_API_KEY_${currency.toUpperCase()}`];
-  if (!key) throw new Error(`Clé API PixPay manquante pour la devise : ${currency}`);
-  return key.trim();
+  // Try currency-specific key first (e.g. PIXPAY_API_KEY_XAF), then universal fallback
+  const specific = process.env[`PIXPAY_API_KEY_${currency.toUpperCase()}`];
+  if (specific) return specific.trim();
+  const universal = process.env["PIXPAY_API_KEY"];
+  if (universal) return universal.trim();
+  throw new Error(`Clé API PixPay manquante — définissez PIXPAY_API_KEY_${currency.toUpperCase()} ou PIXPAY_API_KEY`);
 }
 
 export function getIpnUrl(): string {
@@ -74,8 +77,9 @@ export async function callPixPayAirtime(params: PixPayCallParams): Promise<PixPa
     body["redirect_error_url"] = params.redirectErrorUrl ?? "";
   }
 
+  const apiKeyHint = apiKey.length > 8 ? `${apiKey.slice(0, 4)}...${apiKey.slice(-4)}` : "***";
   logger.info(
-    { serviceId: params.serviceId, currency: params.currency, amount: params.amount, customData: params.customData },
+    { serviceId: params.serviceId, currency: params.currency, amount: params.amount, destination: params.phone, apiKeyHint, customData: params.customData },
     "PixPay airtime call initiated"
   );
 
@@ -97,7 +101,7 @@ export async function callPixPayAirtime(params: PixPayCallParams): Promise<PixPa
   const pixTransactionId = String(data["transaction_id"] ?? "");
 
   logger.info(
-    { statusCode: res.status, pixpayStatus: json.statut_code, state: pixState, txId: pixTransactionId },
+    { statusCode: res.status, pixpayStatus: json.statut_code, state: pixState, txId: pixTransactionId, pixpayMessage: json.message, pixpayData: json.data },
     "PixPay airtime response"
   );
 
