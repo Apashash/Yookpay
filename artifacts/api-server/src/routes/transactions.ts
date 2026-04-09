@@ -35,9 +35,11 @@ const DIAL_CODES: Record<string, string> = {
 function normalizePhone(phone: string, country: string): string {
   const dialDigits = DIAL_CODES[country.toUpperCase()] ?? "";
   const digits = phone.replace(/\D/g, "");
-  // If sent with country code prefix, strip it and restore leading 0
+  // Strip country code prefix if present
   if (dialDigits && digits.startsWith(dialDigits)) {
-    return "0" + digits.slice(dialDigits.length);
+    const local = digits.slice(dialDigits.length);
+    // Don't add a second leading 0 if local already starts with one
+    return local.startsWith("0") ? local : "0" + local;
   }
   if (digits.startsWith("0")) return digits;
   return "0" + digits;
