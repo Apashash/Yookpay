@@ -34,3 +34,6 @@ PIXPAY_ENV = "production"
 
 [userenv.shared]
 APP_URL = "https://yookpay.replit.app"
+
+[userenv.development]
+PIXPAY_ENV = "production"
