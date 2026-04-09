@@ -396,10 +396,19 @@ async function getPlatformConfig(key: string): Promise<string | null> {
   return null;
 }
 
+// Minimum amounts per country from PixPay documentation
+// https://docs.pixpay.sn/fr — "Gammes de montants par pays"
+const COUNTRY_MIN_AMOUNTS: Partial<Record<Country, number>> = {
+  CI: 200, SN: 200, GM: 200,                   // 200 XOF minimum
+  TG: 500, BJ: 500, ML: 500, BF: 500,           // 500 XOF minimum
+  CM: 500, CG: 500, GA: 500, CD: 500,           // 500 XAF/CDF minimum
+  GN: 1000,                                      // 1000 XOF minimum
+};
+
 // POST /transactions/deposit
 router.post("/deposit", authMiddleware, transactionRateLimit, async (req: AuthRequest, res) => {
   const schema = z.object({
-    amount: z.number().min(100),
+    amount: z.number().min(1),
     country: z.string().min(2),
     operator: z.string().min(2),
     phone: z.string().min(6),
@@ -415,6 +424,16 @@ router.post("/deposit", authMiddleware, transactionRateLimit, async (req: AuthRe
 
   const { amount, country, operator, phone, feeBearer, omOtp } = parse.data;
   const currency = CURRENCY_MAP[country as Country];
+
+  // Validate against PixPay's per-country minimum amount
+  const countryMin = COUNTRY_MIN_AMOUNTS[country as Country];
+  if (countryMin !== undefined && amount < countryMin) {
+    res.status(400).json({
+      error: "AmountTooLow",
+      message: `Le montant minimum pour ${country} est de ${countryMin.toLocaleString("fr-FR")} ${currency ?? ""}. Veuillez augmenter le montant.`,
+    });
+    return;
+  }
   const reference = generateReference();
   const flow = getOperatorFlow(operator);
 
@@ -559,7 +578,7 @@ router.post("/deposit", authMiddleware, transactionRateLimit, async (req: AuthRe
 // POST /transactions/withdraw
 router.post("/withdraw", authMiddleware, transactionRateLimit, async (req: AuthRequest, res) => {
   const schema = z.object({
-    amount: z.number().min(100),
+    amount: z.number().min(1),
     currency: z.string().min(3),
     country: z.string().min(2),
     phone: z.string().min(6),
@@ -574,6 +593,17 @@ router.post("/withdraw", authMiddleware, transactionRateLimit, async (req: AuthR
   }
 
   const { amount, currency, country, phone, operator, feeBearer } = parse.data;
+
+  // Validate against PixPay's per-country minimum amount
+  const countryMinWd = COUNTRY_MIN_AMOUNTS[country as Country];
+  if (countryMinWd !== undefined && amount < countryMinWd) {
+    res.status(400).json({
+      error: "AmountTooLow",
+      message: `Le montant minimum pour ${country} est de ${countryMinWd.toLocaleString("fr-FR")} ${currency}. Veuillez augmenter le montant.`,
+    });
+    return;
+  }
+
   const reference = generateReference();
 
   try {

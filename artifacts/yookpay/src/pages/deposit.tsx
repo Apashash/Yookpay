@@ -43,7 +43,7 @@ import { ExternalLink, Clock, Info, Copy, Check } from "lucide-react";
 type FeeBearer = "SENDER" | "RECIPIENT";
 
 const depositSchema = z.object({
-  amount:   z.coerce.number().min(100, "Montant minimum : 100"),
+  amount:   z.coerce.number().min(1, "Montant requis"),
   country:  z.string().min(2, "Veuillez sélectionner un pays"),
   operator: z.string().min(2, "Veuillez sélectionner un opérateur"),
   phone:    z.string().min(6, "Numéro de téléphone invalide"),
@@ -231,9 +231,11 @@ export default function Deposit() {
     form.setValue("omOtp", "");
   }, [operator]);
 
+  const countryMinAmount = selectedCountry?.minAmount ?? 200;
+
   // Instant local recalculation using the cached rate when only amount changes
   useEffect(() => {
-    if (!feePreview || !amount || amount < 100) return;
+    if (!feePreview || !amount || amount < countryMinAmount) return;
     const feeAmount = Math.max(Math.round(amount * feePreview.feeRate), 1);
     const netAmount = Math.max(amount - feeAmount, 0);
     setFeePreview((prev) =>
@@ -243,7 +245,7 @@ export default function Deposit() {
 
   // API call for accurate rate (debounced, fires on operator/country change too)
   useEffect(() => {
-    if (!amount || amount < 100 || !country || !operator) return;
+    if (!amount || amount < countryMinAmount || !country || !operator) return;
     let active = true;
     const id = setTimeout(async () => {
       try {
@@ -256,6 +258,15 @@ export default function Deposit() {
   }, [amount, country, operator]);
 
   const onSubmit = (data: DepositFormValues) => {
+    // Validate against PixPay's per-country minimum amount
+    const countryMin = selectedCountry?.minAmount ?? 200;
+    if (data.amount < countryMin) {
+      form.setError("amount", {
+        message: `Montant minimum pour ${selectedCountry?.name ?? data.country} : ${countryMin.toLocaleString("fr-FR")} ${selectedCountry?.currency ?? ""}`,
+      });
+      return;
+    }
+
     const body: Record<string, unknown> = {
       amount: data.amount,
       country: data.country,
@@ -812,6 +823,11 @@ export default function Deposit() {
                     <FormControl>
                       <Input type="number" placeholder="1000" data-testid="input-amount" {...field} />
                     </FormControl>
+                    {selectedCountry && (
+                      <FormDescription>
+                        Minimum : {countryMinAmount.toLocaleString("fr-FR")} {selectedCountry.currency}
+                      </FormDescription>
+                    )}
                     <FormMessage />
                   </FormItem>
                 )}

@@ -1,16 +1,18 @@
+// minAmount: minimum transaction amount per PixPay documentation
+// https://docs.pixpay.sn/fr — "Gammes de montants par pays"
 export const COUNTRIES = [
-  { code: "BJ", name: "Bénin",            flag: "🇧🇯", dialCode: "+229", currency: "XOF", operators: ["MTN", "MOOV"] },
-  { code: "BF", name: "Burkina Faso",      flag: "🇧🇫", dialCode: "+226", currency: "XOF", operators: ["ORANGE", "MOOV"] },
-  { code: "CM", name: "Cameroun",          flag: "🇨🇲", dialCode: "+237", currency: "XAF", operators: ["MTN", "ORANGE"] },
-  { code: "CD", name: "Congo (RDC)",       flag: "🇨🇩", dialCode: "+243", currency: "CDF", operators: ["VODACOM", "AIRTEL", "ORANGE", "AFRICELL"] },
-  { code: "CG", name: "Congo-Brazzaville", flag: "🇨🇬", dialCode: "+242", currency: "XAF", operators: ["MTN", "AIRTEL"] },
-  { code: "CI", name: "Côte d'Ivoire",     flag: "🇨🇮", dialCode: "+225", currency: "XOF", operators: ["MTN", "ORANGE", "MOOV", "WAVE"] },
-  { code: "GA", name: "Gabon",             flag: "🇬🇦", dialCode: "+241", currency: "XAF", operators: ["AIRTEL", "MTN"] },
-  { code: "GM", name: "Gambie",            flag: "🇬🇲", dialCode: "+220", currency: "XOF", operators: ["AFRICELL", "QMONEY"] },
-  { code: "GN", name: "Guinée Conakry",    flag: "🇬🇳", dialCode: "+224", currency: "XOF", operators: ["MTN", "ORANGE", "CELLCOM"] },
-  { code: "ML", name: "Mali",              flag: "🇲🇱", dialCode: "+223", currency: "XOF", operators: ["ORANGE", "MOOV"] },
-  { code: "SN", name: "Sénégal",           flag: "🇸🇳", dialCode: "+221", currency: "XOF", operators: ["ORANGE", "FREE", "WAVE"] },
-  { code: "TG", name: "Togo",              flag: "🇹🇬", dialCode: "+228", currency: "XOF", operators: ["TOGOCEL", "MOOV"] },
+  { code: "BJ", name: "Bénin",            flag: "🇧🇯", dialCode: "+229", currency: "XOF", operators: ["MTN", "MOOV"],                           minAmount: 500 },
+  { code: "BF", name: "Burkina Faso",      flag: "🇧🇫", dialCode: "+226", currency: "XOF", operators: ["ORANGE", "MOOV"],                         minAmount: 500 },
+  { code: "CM", name: "Cameroun",          flag: "🇨🇲", dialCode: "+237", currency: "XAF", operators: ["MTN", "ORANGE"],                          minAmount: 500 },
+  { code: "CD", name: "Congo (RDC)",       flag: "🇨🇩", dialCode: "+243", currency: "CDF", operators: ["VODACOM", "AIRTEL", "ORANGE", "AFRICELL"], minAmount: 500 },
+  { code: "CG", name: "Congo-Brazzaville", flag: "🇨🇬", dialCode: "+242", currency: "XAF", operators: ["MTN", "AIRTEL"],                          minAmount: 500 },
+  { code: "CI", name: "Côte d'Ivoire",     flag: "🇨🇮", dialCode: "+225", currency: "XOF", operators: ["MTN", "ORANGE", "MOOV", "WAVE"],           minAmount: 200 },
+  { code: "GA", name: "Gabon",             flag: "🇬🇦", dialCode: "+241", currency: "XAF", operators: ["AIRTEL", "MTN"],                          minAmount: 500 },
+  { code: "GM", name: "Gambie",            flag: "🇬🇲", dialCode: "+220", currency: "XOF", operators: ["AFRICELL", "QMONEY"],                     minAmount: 200 },
+  { code: "GN", name: "Guinée Conakry",    flag: "🇬🇳", dialCode: "+224", currency: "XOF", operators: ["MTN", "ORANGE", "CELLCOM"],               minAmount: 1000 },
+  { code: "ML", name: "Mali",              flag: "🇲🇱", dialCode: "+223", currency: "XOF", operators: ["ORANGE", "MOOV"],                         minAmount: 500 },
+  { code: "SN", name: "Sénégal",           flag: "🇸🇳", dialCode: "+221", currency: "XOF", operators: ["ORANGE", "FREE", "WAVE"],                 minAmount: 200 },
+  { code: "TG", name: "Togo",              flag: "🇹🇬", dialCode: "+228", currency: "XOF", operators: ["TOGOCEL", "MOOV"],                        minAmount: 500 },
 ] as const;
 
 export type CountryCode = typeof COUNTRIES[number]["code"];

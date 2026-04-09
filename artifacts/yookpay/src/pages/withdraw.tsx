@@ -43,7 +43,7 @@ import { Badge } from "@/components/ui/badge";
 type FeeBearer = "SENDER" | "RECIPIENT";
 
 const withdrawSchema = z.object({
-  amount:   z.coerce.number().min(100, "Montant minimum : 100"),
+  amount:   z.coerce.number().min(1, "Montant requis"),
   country:  z.string().min(2, "Veuillez sélectionner un pays"),
   operator: z.string().min(2, "Veuillez sélectionner un opérateur"),
   phone:    z.string().min(6, "Numéro de téléphone invalide"),
@@ -146,6 +146,7 @@ export default function Withdraw() {
   const selectedCountry = COUNTRIES.find((c) => c.code === country);
   const operators = selectedCountry?.operators ?? [];
   const flow = operator ? getOperatorFlow(operator) : null;
+  const countryMinAmount = selectedCountry?.minAmount ?? 200;
 
   useEffect(() => {
     form.setValue("operator", "");
@@ -155,7 +156,7 @@ export default function Withdraw() {
 
   // Instant local recalculation using the cached rate when only amount changes
   useEffect(() => {
-    if (!feePreview || !amount || amount < 100) return;
+    if (!feePreview || !amount || amount < countryMinAmount) return;
     const amt = Number(amount);
     const feeAmount = Math.max(Math.round(amt * feePreview.feeRate), 1);
     const netAmount = Math.max(amt + feeAmount, 0);
@@ -166,7 +167,7 @@ export default function Withdraw() {
 
   // API call for accurate rate (debounced, fires on operator/country change too)
   useEffect(() => {
-    if (!amount || amount < 100 || !country || !operator) return;
+    if (!amount || amount < countryMinAmount || !country || !operator) return;
     let active = true;
     const id = setTimeout(async () => {
       try {
@@ -179,6 +180,14 @@ export default function Withdraw() {
   }, [amount, country, operator]);
 
   const onSubmit = (data: WithdrawFormValues) => {
+    // Validate against PixPay's per-country minimum amount
+    if (data.amount < countryMinAmount) {
+      form.setError("amount", {
+        message: `Montant minimum pour ${selectedCountry?.name ?? data.country} : ${countryMinAmount.toLocaleString("fr-FR")} ${selectedCountry?.currency ?? ""}`,
+      });
+      return;
+    }
+
     const currency = selectedCountry?.currency ?? "XAF";
     withdrawMutation.mutate(
       { data: { amount: data.amount, currency, country: data.country, operator: data.operator, phone: normalizePhone(data.phone, data.country), feeBearer } },
@@ -563,6 +572,11 @@ export default function Withdraw() {
                     <FormControl>
                       <Input type="number" placeholder="1000" data-testid="input-amount" {...field} />
                     </FormControl>
+                    {selectedCountry && (
+                      <FormDescription>
+                        Minimum : {countryMinAmount.toLocaleString("fr-FR")} {selectedCountry.currency}
+                      </FormDescription>
+                    )}
                     <FormMessage />
                   </FormItem>
                 )}
