@@ -27,6 +27,7 @@ import AdminTransactions from "@/pages/admin/transactions";
 import AdminTransactionDetail from "@/pages/admin/transaction-detail";
 import AdminExchanges from "@/pages/admin/exchanges";
 import AdminFees from "@/pages/admin/fees";
+import Landing from "@/pages/landing";
 import NotFound from "@/pages/not-found";
 
 const queryClient = new QueryClient();
@@ -69,7 +70,7 @@ function AdminRoute({ component: Component }: { component: React.ComponentType }
 function Router() {
   return (
     <Switch>
-      <Route path="/" component={() => <Redirect to="/dashboard" />} />
+      <Route path="/" component={Landing} />
       <Route path="/login" component={Login} />
       <Route path="/register" component={Register} />
       
