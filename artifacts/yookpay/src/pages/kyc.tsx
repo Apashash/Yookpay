@@ -784,7 +784,7 @@ export default function Kyc() {
                     <FormLabel>Forme juridique <span className="text-destructive">*</span></FormLabel>
                     <Select onValueChange={field.onChange} value={field.value}>
                       <FormControl><SelectTrigger><SelectValue placeholder="Sélectionner…" /></SelectTrigger></FormControl>
-                      <SelectContent>
+                      <SelectContent className="max-h-60 overflow-y-auto">
                         {BUSINESS_TYPES.map((t) => (
                           <SelectItem key={t} value={t}>{t}</SelectItem>
                         ))}
