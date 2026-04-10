@@ -337,7 +337,7 @@ router.post("/public/:token/pay", async (req, res) => {
     return;
   }
 
-  const LINK_MIN_AMOUNT = 100;
+  const LINK_MIN_AMOUNT = 50;
   if (amount < LINK_MIN_AMOUNT) {
     res.status(400).json({ error: "AmountTooLow", message: `Le montant minimum est de ${LINK_MIN_AMOUNT} ${currency}` });
     return;
