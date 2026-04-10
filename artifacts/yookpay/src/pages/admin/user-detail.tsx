@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Switch } from "@/components/ui/switch";
 import {
   Accordion,
   AccordionContent,
@@ -697,45 +698,41 @@ export default function AdminUserDetail() {
               <p className="text-xs text-muted-foreground mb-1.5">Vérification</p>
               <div className="space-y-2">
                 {/* KYC */}
-                <div className="flex items-center justify-between gap-2 rounded-md border px-3 py-2">
+                <div className="flex items-center justify-between gap-2 rounded-md border px-3 py-2.5">
                   <div className="flex items-center gap-1.5 text-xs font-semibold">
-                    <ShieldCheck className="h-3.5 w-3.5 text-blue-600" />
+                    <ShieldCheck className={`h-3.5 w-3.5 ${kycStatus === "APPROVED" ? "text-blue-600" : "text-muted-foreground"}`} />
                     KYC
+                    {kycStatus === "APPROVED" && (
+                      <span className="text-[10px] text-blue-600 font-normal">Vérifié</span>
+                    )}
                   </div>
-                  <Button
-                    size="sm"
-                    className={`h-7 px-3 text-xs font-semibold text-white transition-colors ${
-                      kycStatus === "APPROVED"
-                        ? "bg-red-500 hover:bg-red-600"
-                        : "bg-blue-600 hover:bg-blue-700"
-                    }`}
+                  <Switch
+                    checked={kycStatus === "APPROVED"}
                     disabled={kycMutation.isPending}
-                    onClick={() => kycMutation.mutate({ kycStatus: kycStatus === "APPROVED" ? "NOT_STARTED" : "APPROVED" })}
-                  >
-                    {kycStatus === "APPROVED" ? "Désactiver" : "Activer"}
-                  </Button>
+                    onCheckedChange={(checked) =>
+                      kycMutation.mutate({ kycStatus: checked ? "APPROVED" : "NOT_STARTED" })
+                    }
+                  />
                 </div>
                 {/* KYB */}
-                <div className={`flex items-center justify-between gap-2 rounded-md border px-3 py-2 ${kycStatus !== "APPROVED" && kybStatus !== "APPROVED" ? "opacity-50" : ""}`}>
+                <div className={`flex items-center justify-between gap-2 rounded-md border px-3 py-2.5 ${kycStatus !== "APPROVED" && kybStatus !== "APPROVED" ? "opacity-40" : ""}`}>
                   <div className="flex items-center gap-1.5 text-xs font-semibold">
-                    <ShieldCheck className="h-3.5 w-3.5 text-blue-600" />
+                    <ShieldCheck className={`h-3.5 w-3.5 ${kybStatus === "APPROVED" ? "text-blue-600" : "text-muted-foreground"}`} />
                     KYB
+                    {kybStatus === "APPROVED" && (
+                      <span className="text-[10px] text-blue-600 font-normal">Vérifié</span>
+                    )}
                     {kycStatus !== "APPROVED" && kybStatus !== "APPROVED" && (
                       <span className="text-[10px] text-muted-foreground font-normal">(KYC requis)</span>
                     )}
                   </div>
-                  <Button
-                    size="sm"
-                    className={`h-7 px-3 text-xs font-semibold text-white transition-colors ${
-                      kybStatus === "APPROVED"
-                        ? "bg-red-500 hover:bg-red-600"
-                        : "bg-blue-600 hover:bg-blue-700"
-                    }`}
+                  <Switch
+                    checked={kybStatus === "APPROVED"}
                     disabled={kycMutation.isPending || (kycStatus !== "APPROVED" && kybStatus !== "APPROVED")}
-                    onClick={() => kycMutation.mutate({ kybStatus: kybStatus === "APPROVED" ? "NOT_STARTED" : "APPROVED" })}
-                  >
-                    {kybStatus === "APPROVED" ? "Désactiver" : "Activer"}
-                  </Button>
+                    onCheckedChange={(checked) =>
+                      kycMutation.mutate({ kybStatus: checked ? "APPROVED" : "NOT_STARTED" })
+                    }
+                  />
                 </div>
               </div>
             </div>
