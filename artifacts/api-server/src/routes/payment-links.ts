@@ -407,7 +407,9 @@ router.post("/public/:token/pay", async (req, res) => {
     }
 
     // Return same shape as deposit
-    const pending = flow === "OTP" ? false : pixResult?.status === "PENDING";
+    // pending = true for all flows that require user action (OTP, STANDARD, WAVE)
+    const finalStatus = pixResult?.status ?? "PENDING";
+    const pending = finalStatus !== "SUCCESS" && finalStatus !== "FAILED";
     let smsLink: string | null = null;
     if (flow === "SMS" && pixResult?.sms_link) smsLink = pixResult.sms_link;
     if (flow === "SMS" && pixResult?.payment_url) smsLink = pixResult.payment_url;

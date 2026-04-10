@@ -236,9 +236,8 @@ export default function Pay() {
         toast({ variant: "destructive", title: "Paiement échoué", description: data.message ?? "Erreur inconnue" });
         return;
       }
-      const mr: MobileResult = { txId: data.transaction.id, flow: data.flow, smsLink: data.smsLink, pending: data.pending };
+      const mr: MobileResult = { txId: data.transaction.id, flow: data.flow, smsLink: data.smsLink, pending: true };
       setMobileResult(mr);
-      if (!data.pending) setPollStatus("SUCCESS");
       if (data.smsLink) {
         toast({ title: "Paiement Wave", description: "Cliquez sur le lien Wave pour finaliser votre paiement." });
       }
