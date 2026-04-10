@@ -185,7 +185,7 @@ export default function Transfer() {
   ];
 
   return (
-    <KycGate require="kyc">
+    <KycGate level="kyc">
     <div className="max-w-2xl mx-auto space-y-4">
 
       {/* Page header */}

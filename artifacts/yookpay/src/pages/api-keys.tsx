@@ -86,7 +86,7 @@ export default function ApiKeys() {
   const activeKeys = data?.keys.filter((k) => k.active) ?? [];
 
   return (
-    <KycGate require="kyb">
+    <KycGate level="kyb">
     <div className="max-w-3xl mx-auto space-y-6">
       {/* Header */}
       <div className="flex items-start justify-between">

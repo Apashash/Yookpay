@@ -1,35 +1,41 @@
 import { useQuery } from "@tanstack/react-query";
 import { customFetch } from "@workspace/api-client-react";
-import { ShieldAlert } from "lucide-react";
+import { ShieldAlert, Loader2 } from "lucide-react";
 import { Link } from "wouter";
 import { Button } from "@/components/ui/button";
 
 type KycLevel = "kyc" | "kyb";
 
 interface KycGateProps {
-  require: KycLevel;
+  level: KycLevel;
   children: React.ReactNode;
 }
 
-export function KycGate({ require, children }: KycGateProps) {
+export function KycGate({ level, children }: KycGateProps) {
   const { data, isLoading } = useQuery<{ profile: { kycStatus: string; kybStatus: string } | null }>({
     queryKey: ["kyc-status-gate"],
     queryFn: () => customFetch("/api/kyc"),
     staleTime: 60_000,
   });
 
-  if (isLoading) return null;
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center min-h-[60vh]">
+        <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+      </div>
+    );
+  }
 
   const kycApproved = data?.profile?.kycStatus === "APPROVED";
   const kybApproved = data?.profile?.kybStatus === "APPROVED";
 
   const blocked =
-    require === "kyb" ? !kybApproved :
-    require === "kyc" ? !kycApproved : false;
+    level === "kyb" ? !kybApproved :
+    level === "kyc" ? !kycApproved : false;
 
   if (!blocked) return <>{children}</>;
 
-  const isKyb = require === "kyb" && kycApproved && !kybApproved;
+  const isKyb = level === "kyb" && kycApproved && !kybApproved;
 
   return (
     <div className="flex flex-col items-center justify-center min-h-[60vh] px-6 text-center gap-6">
