@@ -694,12 +694,18 @@ router.patch("/kyc/profile/:userId", async (req: AuthRequest, res) => {
   if (!parse.success) { res.status(400).json({ error: "ValidationError", message: "Données invalides" }); return; }
   const client = await pool.connect();
   try {
-    const sets: string[] = ["updated_at = NOW()"];
-    const values: any[] = [userId];
-    if (parse.data.kycStatus) { values.push(parse.data.kycStatus); sets.push(`kyc_status = $${values.length}`); }
-    if (parse.data.kybStatus) { values.push(parse.data.kybStatus); sets.push(`kyb_status = $${values.length}`); }
-    if (parse.data.adminNotes !== undefined) { values.push(parse.data.adminNotes); sets.push(`admin_notes = $${values.length}`); }
-    await client.query(`UPDATE kyc_profiles SET ${sets.join(", ")} WHERE user_id = $1`, values);
+    const { kycStatus, kybStatus, adminNotes } = parse.data;
+    // UPSERT: create the profile row if it doesn't exist yet, then update fields
+    await client.query(
+      `INSERT INTO kyc_profiles (user_id, kyc_status, kyb_status, admin_notes, updated_at)
+       VALUES ($1, $2, $3, $4, NOW())
+       ON CONFLICT (user_id) DO UPDATE SET
+         kyc_status   = COALESCE(EXCLUDED.kyc_status,   kyc_profiles.kyc_status),
+         kyb_status   = COALESCE(EXCLUDED.kyb_status,   kyc_profiles.kyb_status),
+         admin_notes  = COALESCE(EXCLUDED.admin_notes,  kyc_profiles.admin_notes),
+         updated_at   = NOW()`,
+      [userId, kycStatus ?? null, kybStatus ?? null, adminNotes ?? null]
+    );
     req.log.info({ adminId: req.userId, userId, ...parse.data }, "KYC profile status updated");
     res.json({ success: true });
   } catch (err) {

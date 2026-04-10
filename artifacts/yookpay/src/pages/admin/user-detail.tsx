@@ -698,63 +698,41 @@ export default function AdminUserDetail() {
               <div className="space-y-2">
                 {/* KYC */}
                 <div className="flex items-center justify-between gap-2 rounded-md border px-3 py-2">
-                  <div className="flex items-center gap-1.5 text-xs font-medium">
+                  <div className="flex items-center gap-1.5 text-xs font-semibold">
                     <ShieldCheck className="h-3.5 w-3.5 text-blue-600" />
                     KYC
                   </div>
-                  {kycStatus === "APPROVED" ? (
-                    <div className="flex items-center gap-2">
-                      <span className="text-[10px] text-emerald-600 font-semibold">Approuvé</span>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="h-6 px-2 text-[10px] text-muted-foreground"
-                        disabled={kycMutation.isPending}
-                        onClick={() => kycMutation.mutate({ kycStatus: "NOT_STARTED" })}
-                      >
-                        Révoquer
-                      </Button>
-                    </div>
-                  ) : (
-                    <Button
-                      size="sm"
-                      className="h-6 px-2 text-[10px] bg-blue-600 hover:bg-blue-700 text-white"
-                      disabled={kycMutation.isPending}
-                      onClick={() => kycMutation.mutate({ kycStatus: "APPROVED" })}
-                    >
-                      Approuver
-                    </Button>
-                  )}
+                  <Button
+                    size="sm"
+                    className={`h-7 px-3 text-xs font-semibold text-white transition-colors ${
+                      kycStatus === "APPROVED"
+                        ? "bg-red-500 hover:bg-red-600"
+                        : "bg-blue-600 hover:bg-blue-700"
+                    }`}
+                    disabled={kycMutation.isPending}
+                    onClick={() => kycMutation.mutate({ kycStatus: kycStatus === "APPROVED" ? "NOT_STARTED" : "APPROVED" })}
+                  >
+                    {kycStatus === "APPROVED" ? "Désactiver" : "Activer"}
+                  </Button>
                 </div>
                 {/* KYB */}
                 <div className="flex items-center justify-between gap-2 rounded-md border px-3 py-2">
-                  <div className="flex items-center gap-1.5 text-xs font-medium">
+                  <div className="flex items-center gap-1.5 text-xs font-semibold">
                     <ShieldCheck className="h-3.5 w-3.5 text-blue-600" />
                     KYB
                   </div>
-                  {kybStatus === "APPROVED" ? (
-                    <div className="flex items-center gap-2">
-                      <span className="text-[10px] text-emerald-600 font-semibold">Approuvé</span>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="h-6 px-2 text-[10px] text-muted-foreground"
-                        disabled={kycMutation.isPending}
-                        onClick={() => kycMutation.mutate({ kybStatus: "NOT_STARTED" })}
-                      >
-                        Révoquer
-                      </Button>
-                    </div>
-                  ) : (
-                    <Button
-                      size="sm"
-                      className="h-6 px-2 text-[10px] bg-blue-600 hover:bg-blue-700 text-white"
-                      disabled={kycMutation.isPending}
-                      onClick={() => kycMutation.mutate({ kybStatus: "APPROVED" })}
-                    >
-                      Approuver
-                    </Button>
-                  )}
+                  <Button
+                    size="sm"
+                    className={`h-7 px-3 text-xs font-semibold text-white transition-colors ${
+                      kybStatus === "APPROVED"
+                        ? "bg-red-500 hover:bg-red-600"
+                        : "bg-blue-600 hover:bg-blue-700"
+                    }`}
+                    disabled={kycMutation.isPending}
+                    onClick={() => kycMutation.mutate({ kybStatus: kybStatus === "APPROVED" ? "NOT_STARTED" : "APPROVED" })}
+                  >
+                    {kybStatus === "APPROVED" ? "Désactiver" : "Activer"}
+                  </Button>
                 </div>
               </div>
             </div>
