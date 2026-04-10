@@ -12,9 +12,6 @@ import { Separator } from "@/components/ui/separator";
 import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import {
-  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
-} from "@/components/ui/select";
-import {
   Loader2, ShieldCheck, Clock, CheckCircle2, XCircle, Link2,
   Image as ImageIcon, AlertTriangle,
 } from "lucide-react";
@@ -309,37 +306,39 @@ export default function Pay() {
 
             {/* Country */}
             <div className="space-y-1.5">
-              <Label>Pays</Label>
-              <Select value={country} onValueChange={setCountry}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Sélectionnez votre pays" />
-                </SelectTrigger>
-                <SelectContent modal={false}>
-                  {availableCountries.map((c) => (
-                    <SelectItem key={c.code} value={c.code}>
-                      {c.flag} {c.name} — {c.currency}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <Label htmlFor="select-country">Pays</Label>
+              <select
+                id="select-country"
+                value={country}
+                onChange={(e) => setCountry(e.target.value)}
+                className="w-full h-10 px-3 rounded-md border border-input bg-background text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+              >
+                <option value="" disabled>Sélectionnez votre pays</option>
+                {availableCountries.map((c) => (
+                  <option key={c.code} value={c.code}>
+                    {c.name} — {c.currency}
+                  </option>
+                ))}
+              </select>
             </div>
 
             {/* Operator */}
             {country && (
               <div className="space-y-1.5">
-                <Label>Opérateur Mobile Money</Label>
-                <Select value={operator} onValueChange={setOperator}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Choisissez un opérateur" />
-                  </SelectTrigger>
-                  <SelectContent modal={false}>
-                    {availableOperators.map((op) => (
-                      <SelectItem key={op} value={op}>
-                        {OPERATOR_LABELS[op] ?? op}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <Label htmlFor="select-operator">Opérateur Mobile Money</Label>
+                <select
+                  id="select-operator"
+                  value={operator}
+                  onChange={(e) => setOperator(e.target.value)}
+                  className="w-full h-10 px-3 rounded-md border border-input bg-background text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+                >
+                  <option value="" disabled>Choisissez un opérateur</option>
+                  {availableOperators.map((op) => (
+                    <option key={op} value={op}>
+                      {OPERATOR_LABELS[op] ?? op}
+                    </option>
+                  ))}
+                </select>
               </div>
             )}
 
