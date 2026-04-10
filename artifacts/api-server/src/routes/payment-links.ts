@@ -17,7 +17,7 @@ import { createNpPayment, getNpMinAmount } from "../lib/nowpayments";
 
 const router = Router();
 
-const DEFAULT_MARGIN = 0.015;
+const DEFAULT_MARGIN = 0.025;
 
 // ─── Local helpers (mirrored from transactions.ts) ────────────────────────────
 

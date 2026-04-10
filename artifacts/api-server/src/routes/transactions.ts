@@ -22,7 +22,7 @@ import {
 import { callPixPayAirtime, getOperatorFlow, getPixPayTransactionStatus, type PixPayCallParams } from "../lib/pixpay";
 import { z } from "zod";
 
-const DEFAULT_MARGIN = 0.015; // YookPay margin applied on top of PixPay fee
+const DEFAULT_MARGIN = 0.025; // YookPay margin applied on top of PixPay fee
 
 // Country code → dial code digits (no '+')
 const DIAL_CODES: Record<string, string> = {
