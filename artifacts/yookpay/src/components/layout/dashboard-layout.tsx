@@ -21,6 +21,7 @@ import {
   Coins,
   History,
   BadgeDollarSign,
+  Link2,
 } from "lucide-react";
 import { YookPayLogo } from "@/components/yookpay-logo";
 import { Button } from "@/components/ui/button";
@@ -54,6 +55,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
     { href: "/withdraw",     label: "Retrait",        icon: ArrowUpFromLine },
     { href: "/transfer",     label: "Échange USDT",   icon: ArrowRightLeft },
     { href: "/transactions", label: "Transactions",   icon: ListOrdered },
+    { href: "/yooklink",     label: "YookLink",       icon: Link2 },
     { href: "/services",     label: "Mes Services",   icon: Briefcase },
     { href: "/api-keys",     label: "Clé API",        icon: KeyRound },
     { href: "/kyc",          label: "KYC / KYB",      icon: ShieldCheck },

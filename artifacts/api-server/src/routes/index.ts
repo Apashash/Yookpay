@@ -10,6 +10,7 @@ import kycRouter from "./kyc";
 import adminRouter from "./admin";
 import ipnRouter from "./ipn";
 import nowpaymentsIpnRouter from "./nowpayments-ipn";
+import paymentLinksRouter from "./payment-links";
 
 const router: IRouter = Router();
 
@@ -24,5 +25,6 @@ router.use("/kyc", kycRouter);
 router.use("/admin", adminRouter);
 router.use("/ipn", ipnRouter);
 router.use("/nowpayments", nowpaymentsIpnRouter);
+router.use("/payment-links", paymentLinksRouter);
 
 export default router;

@@ -28,6 +28,8 @@ import AdminTransactionDetail from "@/pages/admin/transaction-detail";
 import AdminExchanges from "@/pages/admin/exchanges";
 import AdminFees from "@/pages/admin/fees";
 import Landing from "@/pages/landing";
+import YookLink from "@/pages/yooklink";
+import Pay from "@/pages/pay";
 import NotFound from "@/pages/not-found";
 
 const queryClient = new QueryClient();
@@ -85,6 +87,10 @@ function Router() {
       <Route path="/api-keys"  component={() => <ProtectedRoute component={ApiKeys} />} />
       <Route path="/api-keys/:id" component={() => <ProtectedRoute component={ApiKeyDetail} />} />
       <Route path="/kyc"              component={() => <ProtectedRoute component={Kyc} />} />
+      <Route path="/yooklink"         component={() => <ProtectedRoute component={YookLink} />} />
+
+      {/* Public payment page — no auth required */}
+      <Route path="/pay/:token" component={Pay} />
       
       {/* Admin Routes */}
       <Route path="/admin"            component={() => <AdminRoute component={AdminDashboard} />} />

@@ -313,6 +313,24 @@ export async function runStartupMigrations(): Promise<void> {
       )
     `);
 
+    // 11. Create payment_links table (YookLink — merchant payment links)
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS payment_links (
+        id SERIAL PRIMARY KEY,
+        user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        token VARCHAR(32) NOT NULL UNIQUE,
+        title VARCHAR(200) NOT NULL,
+        description TEXT,
+        photo_data TEXT,
+        price_type VARCHAR(10) NOT NULL DEFAULT 'FREE',
+        price_amount NUMERIC(12, 2),
+        currency VARCHAR(10),
+        countries TEXT[] NOT NULL DEFAULT '{}',
+        is_active BOOLEAN NOT NULL DEFAULT true,
+        created_at TIMESTAMP DEFAULT NOW() NOT NULL
+      )
+    `);
+
     logger.info("Startup migrations completed successfully");
   } catch (err) {
     logger.error({ err }, "Startup migration error");
