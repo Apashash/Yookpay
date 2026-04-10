@@ -426,6 +426,30 @@ router.post("/public/:token/pay", async (req, res) => {
   }
 });
 
+// POST /api/payment-links/public/fee-preview — public fee calculation (no auth)
+router.post("/public/fee-preview", async (req, res) => {
+  const schema = z.object({
+    amount:   z.number().positive(),
+    country:  z.string().min(2),
+    operator: z.string().min(2),
+  });
+  const parse = schema.safeParse(req.body);
+  if (!parse.success) { res.status(400).json({ error: "ValidationError" }); return; }
+  const { amount, country, operator } = parse.data;
+  try {
+    const breakdown = calculateFee(amount, country as Country, operator as Operator, "DEPOSIT");
+    res.json({
+      grossAmount: amount,
+      feeRate:     breakdown.feeRate,
+      feeAmount:   breakdown.feeAmount,
+      netAmount:   breakdown.netAmount,
+      currency:    CURRENCY_MAP[country as Country] ?? "XOF",
+    });
+  } catch {
+    res.status(400).json({ error: "CalculationError", message: "Impossible de calculer les frais" });
+  }
+});
+
 // GET /api/payment-links/public/tx/:txId — public status polling for payment link transactions
 router.get("/public/tx/:txId", async (req, res) => {
   const txId = parseInt(req.params.txId);
