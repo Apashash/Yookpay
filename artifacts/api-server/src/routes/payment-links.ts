@@ -3,7 +3,6 @@ import { pool } from "@workspace/db";
 import { authMiddleware, type AuthRequest } from "../middlewares/authMiddleware";
 import { z } from "zod";
 import crypto from "crypto";
-import { createNotification } from "../lib/notify";
 import {
   calculateFee,
   calculateFeeWithRate,
@@ -303,10 +302,10 @@ router.post("/public/:token/pay", async (req, res) => {
 
   // Load the payment link + merchant user
   const linkRes = await pool.query<{
-    id: number; user_id: number; price_type: string; price_amount: string | null;
+    id: number; user_id: number; title: string; price_type: string; price_amount: string | null;
     currency: string | null; countries: string[]; is_active: boolean;
   }>(
-    "SELECT id, user_id, price_type, price_amount, currency, countries, is_active FROM payment_links WHERE token = $1",
+    "SELECT id, user_id, title, price_type, price_amount, currency, countries, is_active FROM payment_links WHERE token = $1",
     [token]
   );
   if (!linkRes.rows.length || !linkRes.rows[0].is_active) {
@@ -380,7 +379,7 @@ router.post("/public/:token/pay", async (req, res) => {
       [merchantId, amount.toString(), feeAmt.toString(), walletNetAmount.toString(),
        currency, country, operator, phone, reference,
        feeBreakdown.feeRate.toString(), yookpayMarginAmount.toString(),
-       JSON.stringify({ initiatedAt: new Date().toISOString(), feeBearer, flow, pixPayAmount, paymentLinkId: link.id, paymentLinkToken: token })]
+       JSON.stringify({ initiatedAt: new Date().toISOString(), feeBearer, flow, pixPayAmount, paymentLinkId: link.id, paymentLinkToken: token, paymentLinkTitle: link.title })]
     );
     const tx = txRes.rows[0];
 
@@ -406,15 +405,6 @@ router.post("/public/:token/pay", async (req, res) => {
     if (pixTxId) {
       await pool.query("UPDATE transactions SET pix_transaction_id = $1 WHERE id = $2", [String(pixTxId), tx.id]);
     }
-
-    // Notify merchant of new payment via YookLink
-    await createNotification(
-      merchantId,
-      "PAYMENT_LINK",
-      `Paiement reçu via YookLink`,
-      `Vous avez reçu un paiement de ${amount.toLocaleString("fr-FR")} ${currency} via le lien "${link.title}".`,
-      tx.id,
-    );
 
     // Return same shape as deposit
     // pending = true for all flows that require user action (OTP, STANDARD, WAVE)

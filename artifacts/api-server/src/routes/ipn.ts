@@ -95,11 +95,16 @@ router.post("/pixpay", async (req: Request, res: Response) => {
 
           req.log?.info({ txId: tx.id, reference, creditAmount, currency: tx.currency }, "IPN DEPOSIT SUCCESS - wallet credited");
         }
+        const meta = tx.metadata as Record<string, any> | null;
+        const isYookLink = !!meta?.paymentLinkId;
+        const linkTitle  = meta?.paymentLinkTitle as string | undefined;
         await createNotification(
           tx.userId,
-          "DEPOSIT",
-          "Dépôt confirmé ✓",
-          `Votre dépôt de ${parseFloat(tx.netAmount).toLocaleString("fr-FR")} ${tx.currency} a bien été reçu.`,
+          isYookLink ? "PAYMENT_LINK" : "DEPOSIT",
+          isYookLink ? "Paiement YookLink reçu ✓" : "Dépôt confirmé ✓",
+          isYookLink
+            ? `Vous avez reçu ${parseFloat(tx.netAmount).toLocaleString("fr-FR")} ${tx.currency} via le lien${linkTitle ? ` "${linkTitle}"` : ""}.`
+            : `Votre dépôt de ${parseFloat(tx.netAmount).toLocaleString("fr-FR")} ${tx.currency} a bien été reçu.`,
           tx.id,
         );
       } else if (tx.type === "WITHDRAWAL") {
