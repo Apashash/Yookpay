@@ -698,11 +698,11 @@ router.patch("/kyc/profile/:userId", async (req: AuthRequest, res) => {
     // UPSERT: create the profile row if it doesn't exist yet, then update fields
     await client.query(
       `INSERT INTO kyc_profiles (user_id, kyc_status, kyb_status, admin_notes, updated_at)
-       VALUES ($1, $2, $3, $4, NOW())
+       VALUES ($1, COALESCE($2, 'NOT_STARTED'), COALESCE($3, 'NOT_STARTED'), $4, NOW())
        ON CONFLICT (user_id) DO UPDATE SET
-         kyc_status   = COALESCE(EXCLUDED.kyc_status,   kyc_profiles.kyc_status),
-         kyb_status   = COALESCE(EXCLUDED.kyb_status,   kyc_profiles.kyb_status),
-         admin_notes  = COALESCE(EXCLUDED.admin_notes,  kyc_profiles.admin_notes),
+         kyc_status   = CASE WHEN $2 IS NOT NULL THEN $2 ELSE kyc_profiles.kyc_status END,
+         kyb_status   = CASE WHEN $3 IS NOT NULL THEN $3 ELSE kyc_profiles.kyb_status END,
+         admin_notes  = CASE WHEN $4 IS NOT NULL THEN $4 ELSE kyc_profiles.admin_notes END,
          updated_at   = NOW()`,
       [userId, kycStatus ?? null, kybStatus ?? null, adminNotes ?? null]
     );

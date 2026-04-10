@@ -716,10 +716,15 @@ export default function AdminUserDetail() {
                   </Button>
                 </div>
                 {/* KYB */}
-                <div className="flex items-center justify-between gap-2 rounded-md border px-3 py-2">
-                  <div className="flex items-center gap-1.5 text-xs font-semibold">
-                    <ShieldCheck className="h-3.5 w-3.5 text-blue-600" />
-                    KYB
+                <div className={`flex items-center justify-between gap-2 rounded-md border px-3 py-2 ${kycStatus !== "APPROVED" && kybStatus !== "APPROVED" ? "opacity-50" : ""}`}>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-1.5 text-xs font-semibold">
+                      <ShieldCheck className="h-3.5 w-3.5 text-blue-600" />
+                      KYB
+                    </div>
+                    {kycStatus !== "APPROVED" && kybStatus !== "APPROVED" && (
+                      <p className="text-[10px] text-muted-foreground mt-0.5">KYC requis</p>
+                    )}
                   </div>
                   <Button
                     size="sm"
@@ -728,7 +733,7 @@ export default function AdminUserDetail() {
                         ? "bg-red-500 hover:bg-red-600"
                         : "bg-blue-600 hover:bg-blue-700"
                     }`}
-                    disabled={kycMutation.isPending}
+                    disabled={kycMutation.isPending || (kycStatus !== "APPROVED" && kybStatus !== "APPROVED")}
                     onClick={() => kycMutation.mutate({ kybStatus: kybStatus === "APPROVED" ? "NOT_STARTED" : "APPROVED" })}
                   >
                     {kybStatus === "APPROVED" ? "Désactiver" : "Activer"}
