@@ -560,13 +560,13 @@ export default function AdminUserDetail() {
             Retour aux utilisateurs
           </Button>
         </Link>
-        <div className="flex items-center gap-4">
+        <div className="flex items-center gap-4 min-w-0">
           <div className="h-14 w-14 rounded-full bg-primary/10 flex items-center justify-center text-primary text-xl font-bold flex-shrink-0">
             {user.name.charAt(0).toUpperCase()}
           </div>
-          <div>
+          <div className="min-w-0 flex-1">
             <div className="flex items-center gap-2 flex-wrap">
-              <h1 className="text-2xl font-bold">{user.name}</h1>
+              <h1 className="text-2xl font-bold truncate">{user.name}</h1>
               {user.role === "ADMIN" && (
                 <Badge variant="outline" className="text-purple-700 border-purple-200 bg-purple-50">
                   <ShieldCheck className="h-3.5 w-3.5 mr-1" />Admin
@@ -578,7 +578,7 @@ export default function AdminUserDetail() {
                 </Badge>
               )}
             </div>
-            <p className="text-muted-foreground">{user.email}</p>
+            <p className="text-muted-foreground break-all text-sm">{user.email}</p>
             <p className="text-sm text-muted-foreground">
               {getFlag(user.country)} {user.country ?? "—"} · Inscrit le {fmtDate(user.createdAt)}
             </p>
