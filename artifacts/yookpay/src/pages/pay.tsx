@@ -8,12 +8,11 @@ import { YookPayLogo } from "@/components/yookpay-logo";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Separator } from "@/components/ui/separator";
 import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import {
   Loader2, ShieldCheck, Clock, CheckCircle2, XCircle, Link2,
-  Image as ImageIcon, AlertTriangle,
+  AlertTriangle, Copy, Check, Info,
 } from "lucide-react";
 
 type LinkData = {
@@ -29,6 +28,17 @@ type LinkData = {
 
 type PollStatus = "PENDING" | "SUCCESS" | "FAILED";
 type FeeBearer = "SENDER" | "RECIPIENT";
+type PayMode = "mobile" | "crypto";
+
+type CryptoResult = {
+  txId: number;
+  payAddress: string;
+  payAmount: number;
+  payCurrency: string;
+  network: string;
+  npPaymentId: string;
+  message: string;
+};
 
 export default function Pay() {
   const [, params] = useRoute("/pay/:token");
@@ -39,7 +49,10 @@ export default function Pay() {
   const [linkError, setLinkError] = useState<string | null>(null);
   const [linkLoading, setLinkLoading] = useState(true);
 
-  // Form state
+  // Mode toggle
+  const [payMode, setPayMode] = useState<PayMode>("mobile");
+
+  // Mobile form state
   const [country, setCountry] = useState("");
   const [operator, setOperator] = useState("");
   const [phone, setPhone] = useState("");
@@ -48,12 +61,20 @@ export default function Pay() {
   const [feeBearer] = useState<FeeBearer>("SENDER");
   const [submitting, setSubmitting] = useState(false);
 
-  // Result state
+  // Mobile result state
   const [result, setResult] = useState<{
     txId: number; flow: string; smsLink?: string | null; pending?: boolean; message?: string;
   } | null>(null);
   const [pollStatus, setPollStatus] = useState<PollStatus>("PENDING");
   const [timeLeft, setTimeLeft] = useState(8 * 60);
+
+  // Crypto state
+  const [cryptoMinUsdt, setCryptoMinUsdt] = useState(20);
+  const [cryptoAmount, setCryptoAmount] = useState("20");
+  const [cryptoResult, setCryptoResult] = useState<CryptoResult | null>(null);
+  const [cryptoLoading, setCryptoLoading] = useState(false);
+  const [cryptoPollStatus, setCryptoPollStatus] = useState<"waiting" | "success" | "failed">("waiting");
+  const [copied, setCopied] = useState(false);
 
   // Derived
   const availableCountries = COUNTRIES.filter(
@@ -83,6 +104,19 @@ export default function Pay() {
       .finally(() => setLinkLoading(false));
   }, [token]);
 
+  // Fetch NowPayments minimum
+  useEffect(() => {
+    fetch("/api/transactions/crypto-min-amount")
+      .then((r) => r.json())
+      .then((data: { minAmount: number }) => {
+        if (data.minAmount) {
+          setCryptoMinUsdt(Math.ceil(data.minAmount));
+          setCryptoAmount(String(Math.ceil(data.minAmount)));
+        }
+      })
+      .catch(() => {});
+  }, []);
+
   // Reset operator when country changes
   useEffect(() => { setOperator(""); }, [country]);
 
@@ -93,7 +127,7 @@ export default function Pay() {
     }
   }, [linkData, country]);
 
-  // Countdown + poll when result is pending
+  // Mobile countdown + poll
   useEffect(() => {
     if (!result || !result.pending) return;
     const interval = setInterval(() => {
@@ -104,7 +138,7 @@ export default function Pay() {
     }, 1000);
     const poll = setInterval(async () => {
       try {
-        const r = await fetch(`/api/transactions/${result.txId}/status`);
+        const r = await fetch(`/api/payment-links/public/tx/${result.txId}`);
         const data = await r.json() as { status: string };
         if (data.status === "SUCCESS") {
           setPollStatus("SUCCESS");
@@ -120,7 +154,58 @@ export default function Pay() {
     return () => { clearInterval(interval); clearInterval(poll); };
   }, [result]);
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  // Crypto polling
+  useEffect(() => {
+    if (!cryptoResult) return;
+    const poll = setInterval(async () => {
+      try {
+        const r = await fetch(`/api/payment-links/public/tx/${cryptoResult.txId}`);
+        const data = await r.json() as { status: string };
+        if (data.status === "SUCCESS") {
+          setCryptoPollStatus("success");
+          clearInterval(poll);
+        } else if (data.status === "FAILED") {
+          setCryptoPollStatus("failed");
+          clearInterval(poll);
+        }
+      } catch { /* ignore */ }
+    }, 10_000);
+    return () => clearInterval(poll);
+  }, [cryptoResult]);
+
+  const handleCopyAddress = (text: string) => {
+    navigator.clipboard.writeText(text);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+
+  const handleCryptoSubmit = async () => {
+    const amt = parseFloat(cryptoAmount);
+    if (!amt || amt < cryptoMinUsdt) {
+      toast({ variant: "destructive", title: "Montant invalide", description: `Minimum ${cryptoMinUsdt} USDT` });
+      return;
+    }
+    setCryptoLoading(true);
+    try {
+      const r = await fetch(`/api/payment-links/public/${token}/pay-crypto`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ amountUsdt: amt }),
+      });
+      const data = await r.json();
+      if (!r.ok) {
+        toast({ variant: "destructive", title: "Erreur", description: data.message ?? "Erreur inconnue" });
+        return;
+      }
+      setCryptoResult(data as CryptoResult);
+    } catch {
+      toast({ variant: "destructive", title: "Erreur réseau", description: "Impossible de joindre le serveur." });
+    } finally {
+      setCryptoLoading(false);
+    }
+  };
+
+  const handleMobileSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!country || !operator || !phone || !amount) {
       toast({ variant: "destructive", title: "Tous les champs sont requis" });
@@ -130,33 +215,19 @@ export default function Pay() {
       toast({ variant: "destructive", title: "Code OTP requis", description: "Composez #144*82# sur votre téléphone Orange." });
       return;
     }
-
     setSubmitting(true);
     try {
       const r = await fetch(`/api/payment-links/public/${token}/pay`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          amount: parseFloat(amount),
-          country,
-          operator,
-          phone,
-          feeBearer,
-          omOtp: omOtp || undefined,
-        }),
+        body: JSON.stringify({ amount: parseFloat(amount), country, operator, phone, feeBearer, omOtp: omOtp || undefined }),
       });
       const data = await r.json();
       if (!r.ok) {
         toast({ variant: "destructive", title: "Paiement échoué", description: data.message ?? "Erreur inconnue" });
         return;
       }
-      setResult({
-        txId: data.transaction.id,
-        flow: data.flow,
-        smsLink: data.smsLink,
-        pending: data.pending,
-        message: data.message,
-      });
+      setResult({ txId: data.transaction.id, flow: data.flow, smsLink: data.smsLink, pending: data.pending, message: data.message });
       if (!data.pending) setPollStatus("SUCCESS");
     } catch {
       toast({ variant: "destructive", title: "Erreur réseau", description: "Impossible de joindre le serveur." });
@@ -188,7 +259,7 @@ export default function Pay() {
     );
   }
 
-  // ── Success/Poll result ──
+  // ── Mobile result screens ──
   if (result) {
     if (pollStatus === "SUCCESS") {
       return (
@@ -202,21 +273,16 @@ export default function Pay() {
         </div>
       );
     }
-
     if (pollStatus === "FAILED") {
       return (
         <div className="min-h-screen bg-background flex flex-col items-center justify-center gap-4 p-6 text-center">
           <XCircle className="w-16 h-16 text-destructive" />
           <h1 className="text-2xl font-bold">Paiement échoué</h1>
           <p className="text-muted-foreground text-sm max-w-sm">La transaction a échoué. Veuillez réessayer.</p>
-          <Button onClick={() => { setResult(null); setPollStatus("PENDING"); setTimeLeft(8 * 60); }}>
-            Réessayer
-          </Button>
+          <Button onClick={() => { setResult(null); setPollStatus("PENDING"); setTimeLeft(8 * 60); }}>Réessayer</Button>
         </div>
       );
     }
-
-    // Pending
     const mm = String(Math.floor(timeLeft / 60)).padStart(2, "0");
     const ss = String(timeLeft % 60).padStart(2, "0");
     return (
@@ -224,9 +290,7 @@ export default function Pay() {
         <div className="relative w-32 h-32">
           <svg className="w-32 h-32 -rotate-90" viewBox="0 0 120 120">
             <circle cx="60" cy="60" r="52" fill="none" stroke="hsl(var(--border))" strokeWidth="8" />
-            <circle
-              cx="60" cy="60" r="52" fill="none"
-              stroke="hsl(var(--primary))" strokeWidth="8"
+            <circle cx="60" cy="60" r="52" fill="none" stroke="hsl(var(--primary))" strokeWidth="8"
               strokeLinecap="round"
               strokeDasharray={2 * Math.PI * 52}
               strokeDashoffset={2 * Math.PI * 52 * (1 - timeLeft / (8 * 60))}
@@ -243,15 +307,27 @@ export default function Pay() {
         </p>
         {result.smsLink && (
           <Button asChild className="gap-2">
-            <a href={result.smsLink} target="_blank" rel="noopener noreferrer">
-              Approuver via SMS
-            </a>
+            <a href={result.smsLink} target="_blank" rel="noopener noreferrer">Approuver via SMS</a>
           </Button>
         )}
         <div className="flex items-center gap-2 text-xs text-muted-foreground mt-2">
           <ShieldCheck className="w-3.5 h-3.5 text-emerald-500" />
           Paiement sécurisé par YookPay
         </div>
+      </div>
+    );
+  }
+
+  // ── Crypto result screens ──
+  if (cryptoResult && cryptoPollStatus === "success") {
+    return (
+      <div className="min-h-screen bg-background flex flex-col items-center justify-center gap-4 p-6 text-center">
+        <CheckCircle2 className="w-16 h-16 text-emerald-500" />
+        <h1 className="text-2xl font-bold text-emerald-500">Paiement USDT confirmé !</h1>
+        <p className="text-muted-foreground text-sm max-w-sm">
+          Votre paiement USDT pour <strong>{linkData.title}</strong> a été confirmé. Merci !
+        </p>
+        <YookPayLogo size="sm" className="mt-6 opacity-60" />
       </div>
     );
   }
@@ -288,131 +364,240 @@ export default function Pay() {
         </div>
 
         {/* Payment form */}
-        <div className="rounded-2xl border border-border bg-card p-5">
-          <h2 className="font-semibold mb-4">Effectuer le paiement</h2>
-          <form onSubmit={handleSubmit} className="space-y-4">
+        <div className="rounded-2xl border border-border bg-card p-5 space-y-4">
+          <h2 className="font-semibold">Effectuer le paiement</h2>
 
-            {/* Country */}
-            <div className="space-y-1.5">
-              <Label htmlFor="select-country">Pays</Label>
-              <select
-                id="select-country"
-                value={country}
-                onChange={(e) => setCountry(e.target.value)}
-                className="w-full h-10 px-3 rounded-md border border-input bg-background text-sm focus:outline-none focus:ring-2 focus:ring-ring"
-              >
-                <option value="" disabled>Sélectionnez votre pays</option>
-                {availableCountries.map((c) => (
-                  <option key={c.code} value={c.code}>
-                    {c.name} — {c.currency}
-                  </option>
-                ))}
-              </select>
-            </div>
+          {/* Mode toggle */}
+          <div className="flex rounded-xl border border-input overflow-hidden bg-muted/40 p-1 gap-1">
+            <button
+              type="button"
+              onClick={() => { setPayMode("mobile"); setCryptoResult(null); setCryptoPollStatus("waiting"); }}
+              className={`flex-1 py-2.5 text-sm font-semibold rounded-lg transition-all ${
+                payMode === "mobile" ? "bg-background shadow-sm text-foreground" : "text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              Mobile Money
+            </button>
+            <button
+              type="button"
+              onClick={() => setPayMode("crypto")}
+              className={`flex-1 py-2.5 text-sm font-semibold rounded-lg transition-all flex items-center justify-center gap-2 ${
+                payMode === "crypto" ? "bg-background shadow-sm text-foreground" : "text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              Crypto
+              <Badge className="bg-cyan-500/15 text-cyan-600 border-cyan-300/40 text-[10px] px-1.5 py-0">USDT</Badge>
+            </button>
+          </div>
 
-            {/* Operator */}
-            {country && (
+          {/* ── Mobile Money form ── */}
+          {payMode === "mobile" && (
+            <form onSubmit={handleMobileSubmit} className="space-y-4">
               <div className="space-y-1.5">
-                <Label htmlFor="select-operator">Opérateur Mobile Money</Label>
+                <Label htmlFor="select-country">Pays</Label>
                 <select
-                  id="select-operator"
-                  value={operator}
-                  onChange={(e) => setOperator(e.target.value)}
+                  id="select-country"
+                  value={country}
+                  onChange={(e) => setCountry(e.target.value)}
                   className="w-full h-10 px-3 rounded-md border border-input bg-background text-sm focus:outline-none focus:ring-2 focus:ring-ring"
                 >
-                  <option value="" disabled>Choisissez un opérateur</option>
-                  {availableOperators.map((op) => (
-                    <option key={op} value={op}>
-                      {OPERATOR_LABELS[op] ?? op}
-                    </option>
+                  <option value="" disabled>Sélectionnez votre pays</option>
+                  {availableCountries.map((c) => (
+                    <option key={c.code} value={c.code}>{c.name} — {c.currency}</option>
                   ))}
                 </select>
               </div>
-            )}
 
-            {/* Phone */}
-            {operator && (
-              <div className="space-y-1.5">
-                <Label>Numéro de téléphone</Label>
-                <div className="flex gap-2">
-                  {selectedCountry && (
-                    <div className="flex items-center px-3 bg-muted border border-input rounded-md text-sm text-muted-foreground whitespace-nowrap">
-                      {selectedCountry.flag} {selectedCountry.dialCode}
-                    </div>
-                  )}
-                  <Input
-                    type="tel"
-                    placeholder="Ex: 0595857098"
-                    value={phone}
-                    onChange={(e) => setPhone(e.target.value)}
-                    className="flex-1"
-                  />
+              {country && (
+                <div className="space-y-1.5">
+                  <Label htmlFor="select-operator">Opérateur Mobile Money</Label>
+                  <select
+                    id="select-operator"
+                    value={operator}
+                    onChange={(e) => setOperator(e.target.value)}
+                    className="w-full h-10 px-3 rounded-md border border-input bg-background text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+                  >
+                    <option value="" disabled>Choisissez un opérateur</option>
+                    {availableOperators.map((op) => (
+                      <option key={op} value={op}>{OPERATOR_LABELS[op] ?? op}</option>
+                    ))}
+                  </select>
                 </div>
-              </div>
-            )}
-
-            {/* OTP for Orange Money */}
-            {flow === "OTP" && (
-              <div className="space-y-1.5">
-                <Label>Code OTP Orange Money</Label>
-                <Input
-                  placeholder="Code reçu après #144*82#"
-                  value={omOtp}
-                  onChange={(e) => setOmOtp(e.target.value)}
-                />
-                <p className="text-xs text-muted-foreground">Composez <code>#144*82#</code> pour recevoir votre OTP.</p>
-              </div>
-            )}
-
-            {/* Amount */}
-            {operator && (
-              <div className="space-y-1.5">
-                <Label>
-                  Montant{selectedCountry ? ` (${selectedCountry.currency})` : ""}
-                  {linkData.priceType === "FIXED" && (
-                    <span className="text-xs text-muted-foreground ml-2">(montant fixé par le marchand)</span>
-                  )}
-                </Label>
-                <Input
-                  type="number"
-                  min={100}
-                  step={1}
-                  value={amount}
-                  onChange={(e) => setAmount(e.target.value)}
-                  readOnly={linkData.priceType === "FIXED"}
-                  className={linkData.priceType === "FIXED" ? "bg-muted cursor-not-allowed" : ""}
-                  placeholder="Min. 100"
-                />
-                {selectedCountry && (
-                  <p className="text-xs text-muted-foreground">
-                    Minimum : 100 {selectedCountry.currency}
-                  </p>
-                )}
-              </div>
-            )}
-
-            {operator && amount && (
-              <Alert className="bg-muted/50">
-                <Clock className="h-4 w-4" />
-                <AlertTitle className="text-sm">Délai de traitement</AlertTitle>
-                <AlertDescription className="text-xs">
-                  Votre paiement sera traité en moins de 5 minutes après validation.
-                </AlertDescription>
-              </Alert>
-            )}
-
-            <Button
-              type="submit"
-              className="w-full bg-cyan-500 hover:bg-cyan-400 text-black font-bold"
-              disabled={submitting || !country || !operator || !phone || !amount}
-            >
-              {submitting ? (
-                <><Loader2 className="w-4 h-4 animate-spin mr-2" />Traitement...</>
-              ) : (
-                `Payer ${amount && selectedCountry ? formatCurrency(parseFloat(amount), selectedCountry.currency) : ""}`
               )}
-            </Button>
-          </form>
+
+              {operator && (
+                <div className="space-y-1.5">
+                  <Label>Numéro de téléphone</Label>
+                  <div className="flex gap-2">
+                    {selectedCountry && (
+                      <div className="flex items-center px-3 bg-muted border border-input rounded-md text-sm text-muted-foreground whitespace-nowrap">
+                        {selectedCountry.flag} {selectedCountry.dialCode}
+                      </div>
+                    )}
+                    <Input
+                      type="tel"
+                      placeholder="Ex: 0595857098"
+                      value={phone}
+                      onChange={(e) => setPhone(e.target.value)}
+                      className="flex-1"
+                    />
+                  </div>
+                </div>
+              )}
+
+              {flow === "OTP" && (
+                <div className="space-y-1.5">
+                  <Label>Code OTP Orange Money</Label>
+                  <Input
+                    placeholder="Code reçu après #144*82#"
+                    value={omOtp}
+                    onChange={(e) => setOmOtp(e.target.value)}
+                  />
+                  <p className="text-xs text-muted-foreground">Composez <code>#144*82#</code> pour recevoir votre OTP.</p>
+                </div>
+              )}
+
+              {operator && (
+                <div className="space-y-1.5">
+                  <Label>
+                    Montant{selectedCountry ? ` (${selectedCountry.currency})` : ""}
+                    {linkData.priceType === "FIXED" && (
+                      <span className="text-xs text-muted-foreground ml-2">(montant fixé par le marchand)</span>
+                    )}
+                  </Label>
+                  <Input
+                    type="number"
+                    min={100}
+                    step={1}
+                    value={amount}
+                    onChange={(e) => setAmount(e.target.value)}
+                    readOnly={linkData.priceType === "FIXED"}
+                    className={linkData.priceType === "FIXED" ? "bg-muted cursor-not-allowed" : ""}
+                    placeholder="Min. 100"
+                  />
+                  {selectedCountry && (
+                    <p className="text-xs text-muted-foreground">Minimum : 100 {selectedCountry.currency}</p>
+                  )}
+                </div>
+              )}
+
+              {operator && amount && (
+                <Alert className="bg-muted/50">
+                  <Clock className="h-4 w-4" />
+                  <AlertTitle className="text-sm">Délai de traitement</AlertTitle>
+                  <AlertDescription className="text-xs">
+                    Votre paiement sera traité en moins de 5 minutes après validation.
+                  </AlertDescription>
+                </Alert>
+              )}
+
+              <Button
+                type="submit"
+                className="w-full bg-cyan-500 hover:bg-cyan-400 text-black font-bold"
+                disabled={submitting || !country || !operator || !phone || !amount}
+              >
+                {submitting ? (
+                  <><Loader2 className="w-4 h-4 animate-spin mr-2" />Traitement...</>
+                ) : (
+                  `Payer ${amount && selectedCountry ? formatCurrency(parseFloat(amount), selectedCountry.currency) : ""}`
+                )}
+              </Button>
+            </form>
+          )}
+
+          {/* ── USDT / Crypto form ── */}
+          {payMode === "crypto" && (
+            <div className="space-y-4">
+              {!cryptoResult ? (
+                <>
+                  <div className="space-y-1.5">
+                    <Label>Montant USDT à envoyer</Label>
+                    <p className="text-xs text-muted-foreground">
+                      Minimum : <span className="font-semibold text-amber-500">{cryptoMinUsdt} USDT</span>
+                    </p>
+                    <Input
+                      type="number"
+                      min={cryptoMinUsdt}
+                      step="0.5"
+                      value={cryptoAmount}
+                      onChange={(e) => setCryptoAmount(e.target.value)}
+                      placeholder={String(cryptoMinUsdt)}
+                    />
+                  </div>
+
+                  <Alert className="border-cyan-200 bg-cyan-50 dark:bg-cyan-900/20">
+                    <Info className="h-4 w-4 text-cyan-600" />
+                    <AlertTitle className="text-cyan-700 dark:text-cyan-300 text-sm">Réseau TRC-20 (Tron)</AlertTitle>
+                    <AlertDescription className="text-cyan-600 dark:text-cyan-400 text-xs mt-1">
+                      Envoyez uniquement des USDT sur le réseau <strong>TRC-20 (Tron)</strong>. Les envois sur d'autres réseaux seront perdus.
+                    </AlertDescription>
+                  </Alert>
+
+                  <Button
+                    className="w-full bg-cyan-500 hover:bg-cyan-400 text-black font-bold"
+                    onClick={handleCryptoSubmit}
+                    disabled={cryptoLoading}
+                  >
+                    {cryptoLoading ? (
+                      <><Loader2 className="w-4 h-4 animate-spin mr-2" />Génération...</>
+                    ) : (
+                      "Générer une adresse de dépôt"
+                    )}
+                  </Button>
+                </>
+              ) : cryptoPollStatus === "failed" ? (
+                <div className="text-center space-y-3 py-4">
+                  <XCircle className="w-12 h-12 text-destructive mx-auto" />
+                  <p className="font-semibold">Paiement expiré ou annulé</p>
+                  <Button variant="outline" onClick={() => { setCryptoResult(null); setCryptoPollStatus("waiting"); }}>
+                    Réessayer
+                  </Button>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  <div className="flex items-center gap-2 text-sm font-medium text-amber-600">
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    En attente du paiement...
+                  </div>
+
+                  <div className="bg-muted rounded-lg p-4 space-y-3">
+                    <div>
+                      <p className="text-xs text-muted-foreground mb-1">Montant à envoyer</p>
+                      <p className="text-xl font-bold text-cyan-500">
+                        {cryptoResult.payAmount} USDT
+                      </p>
+                      <p className="text-xs text-muted-foreground">{cryptoResult.network}</p>
+                    </div>
+
+                    <div>
+                      <p className="text-xs text-muted-foreground mb-1">Adresse TRC-20</p>
+                      <div className="flex items-center gap-2">
+                        <code className="flex-1 text-xs bg-background rounded px-2 py-2 break-all font-mono border border-border">
+                          {cryptoResult.payAddress}
+                        </code>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="shrink-0"
+                          onClick={() => handleCopyAddress(cryptoResult.payAddress)}
+                        >
+                          {copied ? <Check className="w-4 h-4 text-emerald-500" /> : <Copy className="w-4 h-4" />}
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
+
+                  <Alert className="border-amber-200 bg-amber-50 dark:bg-amber-900/20">
+                    <Info className="h-4 w-4 text-amber-600" />
+                    <AlertTitle className="text-amber-700 dark:text-amber-300 text-sm">Confirmez votre envoi</AlertTitle>
+                    <AlertDescription className="text-amber-600 dark:text-amber-400 text-xs mt-1">
+                      Envoyez exactement <strong>{cryptoResult.payAmount} USDT</strong> sur le réseau TRC-20. Confirmation sous 10–20 minutes.
+                    </AlertDescription>
+                  </Alert>
+                </div>
+              )}
+            </div>
+          )}
         </div>
 
         {/* Trust footer */}

@@ -13,6 +13,7 @@ import {
   type Operator,
 } from "../services/feeService";
 import { callPixPayAirtime, getOperatorFlow, type PixPayCallParams } from "../lib/pixpay";
+import { createNpPayment, getNpMinAmount } from "../lib/nowpayments";
 
 const router = Router();
 
@@ -422,6 +423,108 @@ router.post("/public/:token/pay", async (req, res) => {
     });
   } catch (err: any) {
     res.status(500).json({ error: "InternalError", message: err?.message ?? "Erreur lors du paiement" });
+  }
+});
+
+// GET /api/payment-links/public/tx/:txId — public status polling for payment link transactions
+router.get("/public/tx/:txId", async (req, res) => {
+  const txId = parseInt(req.params.txId);
+  if (isNaN(txId)) { res.status(400).json({ error: "Invalid ID" }); return; }
+  try {
+    const r = await pool.query<{ status: string; amount: string; currency: string }>(
+      `SELECT status, amount, currency FROM transactions WHERE id = $1
+       AND metadata->>'paymentLinkId' IS NOT NULL`,
+      [txId]
+    );
+    if (!r.rows.length) { res.status(404).json({ error: "NotFound" }); return; }
+    const row = r.rows[0];
+    res.json({ status: row.status, amount: parseFloat(row.amount), currency: row.currency });
+  } catch (err) {
+    res.status(500).json({ error: "InternalError" });
+  }
+});
+
+// POST /api/payment-links/public/:token/pay-crypto — public: USDT payment via NowPayments
+router.post("/public/:token/pay-crypto", async (req, res) => {
+  const schema = z.object({ amountUsdt: z.number().min(1) });
+  const parse = schema.safeParse(req.body);
+  if (!parse.success) {
+    res.status(400).json({ error: "ValidationError", message: "Montant USDT invalide" });
+    return;
+  }
+  const { token } = req.params;
+  const { amountUsdt } = parse.data;
+
+  // Load the payment link
+  const linkRes = await pool.query<{ id: number; user_id: number; is_active: boolean }>(
+    "SELECT id, user_id, is_active FROM payment_links WHERE token = $1",
+    [token]
+  );
+  if (!linkRes.rows.length || !linkRes.rows[0].is_active) {
+    res.status(404).json({ error: "NotFound", message: "Lien de paiement introuvable ou expiré" });
+    return;
+  }
+  const link = linkRes.rows[0];
+  const merchantId = link.user_id;
+
+  // Validate minimum (NowPayments or fallback)
+  let minUsdt = 20;
+  try { const m = await getNpMinAmount("usdttrc20", "usdttrc20"); minUsdt = Math.ceil(m); } catch { /* fallback 20 */ }
+  if (amountUsdt < minUsdt) {
+    res.status(400).json({ error: "BelowMinimum", message: `Montant minimum : ${minUsdt} USDT` });
+    return;
+  }
+
+  const reference = generateReference();
+  const callbackUrl = `${process.env.APP_URL ?? ""}/api/nowpayments/ipn`;
+
+  try {
+    // Create pending transaction in merchant's wallet
+    const txRes = await pool.query<{ id: number }>(
+      `INSERT INTO transactions (user_id, type, status, amount, fee, net_amount, currency, country, operator, phone, reference, fee_rate, yookpay_margin, metadata)
+       VALUES ($1,'DEPOSIT','PENDING',$2,'0',$3,'USDT','ZZ','CRYPTO','',$4,'0','0',$5) RETURNING id`,
+      [merchantId, amountUsdt.toString(), amountUsdt.toFixed(8), reference,
+       JSON.stringify({ provider: "NOWPAYMENTS", paymentLinkId: link.id, paymentLinkToken: token, initiatedAt: new Date().toISOString() })]
+    );
+    const txId = txRes.rows[0].id;
+
+    // Create NowPayments payment address
+    const npResult = await createNpPayment({
+      priceAmount: amountUsdt,
+      priceCurrency: "usd",
+      payCurrency: "usdttrc20",
+      orderId: reference,
+      orderDescription: `YookLink USDT payment - link ${link.id}`,
+      ipnCallbackUrl: callbackUrl,
+    });
+
+    // Store NowPayments details in metadata
+    await pool.query(
+      `UPDATE transactions SET metadata = $1 WHERE id = $2`,
+      [JSON.stringify({
+        provider: "NOWPAYMENTS",
+        paymentLinkId: link.id, paymentLinkToken: token,
+        nowpaymentsPaymentId: npResult.payment_id,
+        payAddress: npResult.pay_address,
+        payCurrency: "usdttrc20",
+        payAmount: npResult.pay_amount,
+        initiatedAt: new Date().toISOString(),
+      }), txId]
+    );
+
+    res.status(201).json({
+      txId,
+      payAddress: npResult.pay_address,
+      payAmount: npResult.pay_amount,
+      payCurrency: "USDTTRC20",
+      network: "TRC-20 (Tron)",
+      npPaymentId: npResult.payment_id,
+      message: "Envoyez exactement le montant USDT indiqué à l'adresse ci-dessous. La transaction sera confirmée sous 10-20 minutes.",
+    });
+  } catch (err: any) {
+    const raw = err?.message ?? "Erreur NowPayments";
+    const detail = raw.replace(/^NowPayments API error \d+:\s*/i, "");
+    res.status(400).json({ error: "NowPaymentsError", message: detail });
   }
 });
 
