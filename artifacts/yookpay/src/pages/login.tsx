@@ -133,6 +133,12 @@ export default function Login() {
           </Form>
         </div>
       </div>
+
+      <div className="mt-6 text-center">
+        <Link href="/" className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors">
+          ← Retour à l'accueil
+        </Link>
+      </div>
     </div>
   );
 }
