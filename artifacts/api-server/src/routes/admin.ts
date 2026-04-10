@@ -694,7 +694,9 @@ router.patch("/kyc/profile/:userId", async (req: AuthRequest, res) => {
   if (!parse.success) { res.status(400).json({ error: "ValidationError", message: "Données invalides" }); return; }
   const client = await pool.connect();
   try {
-    const { kycStatus, kybStatus, adminNotes } = parse.data;
+    const { kycStatus, adminNotes } = parse.data;
+    // Si le KYC est désactivé, le KYB est automatiquement désactivé aussi
+    const kybStatus = kycStatus === "NOT_STARTED" ? "NOT_STARTED" : parse.data.kybStatus;
     // UPSERT: create the profile row if it doesn't exist yet, then update fields
     await client.query(
       `INSERT INTO kyc_profiles (user_id, kyc_status, kyb_status, admin_notes, updated_at)
