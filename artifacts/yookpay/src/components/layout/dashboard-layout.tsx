@@ -27,6 +27,7 @@ import {
 } from "lucide-react";
 import { YookPayLogo } from "@/components/yookpay-logo";
 import { Button } from "@/components/ui/button";
+import { NotificationBell } from "@/components/notification-bell";
 
 interface DashboardLayoutProps {
   children: React.ReactNode;
@@ -46,6 +47,16 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
   });
   const kycApproved = kycData?.profile?.kycStatus === "APPROVED";
   const kybApproved = kycData?.profile?.kybStatus === "APPROVED";
+
+  const { data: notifData } = useQuery<{ unreadCount: number }>({
+    queryKey: ["notifications"],
+    queryFn: () => customFetch("/api/notifications"),
+    refetchInterval: 30_000,
+    staleTime: 20_000,
+    enabled: !!user,
+    select: (d: any) => ({ unreadCount: d.unreadCount ?? 0 }),
+  });
+  const unreadCount = notifData?.unreadCount ?? 0;
 
   // Close sidebar on route change
   useEffect(() => {
@@ -111,17 +122,20 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
         `}
         data-testid="sidebar"
       >
-        {/* Sidebar header with logo + close button */}
+        {/* Sidebar header with logo + bell + close button */}
         <div className="h-16 flex items-center justify-between px-5 border-b border-border flex-shrink-0">
           <YookPayLogo size="md" />
-          <button
-            onClick={() => setSidebarOpen(false)}
-            className="p-1.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-colors"
-            aria-label="Close menu"
-            data-testid="button-close-sidebar"
-          >
-            <X className="h-5 w-5" />
-          </button>
+          <div className="flex items-center gap-1">
+            <NotificationBell />
+            <button
+              onClick={() => setSidebarOpen(false)}
+              className="p-1.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-colors"
+              aria-label="Close menu"
+              data-testid="button-close-sidebar"
+            >
+              <X className="h-5 w-5" />
+            </button>
+          </div>
         </div>
 
         {/* Navigation links */}
@@ -212,11 +226,17 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
         <header className="h-16 flex items-center gap-4 px-4 sm:px-6 border-b border-border bg-card/50 backdrop-blur-sm sticky top-0 z-20 flex-shrink-0">
           <button
             onClick={() => setSidebarOpen(true)}
-            className="p-2 rounded-md text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-colors"
+            className="relative p-2 rounded-md text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-colors"
             aria-label="Open menu"
             data-testid="button-open-sidebar"
           >
-            <Menu className="h-5 w-5" />
+            <Menu className={`h-5 w-5 ${unreadCount > 0 ? "text-red-500 animate-pulse" : ""}`} />
+            {unreadCount > 0 && (
+              <span className="absolute top-1 right-1 flex h-2 w-2">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75" />
+                <span className="relative inline-flex rounded-full h-2 w-2 bg-red-500" />
+              </span>
+            )}
           </button>
 
           <YookPayLogo size="sm" />

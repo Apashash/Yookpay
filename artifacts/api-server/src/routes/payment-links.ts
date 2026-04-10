@@ -3,6 +3,7 @@ import { pool } from "@workspace/db";
 import { authMiddleware, type AuthRequest } from "../middlewares/authMiddleware";
 import { z } from "zod";
 import crypto from "crypto";
+import { createNotification } from "../lib/notify";
 import {
   calculateFee,
   calculateFeeWithRate,
@@ -405,6 +406,15 @@ router.post("/public/:token/pay", async (req, res) => {
     if (pixTxId) {
       await pool.query("UPDATE transactions SET pix_transaction_id = $1 WHERE id = $2", [String(pixTxId), tx.id]);
     }
+
+    // Notify merchant of new payment via YookLink
+    await createNotification(
+      merchantId,
+      "PAYMENT_LINK",
+      `Paiement reçu via YookLink`,
+      `Vous avez reçu un paiement de ${amount.toLocaleString("fr-FR")} ${currency} via le lien "${link.title}".`,
+      tx.id,
+    );
 
     // Return same shape as deposit
     // pending = true for all flows that require user action (OTP, STANDARD, WAVE)

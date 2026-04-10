@@ -11,6 +11,7 @@ import adminRouter from "./admin";
 import ipnRouter from "./ipn";
 import nowpaymentsIpnRouter from "./nowpayments-ipn";
 import paymentLinksRouter from "./payment-links";
+import notificationsRouter from "./notifications";
 
 const router: IRouter = Router();
 
@@ -26,5 +27,6 @@ router.use("/admin", adminRouter);
 router.use("/ipn", ipnRouter);
 router.use("/nowpayments", nowpaymentsIpnRouter);
 router.use("/payment-links", paymentLinksRouter);
+router.use("/notifications", notificationsRouter);
 
 export default router;

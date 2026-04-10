@@ -336,6 +336,21 @@ export async function runStartupMigrations(): Promise<void> {
     await client.query(`ALTER TABLE payment_links ADD COLUMN IF NOT EXISTS click_count INTEGER NOT NULL DEFAULT 0`);
     await client.query(`ALTER TABLE payment_links ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP DEFAULT NOW() NOT NULL`);
 
+    // 12. Create notifications table
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS notifications (
+        id SERIAL PRIMARY KEY,
+        user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        type VARCHAR(30) NOT NULL DEFAULT 'SYSTEM',
+        title VARCHAR(200) NOT NULL,
+        body TEXT NOT NULL DEFAULT '',
+        transaction_id INTEGER REFERENCES transactions(id) ON DELETE SET NULL,
+        read_at TIMESTAMP,
+        created_at TIMESTAMP DEFAULT NOW() NOT NULL
+      )
+    `);
+    await client.query(`CREATE INDEX IF NOT EXISTS notifications_user_id_idx ON notifications(user_id)`);
+
     logger.info("Startup migrations completed successfully");
   } catch (err) {
     logger.error({ err }, "Startup migration error");

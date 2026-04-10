@@ -4,6 +4,7 @@ import { transactionsTable, walletsTable } from "@workspace/db/schema";
 import { eq, and } from "drizzle-orm";
 import { sql } from "drizzle-orm";
 import type { Request, Response } from "express";
+import { createNotification } from "../lib/notify";
 
 const router = Router();
 
@@ -94,8 +95,22 @@ router.post("/pixpay", async (req: Request, res: Response) => {
 
           req.log?.info({ txId: tx.id, reference, creditAmount, currency: tx.currency }, "IPN DEPOSIT SUCCESS - wallet credited");
         }
+        await createNotification(
+          tx.userId,
+          "DEPOSIT",
+          "Dépôt confirmé ✓",
+          `Votre dépôt de ${parseFloat(tx.netAmount).toLocaleString("fr-FR")} ${tx.currency} a bien été reçu.`,
+          tx.id,
+        );
       } else if (tx.type === "WITHDRAWAL") {
         req.log?.info({ txId: tx.id, reference }, "IPN WITHDRAWAL SUCCESS - balance already reserved");
+        await createNotification(
+          tx.userId,
+          "WITHDRAWAL",
+          "Retrait confirmé ✓",
+          `Votre retrait de ${parseFloat(tx.amount).toLocaleString("fr-FR")} ${tx.currency} a été effectué avec succès.`,
+          tx.id,
+        );
       }
     } else if (isFailed) {
       if (tx.type === "WITHDRAWAL") {
@@ -115,6 +130,21 @@ router.post("/pixpay", async (req: Request, res: Response) => {
 
           req.log?.info({ txId: tx.id, reference, refundAmount, currency: tx.currency }, "IPN WITHDRAWAL FAILED - wallet refunded");
         }
+        await createNotification(
+          tx.userId,
+          "WITHDRAWAL",
+          "Retrait échoué",
+          `Votre retrait de ${parseFloat(tx.amount).toLocaleString("fr-FR")} ${tx.currency} a échoué. Votre solde a été remboursé.`,
+          tx.id,
+        );
+      } else if (tx.type === "DEPOSIT") {
+        await createNotification(
+          tx.userId,
+          "DEPOSIT",
+          "Dépôt échoué",
+          `Votre dépôt de ${parseFloat(tx.amount).toLocaleString("fr-FR")} ${tx.currency} n'a pas pu être traité.`,
+          tx.id,
+        );
       }
     }
 
