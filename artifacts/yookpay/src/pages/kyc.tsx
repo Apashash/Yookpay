@@ -444,10 +444,10 @@ export default function Kyc() {
     if (profile.businessType)        kybForm.setValue("businessType",        profile.businessType);
     if (profile.niuNumber)           kybForm.setValue("niuNumber",           profile.niuNumber ?? "");
     if (profile.rccmNumber)          kybForm.setValue("rccmNumber",          profile.rccmNumber ?? "");
-    // Auto-jump to step 2 if identity already registered (regardless of status)
+    // Auto-jump to step 2 if KYC is approved or identity already registered
     if (!stepAutoSet) {
       setStepAutoSet(true);
-      if (profile.fullName) {
+      if (profile.kycStatus === "APPROVED" || profile.fullName) {
         setStep(2);
       }
     }
@@ -545,18 +545,35 @@ export default function Kyc() {
         </Card>
       )}
 
-      {/* Step indicator */}
-      <div className="flex items-center gap-3">
-        <div className={`flex items-center gap-2 px-3 py-1.5 rounded-full text-sm font-medium ${step === 1 ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground"}`}>
-          <User className="h-4 w-4" />
-          1. Identité (KYC)
-        </div>
-        <ChevronRight className="h-4 w-4 text-muted-foreground" />
-        <div className={`flex items-center gap-2 px-3 py-1.5 rounded-full text-sm font-medium ${step === 2 ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground"}`}>
-          <Building2 className="h-4 w-4" />
-          2. Entreprise (KYB)
-        </div>
-      </div>
+      {/* ── Félicitations : KYC + KYB approuvés ── */}
+      {kycStatus === "APPROVED" && kybStatus === "APPROVED" ? (
+        <Card className="border-emerald-200 dark:border-emerald-800 bg-emerald-50/60 dark:bg-emerald-950/20">
+          <CardContent className="pt-6 pb-6 flex flex-col items-center text-center gap-4">
+            <div className="flex items-center justify-center w-16 h-16 rounded-full bg-emerald-100 dark:bg-emerald-900/40">
+              <CheckCircle2 className="w-9 h-9 text-emerald-600 dark:text-emerald-400" />
+            </div>
+            <div className="space-y-1.5">
+              <h2 className="text-lg font-bold text-emerald-800 dark:text-emerald-300">Félicitations !</h2>
+              <p className="text-sm text-emerald-700 dark:text-emerald-400 leading-relaxed max-w-xs">
+                Vos documents ont été approuvés. Vous pouvez effectuer vos transactions et utiliser vos clés API sans limite.
+              </p>
+            </div>
+          </CardContent>
+        </Card>
+      ) : (
+        <>
+          {/* Step indicator */}
+          <div className="flex items-center gap-3">
+            <div className={`flex items-center gap-2 px-3 py-1.5 rounded-full text-sm font-medium ${step === 1 ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground"}`}>
+              <User className="h-4 w-4" />
+              1. Identité (KYC)
+            </div>
+            <ChevronRight className="h-4 w-4 text-muted-foreground" />
+            <div className={`flex items-center gap-2 px-3 py-1.5 rounded-full text-sm font-medium ${step === 2 ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground"}`}>
+              <Building2 className="h-4 w-4" />
+              2. Entreprise (KYB)
+            </div>
+          </div>
 
       {/* ── STEP 1 — Identity ── */}
       {step === 1 && (
@@ -840,6 +857,8 @@ export default function Kyc() {
       <p className="text-xs text-muted-foreground text-center">
         Formats acceptés : PDF, JPG, PNG · Délai de vérification : 24 à 48 heures ouvrables
       </p>
+        </>
+      )}
     </div>
   );
 }
