@@ -3,7 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { customFetch } from "@workspace/api-client-react";
 import { COUNTRIES, OPERATOR_LABELS } from "@/lib/countries";
 import { Badge } from "@/components/ui/badge";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   Accordion,
@@ -15,6 +15,8 @@ import { Info } from "lucide-react";
 
 interface FeeEntry {
   rate: number;
+  pixpay: number;
+  margin: number;
   minFee: number;
   maxFee: number | null;
   isCustom: boolean;
@@ -41,18 +43,20 @@ function pct(rate: number) {
   return `${(rate * 100).toFixed(1)} %`;
 }
 
-function fmtFee(entry: FeeEntry, currency: string) {
-  const max = entry.maxFee !== null ? ` – max ${entry.maxFee.toLocaleString("en-US")} ${currency}` : "";
-  return `min ${entry.minFee.toLocaleString("en-US")} ${currency}${max}`;
-}
-
 function FeeCell({ entry, currency }: { entry: FeeEntry; currency: string }) {
   return (
     <div className="text-right">
-      <div className="flex items-center justify-end gap-1.5">
-        <span className="font-semibold text-foreground">{pct(entry.rate)}</span>
+      <div className="font-semibold text-foreground">{pct(entry.rate)}</div>
+      <div className="text-[10px] text-muted-foreground leading-tight mt-0.5">
+        <span className="text-blue-500">{pct(entry.pixpay)}</span>
+        {" + "}
+        <span className="text-emerald-600">{pct(entry.margin)}</span>
       </div>
-      <div className="text-xs text-muted-foreground mt-0.5">{fmtFee(entry, currency)}</div>
+      {entry.minFee > 1 && (
+        <div className="text-[10px] text-muted-foreground">
+          min {entry.minFee.toLocaleString("fr-FR")} {currency}
+        </div>
+      )}
     </div>
   );
 }
@@ -102,7 +106,7 @@ export default function Services() {
         </div>
       )}
 
-      {/* Fee table by country */}
+      {/* Loading */}
       {isLoading && (
         <div className="space-y-3">
           {[...Array(4)].map((_, i) => (
@@ -111,12 +115,14 @@ export default function Services() {
         </div>
       )}
 
+      {/* Error */}
       {error && (
         <div className="p-4 bg-destructive/10 border border-destructive/20 rounded-lg text-destructive text-sm">
           Impossible de charger les frais. Veuillez réessayer.
         </div>
       )}
 
+      {/* Fee table by country */}
       {data && (
         <Accordion
           type="multiple"
@@ -139,6 +145,9 @@ export default function Services() {
                     <div className="text-left">
                       <div className="flex items-center gap-2">
                         <span className="font-semibold text-base">{country.name}</span>
+                        {data.hasCustomFees && fees.operators.some(o => o.deposit.isCustom) && (
+                          <Badge variant="secondary" className="text-[10px]">Personnalisé</Badge>
+                        )}
                       </div>
                       <div className="flex items-center gap-2 mt-0.5">
                         <Badge variant="outline" className="text-xs font-mono">
@@ -167,22 +176,15 @@ export default function Services() {
                         key={op.name}
                         className={`grid grid-cols-4 gap-2 px-4 py-3 items-center ${idx !== fees.operators.length - 1 ? "border-b" : ""}`}
                       >
-                        {/* Operator */}
                         <div>
                           <div className="font-medium text-sm">{op.name}</div>
                           <div className="text-xs text-muted-foreground mt-0.5 leading-tight">
                             {OPERATOR_LABELS[op.name] ?? op.name}
                           </div>
                         </div>
-
-                        {/* Deposit */}
-                        <FeeCell entry={op.deposit} currency={fees.currency} />
-
-                        {/* Withdrawal */}
+                        <FeeCell entry={op.deposit}    currency={fees.currency} />
                         <FeeCell entry={op.withdrawal} currency={fees.currency} />
-
-                        {/* Transfer */}
-                        <FeeCell entry={op.transfer} currency={fees.currency} />
+                        <FeeCell entry={op.transfer}   currency={fees.currency} />
                       </div>
                     ))}
                   </div>
@@ -193,12 +195,15 @@ export default function Services() {
         </Accordion>
       )}
 
-      {/* Info note */}
+      {/* Legend */}
       <div className="flex items-start gap-2 p-3 bg-muted/30 rounded-lg text-xs text-muted-foreground">
         <Info className="h-4 w-4 flex-shrink-0 mt-0.5" />
         <span>
-          Les frais indiqués sont calculés sur le montant brut de la transaction. Le minimum garanti
-          s'applique même si le taux calculé est inférieur.
+          Le taux total affiché correspond à{" "}
+          <span className="text-blue-500 font-medium">frais fournisseur</span>
+          {" + "}
+          <span className="text-emerald-600 font-medium">marge YookPay</span>.
+          Ces frais sont calculés sur le montant brut de la transaction.
         </span>
       </div>
     </div>

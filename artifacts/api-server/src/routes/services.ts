@@ -1,78 +1,95 @@
 import { Router } from "express";
-import { db } from "@workspace/db";
-import { userFeesTable } from "@workspace/db/schema";
-import { eq } from "drizzle-orm";
 import { authMiddleware, type AuthRequest } from "../middlewares/authMiddleware";
 import { FEE_TABLE, CURRENCY_MAP } from "../services/feeService";
+import { db } from "@workspace/db";
+import { sql } from "drizzle-orm";
 
 const router = Router();
 
-const GLOBAL_COUNTRY = "ZZ";
-const GLOBAL_OPERATOR = "GLOBAL";
+const DEFAULT_MARGIN = 0.015;
 
-// GET /services/fees — fee table for the authenticated user (with user-specific overrides)
+// GET /services/fees — fee table for the authenticated user
+// Shows total rate = pixpay_base + yookpay_margin (as configured by admin)
 router.get("/fees", authMiddleware, async (req: AuthRequest, res) => {
   try {
-    const allOverrides = await db
-      .select()
-      .from(userFeesTable)
-      .where(eq(userFeesTable.userId, req.userId!));
+    // Load per-user operator fee overrides from admin-managed table
+    const overrideRows = await db.execute<{
+      country: string;
+      operator: string;
+      pixpay_deposit: string;
+      pixpay_withdrawal: string;
+      margin_deposit: string;
+      margin_withdrawal: string;
+    }>(sql`
+      SELECT country, operator, pixpay_deposit, pixpay_withdrawal, margin_deposit, margin_withdrawal
+      FROM user_operator_fees
+      WHERE user_id = ${req.userId!}
+    `);
 
-    // Separate global overrides (ZZ/GLOBAL) from country/operator specific ones
-    const globalMap: Record<string, number> = {};
-    const specificMap: Record<string, { rate: number; minFee: number; maxFee: number | null }> = {};
-
-    for (const o of allOverrides) {
-      if (o.country === GLOBAL_COUNTRY && o.operator === GLOBAL_OPERATOR) {
-        globalMap[o.transactionType] = parseFloat(o.rate);
-      } else {
-        const key = `${o.country}:${o.operator}:${o.transactionType}`;
-        specificMap[key] = {
-          rate: parseFloat(o.rate),
-          minFee: o.minFee,
-          maxFee: o.maxFee ?? null,
-        };
-      }
+    // Build lookup: "COUNTRY:OPERATOR" → { pixpayD, pixpayW, marginD, marginW }
+    const overrideMap: Record<string, {
+      pixpayD: number; pixpayW: number; marginD: number; marginW: number;
+    }> = {};
+    for (const r of overrideRows.rows) {
+      overrideMap[`${r.country}:${r.operator}`] = {
+        pixpayD:  parseFloat(r.pixpay_deposit),
+        pixpayW:  parseFloat(r.pixpay_withdrawal),
+        marginD:  parseFloat(r.margin_deposit),
+        marginW:  parseFloat(r.margin_withdrawal),
+      };
     }
 
-    const hasCustomFees = Object.keys(globalMap).length > 0 || Object.keys(specificMap).length > 0;
+    const hasCustomFees = Object.keys(overrideMap).length > 0;
 
     const result: Record<string, {
       currency: string;
       operators: Array<{
         name: string;
-        deposit:    { rate: number; minFee: number; maxFee: number | null; isCustom: boolean };
-        withdrawal: { rate: number; minFee: number; maxFee: number | null; isCustom: boolean };
-        transfer:   { rate: number; minFee: number; maxFee: number | null; isCustom: boolean };
+        deposit:    { rate: number; pixpay: number; margin: number; minFee: number; maxFee: number | null; isCustom: boolean };
+        withdrawal: { rate: number; pixpay: number; margin: number; minFee: number; maxFee: number | null; isCustom: boolean };
+        transfer:   { rate: number; pixpay: number; margin: number; minFee: number; maxFee: number | null; isCustom: boolean };
       }>;
     }> = {};
 
     for (const [country, table] of Object.entries(FEE_TABLE)) {
       const operators = [];
       for (const [operator, config] of Object.entries(table)) {
-        const resolve = (type: "DEPOSIT" | "WITHDRAWAL" | "TRANSFER") => {
-          const base = config[type];
+        const override = overrideMap[`${country}:${operator}`];
+        const isCustom = !!override;
 
-          // 1. Specific country+operator override takes priority
-          const specificKey = `${country}:${operator}:${type}`;
-          if (specificMap[specificKey]) {
-            return { ...specificMap[specificKey], isCustom: true };
-          }
-
-          // 2. Global override (all operators, all countries)
-          if (globalMap[type] !== undefined) {
-            return { rate: globalMap[type], minFee: base.minFee, maxFee: base.maxFee, isCustom: true };
-          }
-
-          // 3. Default from FEE_TABLE
-          return { rate: base.rate, minFee: base.minFee, maxFee: base.maxFee, isCustom: false };
-        };
+        const pixpayD  = override ? override.pixpayD  : config.DEPOSIT.rate;
+        const pixpayW  = override ? override.pixpayW  : config.WITHDRAWAL.rate;
+        const pixpayT  = config.TRANSFER.rate; // transfer uses same PixPay rate
+        const marginD  = override ? override.marginD  : DEFAULT_MARGIN;
+        const marginW  = override ? override.marginW  : DEFAULT_MARGIN;
+        const marginT  = override ? override.marginD  : DEFAULT_MARGIN; // transfer uses deposit margin
 
         operators.push({
           name: operator,
-          deposit:    resolve("DEPOSIT"),
-          withdrawal: resolve("WITHDRAWAL"),
-          transfer:   resolve("TRANSFER"),
+          deposit: {
+            rate:    pixpayD + marginD,
+            pixpay:  pixpayD,
+            margin:  marginD,
+            minFee:  config.DEPOSIT.minFee,
+            maxFee:  config.DEPOSIT.maxFee,
+            isCustom,
+          },
+          withdrawal: {
+            rate:    pixpayW + marginW,
+            pixpay:  pixpayW,
+            margin:  marginW,
+            minFee:  config.WITHDRAWAL.minFee,
+            maxFee:  config.WITHDRAWAL.maxFee,
+            isCustom,
+          },
+          transfer: {
+            rate:    pixpayT + marginT,
+            pixpay:  pixpayT,
+            margin:  marginT,
+            minFee:  config.TRANSFER.minFee,
+            maxFee:  config.TRANSFER.maxFee,
+            isCustom,
+          },
         });
       }
       result[country] = {
