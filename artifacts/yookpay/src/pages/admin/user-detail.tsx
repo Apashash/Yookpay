@@ -620,7 +620,7 @@ export default function AdminUserDetail() {
               <p className="text-xs text-muted-foreground mb-1.5">Rôle</p>
               <AlertDialog>
                 <AlertDialogTrigger asChild>
-                  <Button variant="outline" size="sm" className="w-full">
+                  <Button variant="outline" size="sm" className="w-full h-auto py-2 whitespace-normal text-xs leading-tight">
                     {user.role === "ADMIN" ? "Rétrograder en utilisateur" : "Promouvoir en admin"}
                   </Button>
                 </AlertDialogTrigger>
@@ -647,12 +647,12 @@ export default function AdminUserDetail() {
                   <Button
                     variant="outline"
                     size="sm"
-                    className={`w-full gap-2 ${user.status === "BANNED" ? "border-green-300 text-green-700 hover:bg-green-50" : "border-red-200 text-red-700 hover:bg-red-50"}`}
+                    className={`w-full h-auto py-2 gap-1.5 whitespace-normal text-xs leading-tight ${user.status === "BANNED" ? "border-green-300 text-green-700 hover:bg-green-50" : "border-red-200 text-red-700 hover:bg-red-50"}`}
                     disabled={banMutation.isPending}
                   >
                     {user.status === "BANNED"
-                      ? <><Unlock className="h-3.5 w-3.5" />Réactiver le compte</>
-                      : <><Ban className="h-3.5 w-3.5" />Bannir l'utilisateur</>
+                      ? <><Unlock className="h-3.5 w-3.5 flex-shrink-0" />Réactiver le compte</>
+                      : <><Ban className="h-3.5 w-3.5 flex-shrink-0" />Bannir l'utilisateur</>
                     }
                   </Button>
                 </AlertDialogTrigger>
