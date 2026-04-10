@@ -283,15 +283,13 @@ export default function Pay() {
               {linkData.description && (
                 <p className="text-sm text-muted-foreground mt-1 leading-relaxed">{linkData.description}</p>
               )}
-              <div className="mt-2">
-                {linkData.priceType === "FIXED" && linkData.priceAmount ? (
+              {linkData.priceType === "FIXED" && linkData.priceAmount && (
+                <div className="mt-2">
                   <Badge className="bg-emerald-500/10 text-emerald-400 border-emerald-500/20">
                     {linkData.priceAmount.toLocaleString("fr-FR")} {linkData.currency}
                   </Badge>
-                ) : (
-                  <Badge variant="outline">Montant libre</Badge>
-                )}
-              </div>
+                </div>
+              )}
             </div>
           </div>
         </div>
