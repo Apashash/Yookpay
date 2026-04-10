@@ -48,20 +48,24 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { format, startOfDay, startOfWeek, startOfMonth, startOfYear, isAfter, isSameDay } from "date-fns";
+import { format, startOfDay, endOfDay, startOfWeek, endOfWeek, startOfMonth, endOfMonth, startOfYear, endOfYear, isAfter, isBefore } from "date-fns";
 import { fr } from "date-fns/locale";
+import type { DateRange } from "react-day-picker";
 
 type Period = "day" | "week" | "month" | "year" | "custom";
 type TxType = "ALL" | "DEPOSIT" | "WITHDRAWAL" | "TRANSFER";
 
-function getPeriodStart(period: Period, customDate: Date | undefined): Date | null {
+function getPeriodRange(period: Period, customRange: DateRange | undefined): { from: Date; to: Date } | null {
   const now = new Date();
   switch (period) {
-    case "day":   return startOfDay(now);
-    case "week":  return startOfWeek(now, { weekStartsOn: 1 });
-    case "month": return startOfMonth(now);
-    case "year":  return startOfYear(now);
-    case "custom": return customDate ? startOfDay(customDate) : null;
+    case "day":   return { from: startOfDay(now),   to: endOfDay(now) };
+    case "week":  return { from: startOfWeek(now, { weekStartsOn: 1 }), to: endOfWeek(now, { weekStartsOn: 1 }) };
+    case "month": return { from: startOfMonth(now), to: endOfMonth(now) };
+    case "year":  return { from: startOfYear(now),  to: endOfYear(now) };
+    case "custom":
+      if (customRange?.from && customRange?.to)   return { from: startOfDay(customRange.from), to: endOfDay(customRange.to) };
+      if (customRange?.from)                       return { from: startOfDay(customRange.from), to: endOfDay(customRange.from) };
+      return null;
     default: return null;
   }
 }
@@ -71,7 +75,7 @@ export default function Dashboard() {
 
   const [period, setPeriod] = useState<Period>("month");
   const [calendarOpen, setCalendarOpen] = useState(false);
-  const [customDate, setCustomDate] = useState<Date | undefined>(undefined);
+  const [customRange, setCustomRange] = useState<DateRange | undefined>(undefined);
   const [txType, setTxType] = useState<TxType>("ALL");
 
   const { data: summary, isLoading: isLoadingSummary } = useGetDashboardSummary({
@@ -82,7 +86,7 @@ export default function Dashboard() {
     query: { queryKey: getGetVolumeChartQueryKey() },
   });
 
-  const periodStart = useMemo(() => getPeriodStart(period, customDate), [period, customDate]);
+  const periodRange = useMemo(() => getPeriodRange(period, customRange), [period, customRange]);
 
   // Sort wallets: the one with the most recent transaction comes first
   const sortedWallets = useMemo(() => {
@@ -105,23 +109,28 @@ export default function Dashboard() {
     if (!summary) return [];
     return summary.recentTransactions.filter((tx) => {
       const txDate = new Date(tx.createdAt);
-      const afterStart = periodStart
-        ? period === "custom"
-          ? isSameDay(txDate, periodStart)
-          : isAfter(txDate, periodStart)
+      const inRange = periodRange
+        ? !isBefore(txDate, periodRange.from) && !isAfter(txDate, periodRange.to)
         : true;
       const matchType = txType === "ALL" || tx.type === txType;
-      return afterStart && matchType;
+      return inRange && matchType;
     });
-  }, [summary, periodStart, txType, period]);
+  }, [summary, periodRange, txType]);
 
-  const periodLabels: Record<Period, string> = {
-    day: "Aujourd'hui",
-    week: "Cette semaine",
-    month: "Ce mois",
-    year: "Cette année",
-    custom: customDate ? format(customDate, "d MMM yyyy", { locale: fr }) : "Choisir date",
-  };
+  function rangeLabel(): string {
+    if (period !== "custom") {
+      const labels: Record<Period, string> = {
+        day: "Aujourd'hui", week: "Cette semaine", month: "Ce mois", year: "Cette année", custom: "",
+      };
+      return labels[period];
+    }
+    if (customRange?.from && customRange?.to) {
+      return `${format(customRange.from, "d MMM", { locale: fr })} → ${format(customRange.to, "d MMM yyyy", { locale: fr })}`;
+    }
+    if (customRange?.from) return format(customRange.from, "d MMM yyyy", { locale: fr });
+    return "Choisir période";
+  }
+  const activeLabel = rangeLabel();
 
   const PERIODS: { key: Period; label: string }[] = [
     { key: "day",   label: "Jour" },
@@ -286,7 +295,7 @@ export default function Dashboard() {
               ))}
             </div>
 
-            {/* Calendar picker */}
+            {/* Calendar range picker */}
             <Popover open={calendarOpen} onOpenChange={setCalendarOpen}>
               <PopoverTrigger asChild>
                 <button
@@ -297,32 +306,39 @@ export default function Dashboard() {
                   }`}
                 >
                   <CalendarIcon className="w-4 h-4" />
-                  {period === "custom" && customDate
-                    ? format(customDate, "d MMM yyyy", { locale: fr })
-                    : "Calendrier"}
+                  {period === "custom" && customRange?.from
+                    ? customRange.to
+                      ? `${format(customRange.from, "d MMM", { locale: fr })} → ${format(customRange.to, "d MMM yyyy", { locale: fr })}`
+                      : format(customRange.from, "d MMM yyyy", { locale: fr })
+                    : "Période"}
                 </button>
               </PopoverTrigger>
               <PopoverContent className="w-auto p-0" align="start">
+                <div className="p-3 border-b border-border">
+                  <p className="text-xs text-muted-foreground font-medium">Sélectionnez une plage de dates</p>
+                  <p className="text-[10px] text-muted-foreground mt-0.5">Cliquez sur le début puis la fin de la période</p>
+                </div>
                 <Calendar
-                  mode="single"
-                  selected={customDate}
-                  onSelect={(date) => {
-                    setCustomDate(date ?? undefined);
+                  mode="range"
+                  selected={customRange}
+                  onSelect={(range) => {
+                    setCustomRange(range ?? undefined);
                     setPeriod("custom");
-                    setCalendarOpen(false);
+                    if (range?.from && range?.to) setCalendarOpen(false);
                   }}
                   disabled={(date) => date > new Date()}
+                  numberOfMonths={1}
                   initialFocus
                 />
               </PopoverContent>
             </Popover>
 
-            {/* Clear custom date */}
-            {period === "custom" && customDate && (
+            {/* Clear custom range */}
+            {period === "custom" && customRange && (
               <button
-                onClick={() => { setPeriod("month"); setCustomDate(undefined); }}
+                onClick={() => { setPeriod("month"); setCustomRange(undefined); }}
                 className="p-1.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-colors"
-                aria-label="Effacer la date"
+                aria-label="Effacer la période"
               >
                 <X className="w-4 h-4" />
               </button>
@@ -350,7 +366,7 @@ export default function Dashboard() {
 
           {/* Active filter label */}
           <p className="text-xs text-muted-foreground mt-2 pl-1">
-            Affichage : <span className="font-semibold text-foreground">{periodLabels[period]}</span>
+            Affichage : <span className="font-semibold text-foreground">{activeLabel}</span>
             {txType !== "ALL" && (
               <> · type <span className="font-semibold text-foreground">{txType === "DEPOSIT" ? "Dépôt" : txType === "WITHDRAWAL" ? "Retrait" : "Transfert"}</span></>
             )}
