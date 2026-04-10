@@ -8,7 +8,6 @@ import { YookPayLogo } from "@/components/yookpay-logo";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Separator } from "@/components/ui/separator";
 import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import {
@@ -31,14 +30,6 @@ type LinkData = {
 
 type PayMode = "mobile" | "crypto";
 type PollStatus  = "PENDING" | "SUCCESS" | "FAILED";
-
-type FeePreview = {
-  grossAmount: number;
-  feeRate:     number;
-  feeAmount:   number;
-  netAmount:   number;
-  currency:    string;
-};
 
 type MobileResult = {
   txId: number;
@@ -85,7 +76,6 @@ export default function Pay() {
   const [phone,      setPhone]      = useState("");
   const [amount,     setAmount]     = useState("");
   const [omOtp,      setOmOtp]      = useState("");
-  const [feePreview, setFeePreview] = useState<FeePreview | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
   // ── Mobile result ──
@@ -137,30 +127,13 @@ export default function Pay() {
   }, []);
 
   // ── Reset operator on country change ──
-  useEffect(() => { setOperator(""); setOmOtp(""); setFeePreview(null); }, [country]);
-  useEffect(() => { setOmOtp(""); setFeePreview(null); }, [operator]);
+  useEffect(() => { setOperator(""); setOmOtp(""); }, [country]);
+  useEffect(() => { setOmOtp(""); }, [operator]);
 
   // ── Pre-fill amount for fixed-price links ──
   useEffect(() => {
     if (linkData?.priceType === "FIXED" && linkData.priceAmount) setAmount(String(linkData.priceAmount));
   }, [linkData, country]);
-
-  // ── Fee preview (debounced) ──
-  useEffect(() => {
-    const amt = parseFloat(amount);
-    if (!amt || !country || !operator) { setFeePreview(null); return; }
-    const id = setTimeout(async () => {
-      try {
-        const r = await fetch("/api/payment-links/public/fee-preview", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ amount: amt, country, operator }),
-        });
-        if (r.ok) setFeePreview(await r.json());
-      } catch { /* silent */ }
-    }, 250);
-    return () => clearTimeout(id);
-  }, [amount, country, operator]);
 
   // ── Mobile countdown + poll ──
   useEffect(() => {
@@ -429,12 +402,6 @@ export default function Pay() {
     );
   }
 
-  // ── Fee summary ──
-  // RECIPIENT mode: client pays exact entered amount, merchant absorbs fees
-  const feeAmt = feePreview ? Math.max(Math.round(parseFloat(amount || "0") * feePreview.feeRate), 1) : 0;
-  const phoneCharged = parseFloat(amount || "0");
-  const merchantReceives = Math.max(parseFloat(amount || "0") - feeAmt, 0);
-
   // ─────────────────────────────────────────────────────────────────────────
   // Main form
   // ─────────────────────────────────────────────────────────────────────────
@@ -593,27 +560,6 @@ export default function Pay() {
                 </div>
               )}
 
-              {/* Fee preview */}
-              {feePreview && amount && operator && (
-                <div className="bg-muted rounded-lg p-4 space-y-2 border border-border">
-                  <h4 className="text-sm font-semibold mb-3">Résumé de la transaction</h4>
-                  <div className="flex justify-between text-sm">
-                    <span className="text-muted-foreground">Vous payez exactement</span>
-                    <span className="font-medium">{formatCurrency(phoneCharged, feePreview.currency)}</span>
-                  </div>
-                  <div className="flex justify-between text-sm">
-                    <span className="text-muted-foreground">
-                      Frais YookPay ({(feePreview.feeRate * 100).toFixed(1)}%) — à charge du marchand
-                    </span>
-                    <span className="text-rose-500">− {formatCurrency(feeAmt, feePreview.currency)}</span>
-                  </div>
-                  <Separator className="my-2" />
-                  <div className="flex justify-between font-semibold">
-                    <span>Marchand reçoit</span>
-                    <span className="text-emerald-600">{formatCurrency(merchantReceives, feePreview.currency)}</span>
-                  </div>
-                </div>
-              )}
 
               <Button type="submit"
                 className="w-full bg-cyan-500 hover:bg-cyan-400 text-black font-bold"
