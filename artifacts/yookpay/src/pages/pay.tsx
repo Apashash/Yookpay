@@ -270,31 +270,28 @@ export default function Pay() {
       <div className="max-w-lg mx-auto px-4 py-8 space-y-6">
         {/* Product card */}
         <div className="rounded-2xl border border-border bg-card p-5">
-          <div className="flex gap-4">
-            {linkData.photoData ? (
+          <div className={`flex gap-4 ${linkData.photoData ? "" : "flex-col"}`}>
+            {linkData.photoData && (
               <img
                 src={linkData.photoData}
                 alt={linkData.title}
                 className="w-20 h-20 rounded-xl object-cover border border-border flex-shrink-0"
               />
-            ) : (
-              <div className="w-20 h-20 rounded-xl bg-muted flex items-center justify-center border border-border flex-shrink-0">
-                <ImageIcon className="w-8 h-8 text-muted-foreground/30" />
-              </div>
             )}
             <div className="min-w-0">
               <h1 className="font-bold text-lg leading-tight">{linkData.title}</h1>
               {linkData.description && (
                 <p className="text-sm text-muted-foreground mt-1 leading-relaxed">{linkData.description}</p>
               )}
-              {linkData.priceType === "FIXED" && linkData.priceAmount && (
-                <Badge className="mt-2 bg-emerald-500/10 text-emerald-400 border-emerald-500/20">
-                  {linkData.priceAmount.toLocaleString("fr-FR")} {linkData.currency}
-                </Badge>
-              )}
-              {linkData.priceType === "FREE" && (
-                <Badge variant="outline" className="mt-2">Montant libre</Badge>
-              )}
+              <div className="mt-2">
+                {linkData.priceType === "FIXED" && linkData.priceAmount ? (
+                  <Badge className="bg-emerald-500/10 text-emerald-400 border-emerald-500/20">
+                    {linkData.priceAmount.toLocaleString("fr-FR")} {linkData.currency}
+                  </Badge>
+                ) : (
+                  <Badge variant="outline">Montant libre</Badge>
+                )}
+              </div>
             </div>
           </div>
         </div>
