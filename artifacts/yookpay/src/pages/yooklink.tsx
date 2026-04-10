@@ -175,40 +175,44 @@ export default function YookLink() {
                         {link.countries.length} pays
                       </Badge>
                     </div>
-                    {/* URL row */}
+                    {/* URL row — code + copy only */}
                     <div className="flex items-center gap-2 mt-2">
                       <code className="flex-1 text-xs bg-muted rounded px-2 py-1 truncate text-muted-foreground min-w-0">
                         {getPublicUrl(link.token)}
                       </code>
                       <CopyButton text={getPublicUrl(link.token)} />
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        className="gap-1.5 shrink-0"
-                        onClick={(e) => { e.stopPropagation(); window.open(getPublicUrl(link.token), "_blank"); }}
-                      >
-                        <ExternalLink className="w-3.5 h-3.5" />
-                        Voir
-                      </Button>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        className="shrink-0 gap-1.5"
-                        onClick={(e) => { e.stopPropagation(); setEditLink(link); }}
-                      >
-                        <Pencil className="w-3.5 h-3.5" />
-                        Modifier
-                      </Button>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        className="shrink-0 text-destructive hover:text-destructive"
-                        onClick={(e) => { e.stopPropagation(); setDeleteId(link.id); }}
-                      >
-                        <Trash2 className="w-3.5 h-3.5" />
-                      </Button>
                     </div>
                   </div>
+                </div>
+
+                {/* Actions row */}
+                <div className="flex items-center gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="flex-1 gap-1.5"
+                    onClick={(e) => { e.stopPropagation(); window.open(getPublicUrl(link.token), "_blank"); }}
+                  >
+                    <ExternalLink className="w-3.5 h-3.5" />
+                    Voir
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="flex-1 gap-1.5"
+                    onClick={(e) => { e.stopPropagation(); setEditLink(link); }}
+                  >
+                    <Pencil className="w-3.5 h-3.5" />
+                    Modifier
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="text-destructive hover:text-destructive shrink-0"
+                    onClick={(e) => { e.stopPropagation(); setDeleteId(link.id); }}
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                  </Button>
                 </div>
 
                 {/* Stats bar */}
