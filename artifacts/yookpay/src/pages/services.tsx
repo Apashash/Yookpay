@@ -43,20 +43,10 @@ function pct(rate: number) {
   return `${(rate * 100).toFixed(1)} %`;
 }
 
-function FeeCell({ entry, currency }: { entry: FeeEntry; currency: string }) {
+function FeeCell({ entry }: { entry: FeeEntry; currency: string }) {
   return (
     <div className="text-right">
       <div className="font-semibold text-foreground">{pct(entry.rate)}</div>
-      <div className="text-[10px] text-muted-foreground leading-tight mt-0.5">
-        <span className="text-blue-500">{pct(entry.pixpay)}</span>
-        {" + "}
-        <span className="text-emerald-600">{pct(entry.margin)}</span>
-      </div>
-      {entry.minFee > 1 && (
-        <div className="text-[10px] text-muted-foreground">
-          min {entry.minFee.toLocaleString("fr-FR")} {currency}
-        </div>
-      )}
     </div>
   );
 }
@@ -199,11 +189,7 @@ export default function Services() {
       <div className="flex items-start gap-2 p-3 bg-muted/30 rounded-lg text-xs text-muted-foreground">
         <Info className="h-4 w-4 flex-shrink-0 mt-0.5" />
         <span>
-          Le taux total affiché correspond à{" "}
-          <span className="text-blue-500 font-medium">frais fournisseur</span>
-          {" + "}
-          <span className="text-emerald-600 font-medium">marge YookPay</span>.
-          Ces frais sont calculés sur le montant brut de la transaction.
+          Les frais indiqués (frais fournisseur + marge YookPay) sont calculés sur le montant brut de la transaction.
         </span>
       </div>
     </div>
