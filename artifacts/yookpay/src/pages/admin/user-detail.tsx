@@ -702,9 +702,6 @@ export default function AdminUserDetail() {
                   <div className="flex items-center gap-1.5 text-xs font-semibold">
                     <ShieldCheck className={`h-3.5 w-3.5 ${kycStatus === "APPROVED" ? "text-blue-600" : "text-muted-foreground"}`} />
                     KYC
-                    {kycStatus === "APPROVED" && (
-                      <span className="text-[10px] text-blue-600 font-normal">Vérifié</span>
-                    )}
                   </div>
                   <Switch
                     checked={kycStatus === "APPROVED"}
@@ -719,12 +716,6 @@ export default function AdminUserDetail() {
                   <div className="flex items-center gap-1.5 text-xs font-semibold">
                     <ShieldCheck className={`h-3.5 w-3.5 ${kybStatus === "APPROVED" ? "text-blue-600" : "text-muted-foreground"}`} />
                     KYB
-                    {kybStatus === "APPROVED" && (
-                      <span className="text-[10px] text-blue-600 font-normal">Vérifié</span>
-                    )}
-                    {kycStatus !== "APPROVED" && kybStatus !== "APPROVED" && (
-                      <span className="text-[10px] text-muted-foreground font-normal">(KYC requis)</span>
-                    )}
                   </div>
                   <Switch
                     checked={kybStatus === "APPROVED"}
