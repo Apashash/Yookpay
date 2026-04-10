@@ -253,6 +253,12 @@ router.get("/users/:id", async (req: AuthRequest, res) => {
       };
     }
 
+    // Fetch KYC profile status
+    const kycProfile = await db.execute<{ kyc_status: string | null; kyb_status: string | null }>(
+      sql`SELECT kyc_status, kyb_status FROM kyc_profiles WHERE user_id = ${userId} LIMIT 1`
+    );
+    const kycRow = kycProfile.rows[0];
+
     res.json({
       user: { id: user.id, email: user.email, name: user.name, phone: user.phone, country: user.country, role: user.role, status: (user as any).status ?? "ACTIVE", createdAt: user.createdAt },
       wallets,
@@ -261,6 +267,8 @@ router.get("/users/:id", async (req: AuthRequest, res) => {
       fees: specificFees,
       kycDocuments: kycDocs,
       recentTransactions: recentTx,
+      kycStatus: kycRow?.kyc_status ?? "NOT_STARTED",
+      kybStatus: kycRow?.kyb_status ?? "NOT_STARTED",
     });
   } catch (err) {
     req.log.error({ err }, "Admin get user error");
@@ -678,8 +686,8 @@ router.patch("/kyc/profile/:userId", async (req: AuthRequest, res) => {
   const userId = parseInt(req.params.userId);
   if (isNaN(userId)) { res.status(400).json({ error: "ValidationError", message: "ID invalide" }); return; }
   const schema = z.object({
-    kycStatus: z.enum(["PENDING", "VERIFIED", "REJECTED"]).optional(),
-    kybStatus: z.enum(["PENDING", "VERIFIED", "REJECTED"]).optional(),
+    kycStatus: z.enum(["NOT_STARTED", "PENDING", "APPROVED", "VERIFIED", "REJECTED"]).optional(),
+    kybStatus: z.enum(["NOT_STARTED", "PENDING", "APPROVED", "VERIFIED", "REJECTED"]).optional(),
     adminNotes: z.string().max(1000).optional(),
   });
   const parse = schema.safeParse(req.body);

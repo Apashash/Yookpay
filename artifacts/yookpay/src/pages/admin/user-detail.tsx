@@ -66,6 +66,8 @@ interface UserDetail {
   fees: Array<{ id: number; country: string; operator: string; transactionType: string; rate: string; minFee: number; maxFee: number | null }>;
   kycDocuments: Array<{ id: number; type: string; status: string; fileName: string | null; notes: string | null; createdAt: string }>;
   recentTransactions: Array<{ id: number; type: string; amount: string; currency: string; status: string; createdAt: string }>;
+  kycStatus: string;
+  kybStatus: string;
 }
 
 const DOC_LABELS: Record<string, string> = {
@@ -534,6 +536,16 @@ export default function AdminUserDetail() {
     onError: () => toast({ title: "Erreur", variant: "destructive" }),
   });
 
+  const kycMutation = useMutation({
+    mutationFn: (body: { kycStatus?: string; kybStatus?: string }) =>
+      customFetch(`/api/admin/kyc/profile/${userId}`, { method: "PATCH", body: JSON.stringify(body) }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["admin-user", userId] });
+      toast({ title: "Vérification mise à jour" });
+    },
+    onError: () => toast({ title: "Erreur", variant: "destructive" }),
+  });
+
   if (isLoading) {
     return (
       <div className="max-w-5xl mx-auto space-y-4">
@@ -546,7 +558,7 @@ export default function AdminUserDetail() {
 
   if (!data) return <div className="text-center py-12 text-muted-foreground">Utilisateur introuvable.</div>;
 
-  const { user, wallets, kycDocuments } = data;
+  const { user, wallets, kycDocuments, kycStatus, kybStatus } = data;
 
   const refresh = () => qc.invalidateQueries({ queryKey: ["admin-user", userId] });
 
@@ -678,6 +690,73 @@ export default function AdminUserDetail() {
                   </AlertDialogFooter>
                 </AlertDialogContent>
               </AlertDialog>
+            </div>
+
+            {/* KYC / KYB */}
+            <div>
+              <p className="text-xs text-muted-foreground mb-1.5">Vérification</p>
+              <div className="space-y-2">
+                {/* KYC */}
+                <div className="flex items-center justify-between gap-2 rounded-md border px-3 py-2">
+                  <div className="flex items-center gap-1.5 text-xs font-medium">
+                    <ShieldCheck className="h-3.5 w-3.5 text-blue-600" />
+                    KYC
+                  </div>
+                  {kycStatus === "APPROVED" ? (
+                    <div className="flex items-center gap-2">
+                      <span className="text-[10px] text-emerald-600 font-semibold">Approuvé</span>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-6 px-2 text-[10px] text-muted-foreground"
+                        disabled={kycMutation.isPending}
+                        onClick={() => kycMutation.mutate({ kycStatus: "NOT_STARTED" })}
+                      >
+                        Révoquer
+                      </Button>
+                    </div>
+                  ) : (
+                    <Button
+                      size="sm"
+                      className="h-6 px-2 text-[10px] bg-blue-600 hover:bg-blue-700 text-white"
+                      disabled={kycMutation.isPending}
+                      onClick={() => kycMutation.mutate({ kycStatus: "APPROVED" })}
+                    >
+                      Approuver
+                    </Button>
+                  )}
+                </div>
+                {/* KYB */}
+                <div className="flex items-center justify-between gap-2 rounded-md border px-3 py-2">
+                  <div className="flex items-center gap-1.5 text-xs font-medium">
+                    <ShieldCheck className="h-3.5 w-3.5 text-blue-600" />
+                    KYB
+                  </div>
+                  {kybStatus === "APPROVED" ? (
+                    <div className="flex items-center gap-2">
+                      <span className="text-[10px] text-emerald-600 font-semibold">Approuvé</span>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-6 px-2 text-[10px] text-muted-foreground"
+                        disabled={kycMutation.isPending}
+                        onClick={() => kycMutation.mutate({ kybStatus: "NOT_STARTED" })}
+                      >
+                        Révoquer
+                      </Button>
+                    </div>
+                  ) : (
+                    <Button
+                      size="sm"
+                      className="h-6 px-2 text-[10px] bg-blue-600 hover:bg-blue-700 text-white"
+                      disabled={kycMutation.isPending}
+                      onClick={() => kycMutation.mutate({ kybStatus: "APPROVED" })}
+                    >
+                      Approuver
+                    </Button>
+                  )}
+                </div>
+              </div>
             </div>
           </CardContent>
         </Card>
