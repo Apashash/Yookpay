@@ -256,9 +256,10 @@ router.post("/public/:token/pay", async (req, res) => {
     return;
   }
 
-  const countryMin = COUNTRY_MIN_AMOUNTS[country];
-  if (countryMin !== undefined && amount < countryMin) {
-    res.status(400).json({ error: "AmountTooLow", message: `Le montant minimum pour ce pays est de ${countryMin} ${currency}` });
+  const LINK_MIN_AMOUNT = 100;
+  const countryMin = Math.max(COUNTRY_MIN_AMOUNTS[country] ?? 0, LINK_MIN_AMOUNT);
+  if (amount < countryMin) {
+    res.status(400).json({ error: "AmountTooLow", message: `Le montant minimum est de ${countryMin} ${currency}` });
     return;
   }
 
