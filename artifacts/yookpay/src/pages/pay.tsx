@@ -375,17 +375,17 @@ export default function Pay() {
                 </Label>
                 <Input
                   type="number"
-                  min={Math.max(selectedCountry?.minAmount ?? 0, 100)}
+                  min={100}
                   step={1}
                   value={amount}
                   onChange={(e) => setAmount(e.target.value)}
                   readOnly={linkData.priceType === "FIXED"}
                   className={linkData.priceType === "FIXED" ? "bg-muted cursor-not-allowed" : ""}
-                  placeholder={`Min. ${Math.max(selectedCountry?.minAmount ?? 0, 100)}`}
+                  placeholder="Min. 100"
                 />
                 {selectedCountry && (
                   <p className="text-xs text-muted-foreground">
-                    Minimum : {Math.max(selectedCountry.minAmount, 100).toLocaleString("fr-FR")} {selectedCountry.currency}
+                    Minimum : 100 {selectedCountry.currency}
                   </p>
                 )}
               </div>
