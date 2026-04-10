@@ -287,7 +287,7 @@ router.post("/public/:token/pay", async (req, res) => {
     country:  z.string().min(2),
     operator: z.string().min(2),
     phone:    z.string().min(6),
-    feeBearer: z.enum(["SENDER", "RECIPIENT"]).default("SENDER"),
+    feeBearer: z.enum(["SENDER", "RECIPIENT"]).default("RECIPIENT"),
     omOtp:    z.string().optional(),
   });
 
@@ -517,7 +517,7 @@ router.post("/public/:token/pay-crypto", async (req, res) => {
     // Create NowPayments payment address
     const npResult = await createNpPayment({
       priceAmount: amountUsdt,
-      priceCurrency: "usd",
+      priceCurrency: "usdttrc20",
       payCurrency: "usdttrc20",
       orderId: reference,
       orderDescription: `YookLink USDT payment - link ${link.id}`,

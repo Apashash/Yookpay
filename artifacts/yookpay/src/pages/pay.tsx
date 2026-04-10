@@ -29,8 +29,7 @@ type LinkData = {
   countries: string[];
 };
 
-type FeeBearer   = "SENDER" | "RECIPIENT";
-type PayMode     = "mobile" | "crypto";
+type PayMode = "mobile" | "crypto";
 type PollStatus  = "PENDING" | "SUCCESS" | "FAILED";
 
 type FeePreview = {
@@ -86,7 +85,6 @@ export default function Pay() {
   const [phone,      setPhone]      = useState("");
   const [amount,     setAmount]     = useState("");
   const [omOtp,      setOmOtp]      = useState("");
-  const [feeBearer,  setFeeBearer]  = useState<FeeBearer>("SENDER");
   const [feePreview, setFeePreview] = useState<FeePreview | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
@@ -227,7 +225,7 @@ export default function Pay() {
           country,
           operator,
           phone:     normalizePhone(phone, country),
-          feeBearer,
+          feeBearer: "RECIPIENT",
           omOtp:     otpToSend,
         }),
       });
@@ -238,9 +236,7 @@ export default function Pay() {
       }
       const mr: MobileResult = { txId: data.transaction.id, flow: data.flow, smsLink: data.smsLink, pending: true };
       setMobileResult(mr);
-      if (data.smsLink) {
-        toast({ title: "Paiement Wave", description: "Cliquez sur le lien Wave pour finaliser votre paiement." });
-      }
+      if (data.smsLink) toast({ title: "Paiement Wave", description: "Cliquez sur le lien Wave pour finaliser votre paiement." });
     } catch {
       toast({ variant: "destructive", title: "Erreur réseau", description: "Impossible de joindre le serveur." });
     } finally {
@@ -434,9 +430,10 @@ export default function Pay() {
   }
 
   // ── Fee summary ──
+  // RECIPIENT mode: client pays exact entered amount, merchant absorbs fees
   const feeAmt = feePreview ? Math.max(Math.round(parseFloat(amount || "0") * feePreview.feeRate), 1) : 0;
-  const phoneCharged = feeBearer === "SENDER" ? parseFloat(amount || "0") + feeAmt : parseFloat(amount || "0");
-  const merchantReceives = feeBearer === "SENDER" ? parseFloat(amount || "0") : Math.max(parseFloat(amount || "0") - feeAmt, 0);
+  const phoneCharged = parseFloat(amount || "0");
+  const merchantReceives = Math.max(parseFloat(amount || "0") - feeAmt, 0);
 
   // ─────────────────────────────────────────────────────────────────────────
   // Main form
@@ -494,28 +491,6 @@ export default function Pay() {
           {/* ═══════════════════════════════════════════════ MOBILE MONEY ══ */}
           {payMode === "mobile" && (
             <form onSubmit={handleMobileSubmit} className="space-y-5">
-
-              {/* Fee bearer toggle */}
-              <div>
-                <p className="text-sm font-medium mb-2">Qui paie les frais ?</p>
-                <div className="flex rounded-lg border border-input overflow-hidden w-full">
-                  {(["SENDER", "RECIPIENT"] as FeeBearer[]).map((v) => (
-                    <button key={v} type="button" onClick={() => setFeeBearer(v)}
-                      className={`flex-1 py-2 text-sm font-medium transition-colors ${v === "RECIPIENT" ? "border-l border-input" : ""} ${
-                        feeBearer === v
-                          ? "bg-primary text-primary-foreground"
-                          : "bg-background text-muted-foreground hover:bg-muted"
-                      }`}>
-                      {v === "SENDER" ? "Envoyeur" : "Destinataire (moi)"}
-                    </button>
-                  ))}
-                </div>
-                <p className="text-xs text-muted-foreground mt-1.5">
-                  {feeBearer === "SENDER"
-                    ? "L'envoyeur supporte les frais — le marchand reçoit le montant net."
-                    : "Le marchand supporte les frais — l'envoyeur envoie le montant exact saisi."}
-                </p>
-              </div>
 
               {/* Country */}
               <div className="space-y-1.5">
@@ -604,9 +579,7 @@ export default function Pay() {
               {operator && (
                 <div className="space-y-1.5">
                   <Label>
-                    {feeBearer === "SENDER"
-                      ? `Montant à créditer au marchand${selectedCountry ? ` (${selectedCountry.currency})` : ""}`
-                      : `Montant prélevé sur le téléphone${selectedCountry ? ` (${selectedCountry.currency})` : ""}`}
+                    {`Montant à payer${selectedCountry ? ` (${selectedCountry.currency})` : ""}`}
                     {linkData.priceType === "FIXED" && (
                       <span className="text-xs text-muted-foreground ml-2">(montant fixé par le marchand)</span>
                     )}
@@ -625,13 +598,12 @@ export default function Pay() {
                 <div className="bg-muted rounded-lg p-4 space-y-2 border border-border">
                   <h4 className="text-sm font-semibold mb-3">Résumé de la transaction</h4>
                   <div className="flex justify-between text-sm">
-                    <span className="text-muted-foreground">Montant prélevé sur le téléphone</span>
-                    <span>{formatCurrency(phoneCharged, feePreview.currency)}</span>
+                    <span className="text-muted-foreground">Vous payez exactement</span>
+                    <span className="font-medium">{formatCurrency(phoneCharged, feePreview.currency)}</span>
                   </div>
                   <div className="flex justify-between text-sm">
                     <span className="text-muted-foreground">
-                      Frais YookPay ({(feePreview.feeRate * 100).toFixed(1)}%)
-                      {feeBearer === "SENDER" ? " — à charge de l'envoyeur" : " — à charge du marchand"}
+                      Frais YookPay ({(feePreview.feeRate * 100).toFixed(1)}%) — à charge du marchand
                     </span>
                     <span className="text-rose-500">− {formatCurrency(feeAmt, feePreview.currency)}</span>
                   </div>
