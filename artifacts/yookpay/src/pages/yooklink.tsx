@@ -1,12 +1,13 @@
 import { useState, useRef } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useLocation } from "wouter";
 import { customFetch } from "@workspace/api-client-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import {
-  Card, CardContent, CardDescription, CardHeader, CardTitle,
+  Card, CardContent,
 } from "@/components/ui/card";
 import {
   Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle,
@@ -21,10 +22,10 @@ import { useToast } from "@/hooks/use-toast";
 import { COUNTRIES } from "@/lib/countries";
 import {
   Link2, Copy, Check, Trash2, Plus, Image, X, ExternalLink,
-  ArrowLeft, Loader2,
+  Loader2, MousePointerClick, Pencil, TrendingUp,
 } from "lucide-react";
 
-type PaymentLink = {
+export type PaymentLink = {
   id: number;
   token: string;
   title: string;
@@ -35,6 +36,10 @@ type PaymentLink = {
   currency: string | null;
   countries: string[];
   isActive: boolean;
+  clickCount: number;
+  transactionCount: number;
+  rejectedCount: number;
+  totalCollected: number;
   createdAt: string;
 };
 
@@ -45,18 +50,19 @@ const CURRENCIES = [
   { code: "USDT", label: "USDT — Tether" },
 ];
 
-function getPublicUrl(token: string): string {
+export function getPublicUrl(token: string): string {
   return `${window.location.origin}/pay/${token}`;
 }
 
-function CopyButton({ text }: { text: string }) {
+export function CopyButton({ text }: { text: string }) {
   const [copied, setCopied] = useState(false);
   return (
     <Button
       variant="outline"
       size="sm"
-      className="gap-1.5"
-      onClick={() => {
+      className="gap-1.5 shrink-0"
+      onClick={(e) => {
+        e.stopPropagation();
         navigator.clipboard.writeText(text);
         setCopied(true);
         setTimeout(() => setCopied(false), 2000);
@@ -71,8 +77,10 @@ function CopyButton({ text }: { text: string }) {
 export default function YookLink() {
   const { toast } = useToast();
   const qc = useQueryClient();
+  const [, navigate] = useLocation();
   const [showCreate, setShowCreate] = useState(false);
   const [deleteId, setDeleteId] = useState<number | null>(null);
+  const [editLink, setEditLink] = useState<PaymentLink | null>(null);
   const [successLink, setSuccessLink] = useState<PaymentLink | null>(null);
 
   const { data: links = [], isLoading } = useQuery({
@@ -138,10 +146,15 @@ export default function YookLink() {
           </CardContent>
         </Card>
       ) : (
-        <div className="space-y-2">
+        <div className="space-y-3">
           {links.map((link) => (
-            <Card key={link.id} className="hover:border-cyan-500/30 transition-colors">
-              <CardContent className="p-4">
+            <Card
+              key={link.id}
+              className="hover:border-cyan-500/40 transition-colors cursor-pointer"
+              onClick={() => navigate(`/yooklink/${link.id}`)}
+            >
+              <CardContent className="p-4 space-y-3">
+                {/* Top row: photo + title + badges + action buttons */}
                 <div className="flex items-start gap-3">
                   {link.photoData && (
                     <img
@@ -152,7 +165,7 @@ export default function YookLink() {
                   )}
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-2 flex-wrap">
-                      <p className="font-semibold text-sm truncate">{link.title}</p>
+                      <p className="font-semibold text-sm">{link.title}</p>
                       <Badge variant="outline" className="text-xs shrink-0">
                         {link.priceType === "FIXED"
                           ? `${link.priceAmount?.toLocaleString("fr-FR")} ${link.currency}`
@@ -162,26 +175,59 @@ export default function YookLink() {
                         {link.countries.length} pays
                       </Badge>
                     </div>
+                    {/* URL row */}
                     <div className="flex items-center gap-2 mt-2">
                       <code className="flex-1 text-xs bg-muted rounded px-2 py-1 truncate text-muted-foreground min-w-0">
                         {getPublicUrl(link.token)}
                       </code>
                       <CopyButton text={getPublicUrl(link.token)} />
-                      <Button variant="outline" size="sm" className="gap-1.5 shrink-0" asChild>
-                        <a href={getPublicUrl(link.token)} target="_blank" rel="noopener noreferrer">
-                          <ExternalLink className="w-3.5 h-3.5" />
-                          Voir
-                        </a>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="gap-1.5 shrink-0"
+                        onClick={(e) => { e.stopPropagation(); window.open(getPublicUrl(link.token), "_blank"); }}
+                      >
+                        <ExternalLink className="w-3.5 h-3.5" />
+                        Voir
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="shrink-0 gap-1.5"
+                        onClick={(e) => { e.stopPropagation(); setEditLink(link); }}
+                      >
+                        <Pencil className="w-3.5 h-3.5" />
+                        Modifier
                       </Button>
                       <Button
                         variant="outline"
                         size="sm"
                         className="shrink-0 text-destructive hover:text-destructive"
-                        onClick={() => setDeleteId(link.id)}
+                        onClick={(e) => { e.stopPropagation(); setDeleteId(link.id); }}
                       >
                         <Trash2 className="w-3.5 h-3.5" />
                       </Button>
                     </div>
+                  </div>
+                </div>
+
+                {/* Stats bar */}
+                <div className="flex items-center gap-4 pt-1 border-t border-border/50">
+                  <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                    <MousePointerClick className="w-3.5 h-3.5 text-cyan-400" />
+                    <span className="font-medium text-foreground">{link.clickCount.toLocaleString("fr-FR")}</span>
+                    <span>clics</span>
+                  </div>
+                  <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                    <TrendingUp className="w-3.5 h-3.5 text-emerald-400" />
+                    <span className="font-medium text-foreground">{link.transactionCount}</span>
+                    <span>transactions</span>
+                  </div>
+                  <div className="flex items-center gap-1.5 text-xs text-muted-foreground ml-auto">
+                    <span className="font-semibold text-emerald-400">
+                      {link.totalCollected.toLocaleString("fr-FR")}
+                    </span>
+                    <span>{link.currency ?? "—"} collectés</span>
                   </div>
                 </div>
               </CardContent>
@@ -192,12 +238,27 @@ export default function YookLink() {
 
       {/* Create Dialog */}
       {showCreate && (
-        <CreateLinkDialog
+        <LinkFormDialog
+          mode="create"
           onClose={() => setShowCreate(false)}
           onCreated={(link) => {
             setShowCreate(false);
             setSuccessLink(link);
             qc.invalidateQueries({ queryKey: ["payment-links"] });
+          }}
+        />
+      )}
+
+      {/* Edit Dialog */}
+      {editLink && (
+        <LinkFormDialog
+          mode="edit"
+          link={editLink}
+          onClose={() => setEditLink(null)}
+          onCreated={() => {
+            setEditLink(null);
+            qc.invalidateQueries({ queryKey: ["payment-links"] });
+            toast({ title: "Lien mis à jour" });
           }}
         />
       )}
@@ -258,25 +319,29 @@ export default function YookLink() {
   );
 }
 
-// ── Create Link Dialog ─────────────────────────────────────────────────────────
+// ── Shared Link Form Dialog (create & edit) ────────────────────────────────────
 
-function CreateLinkDialog({
+export function LinkFormDialog({
+  mode,
+  link,
   onClose,
   onCreated,
 }: {
+  mode: "create" | "edit";
+  link?: PaymentLink;
   onClose: () => void;
   onCreated: (link: PaymentLink) => void;
 }) {
   const { toast } = useToast();
   const fileRef = useRef<HTMLInputElement>(null);
 
-  const [title, setTitle] = useState("");
-  const [description, setDescription] = useState("");
-  const [photoData, setPhotoData] = useState<string | null>(null);
-  const [priceType, setPriceType] = useState<"FREE" | "FIXED">("FREE");
-  const [priceAmount, setPriceAmount] = useState("");
-  const [currency, setCurrency] = useState("XOF");
-  const [selectedCountries, setSelectedCountries] = useState<string[]>([]);
+  const [title, setTitle] = useState(link?.title ?? "");
+  const [description, setDescription] = useState(link?.description ?? "");
+  const [photoData, setPhotoData] = useState<string | null>(link?.photoData ?? null);
+  const [priceType, setPriceType] = useState<"FREE" | "FIXED">(link?.priceType ?? "FREE");
+  const [priceAmount, setPriceAmount] = useState(link?.priceAmount?.toString() ?? "");
+  const [currency, setCurrency] = useState(link?.currency ?? "XOF");
+  const [selectedCountries, setSelectedCountries] = useState<string[]>(link?.countries ?? []);
   const [loading, setLoading] = useState(false);
 
   const toggleCountry = (code: string) => {
@@ -304,21 +369,21 @@ function CreateLinkDialog({
 
     setLoading(true);
     try {
-      const link = await customFetch<PaymentLink>("/api/payment-links", {
-        method: "POST",
-        body: JSON.stringify({
-          title: title.trim(),
-          description: description.trim() || undefined,
-          photoData: photoData ?? undefined,
-          priceType,
-          priceAmount: priceType === "FIXED" ? parseFloat(priceAmount) : undefined,
-          currency: priceType === "FIXED" ? currency : undefined,
-          countries: selectedCountries,
-        }),
-      });
-      onCreated(link);
+      const body = {
+        title: title.trim(),
+        description: description.trim() || undefined,
+        photoData: photoData ?? undefined,
+        priceType,
+        priceAmount: priceType === "FIXED" ? parseFloat(priceAmount) : undefined,
+        currency: priceType === "FIXED" ? currency : undefined,
+        countries: selectedCountries,
+      };
+      const result = mode === "edit" && link
+        ? await customFetch<PaymentLink>(`/api/payment-links/${link.id}`, { method: "PUT", body: JSON.stringify(body) })
+        : await customFetch<PaymentLink>("/api/payment-links", { method: "POST", body: JSON.stringify(body) });
+      onCreated(result);
     } catch (err: any) {
-      toast({ variant: "destructive", title: "Erreur", description: err?.message ?? "Impossible de créer le lien" });
+      toast({ variant: "destructive", title: "Erreur", description: err?.message ?? "Impossible de sauvegarder le lien" });
     } finally {
       setLoading(false);
     }
@@ -330,15 +395,14 @@ function CreateLinkDialog({
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Link2 className="w-5 h-5 text-cyan-400" />
-            Créer un lien YookLink
+            {mode === "edit" ? "Modifier le lien YookLink" : "Créer un lien YookLink"}
           </DialogTitle>
           <DialogDescription>
-            Remplissez les informations de votre produit ou service.
+            {mode === "edit" ? "Modifiez les informations de votre lien." : "Remplissez les informations de votre produit ou service."}
           </DialogDescription>
         </DialogHeader>
 
         <div className="space-y-5 py-2">
-          {/* Title */}
           <div className="space-y-1.5">
             <Label>Titre du produit / service <span className="text-destructive">*</span></Label>
             <Input
@@ -349,7 +413,6 @@ function CreateLinkDialog({
             />
           </div>
 
-          {/* Description */}
           <div className="space-y-1.5">
             <Label>Description <span className="text-muted-foreground text-xs">(optionnel)</span></Label>
             <Textarea
@@ -361,7 +424,6 @@ function CreateLinkDialog({
             />
           </div>
 
-          {/* Photo */}
           <div className="space-y-1.5">
             <Label>Photo du produit <span className="text-muted-foreground text-xs">(optionnel)</span></Label>
             {photoData ? (
@@ -388,7 +450,6 @@ function CreateLinkDialog({
 
           <Separator />
 
-          {/* Price type */}
           <div className="space-y-1.5">
             <Label>Type de prix <span className="text-destructive">*</span></Label>
             <div className="flex gap-2">
@@ -411,7 +472,6 @@ function CreateLinkDialog({
             </div>
           </div>
 
-          {/* Price amount (only if FIXED) */}
           {priceType === "FIXED" && (
             <div className="flex gap-2">
               <div className="flex-1 space-y-1.5">
@@ -441,7 +501,6 @@ function CreateLinkDialog({
 
           <Separator />
 
-          {/* Countries */}
           <div className="space-y-2">
             <Label>Pays acceptés <span className="text-destructive">*</span></Label>
             <p className="text-xs text-muted-foreground">
@@ -480,9 +539,9 @@ function CreateLinkDialog({
               className="flex-1 bg-cyan-500 hover:bg-cyan-400 text-black font-semibold"
             >
               {loading ? (
-                <><Loader2 className="w-4 h-4 animate-spin mr-2" />Création...</>
+                <><Loader2 className="w-4 h-4 animate-spin mr-2" />{mode === "edit" ? "Sauvegarde..." : "Création..."}</>
               ) : (
-                "Créer le lien"
+                mode === "edit" ? "Sauvegarder" : "Créer le lien"
               )}
             </Button>
           </div>

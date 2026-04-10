@@ -327,9 +327,14 @@ export async function runStartupMigrations(): Promise<void> {
         currency VARCHAR(10),
         countries TEXT[] NOT NULL DEFAULT '{}',
         is_active BOOLEAN NOT NULL DEFAULT true,
-        created_at TIMESTAMP DEFAULT NOW() NOT NULL
+        click_count INTEGER NOT NULL DEFAULT 0,
+        created_at TIMESTAMP DEFAULT NOW() NOT NULL,
+        updated_at TIMESTAMP DEFAULT NOW() NOT NULL
       )
     `);
+    // 11b. Add click_count + updated_at to existing payment_links table (idempotent)
+    await client.query(`ALTER TABLE payment_links ADD COLUMN IF NOT EXISTS click_count INTEGER NOT NULL DEFAULT 0`);
+    await client.query(`ALTER TABLE payment_links ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP DEFAULT NOW() NOT NULL`);
 
     logger.info("Startup migrations completed successfully");
   } catch (err) {

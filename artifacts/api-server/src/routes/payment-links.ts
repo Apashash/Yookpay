@@ -137,16 +137,93 @@ router.post("/", authMiddleware, async (req: AuthRequest, res) => {
   }
 });
 
-// GET /api/payment-links  — list my links
+// GET /api/payment-links  — list my links (with stats)
 router.get("/", authMiddleware, async (req: AuthRequest, res) => {
   try {
     const r = await pool.query(
-      `SELECT * FROM payment_links WHERE user_id = $1 ORDER BY created_at DESC`,
+      `SELECT pl.*,
+         COUNT(t.id) FILTER (WHERE t.status != 'FAILED') AS transaction_count,
+         COUNT(t.id) FILTER (WHERE t.status = 'FAILED') AS rejected_count,
+         COALESCE(SUM(t.net_amount::numeric) FILTER (WHERE t.status IN ('COMPLETED','SUCCESS')), 0) AS total_collected
+       FROM payment_links pl
+       LEFT JOIN transactions t ON (t.metadata->>'paymentLinkId')::int = pl.id
+       WHERE pl.user_id = $1
+       GROUP BY pl.id
+       ORDER BY pl.created_at DESC`,
       [req.userId]
     );
     res.json(r.rows.map(formatLink));
   } catch (err) {
     req.log.error({ err }, "Error listing payment links");
+    res.status(500).json({ error: "InternalError", message: "Erreur serveur" });
+  }
+});
+
+// GET /api/payment-links/:id/stats — detailed stats for one link
+router.get("/:id/stats", authMiddleware, async (req: AuthRequest, res) => {
+  const id = parseInt(req.params.id);
+  if (isNaN(id)) { res.status(400).json({ error: "Invalid ID" }); return; }
+  try {
+    const r = await pool.query(
+      `SELECT pl.click_count,
+         COUNT(t.id) FILTER (WHERE t.status != 'FAILED') AS transaction_count,
+         COUNT(t.id) FILTER (WHERE t.status = 'FAILED') AS rejected_count,
+         COALESCE(SUM(t.net_amount::numeric) FILTER (WHERE t.status IN ('COMPLETED','SUCCESS')), 0) AS total_collected,
+         pl.currency
+       FROM payment_links pl
+       LEFT JOIN transactions t ON (t.metadata->>'paymentLinkId')::int = pl.id
+       WHERE pl.id = $1 AND pl.user_id = $2
+       GROUP BY pl.id, pl.click_count, pl.currency`,
+      [id, req.userId]
+    );
+    if (!r.rows.length) { res.status(404).json({ error: "NotFound" }); return; }
+    const row = r.rows[0];
+    res.json({
+      clickCount:       parseInt(row.click_count) || 0,
+      transactionCount: parseInt(row.transaction_count) || 0,
+      rejectedCount:    parseInt(row.rejected_count) || 0,
+      totalCollected:   parseFloat(row.total_collected) || 0,
+      currency:         row.currency,
+    });
+  } catch (err) {
+    req.log.error({ err }, "Error fetching link stats");
+    res.status(500).json({ error: "InternalError", message: "Erreur serveur" });
+  }
+});
+
+// PUT /api/payment-links/:id — update a link
+router.put("/:id", authMiddleware, async (req: AuthRequest, res) => {
+  const id = parseInt(req.params.id);
+  if (isNaN(id)) { res.status(400).json({ error: "Invalid ID" }); return; }
+
+  const schema = z.object({
+    title:        z.string().min(1).max(200),
+    description:  z.string().max(1000).optional(),
+    photoData:    z.string().max(2_000_000).optional().nullable(),
+    priceType:    z.enum(["FIXED", "FREE"]),
+    priceAmount:  z.number().positive().optional(),
+    currency:     z.string().max(10).optional(),
+    countries:    z.array(z.string().length(2)).min(1),
+  });
+  const parse = schema.safeParse(req.body);
+  if (!parse.success) {
+    res.status(400).json({ error: "ValidationError", message: parse.error.errors[0]?.message });
+    return;
+  }
+  const { title, description, photoData, priceType, priceAmount, currency, countries } = parse.data;
+  try {
+    const r = await pool.query(
+      `UPDATE payment_links
+       SET title=$3, description=$4, photo_data=$5, price_type=$6, price_amount=$7, currency=$8,
+           countries=$9, updated_at=NOW()
+       WHERE id=$1 AND user_id=$2 RETURNING *`,
+      [id, req.userId, title, description ?? null, photoData ?? null,
+       priceType, priceAmount ?? null, currency ?? null, countries]
+    );
+    if (!r.rowCount) { res.status(404).json({ error: "NotFound" }); return; }
+    res.json(formatLink(r.rows[0]));
+  } catch (err) {
+    req.log.error({ err }, "Error updating payment link");
     res.status(500).json({ error: "InternalError", message: "Erreur serveur" });
   }
 });
@@ -174,6 +251,9 @@ router.delete("/:id", authMiddleware, async (req: AuthRequest, res) => {
 router.get("/public/:token", async (req, res) => {
   const { token } = req.params;
   try {
+    // Increment click counter (fire-and-forget)
+    pool.query("UPDATE payment_links SET click_count = click_count + 1 WHERE token = $1", [token]).catch(() => {});
+
     const r = await pool.query(
       `SELECT id, token, title, description, photo_data, price_type, price_amount, currency, countries
        FROM payment_links WHERE token = $1 AND is_active = true`,
@@ -349,17 +429,21 @@ router.post("/public/:token/pay", async (req, res) => {
 
 function formatLink(row: any) {
   return {
-    id:          row.id,
-    token:       row.token,
-    title:       row.title,
-    description: row.description,
-    photoData:   row.photo_data,
-    priceType:   row.price_type,
-    priceAmount: row.price_amount ? parseFloat(row.price_amount) : null,
-    currency:    row.currency,
-    countries:   row.countries ?? [],
-    isActive:    row.is_active,
-    createdAt:   row.created_at,
+    id:               row.id,
+    token:            row.token,
+    title:            row.title,
+    description:      row.description,
+    photoData:        row.photo_data,
+    priceType:        row.price_type,
+    priceAmount:      row.price_amount ? parseFloat(row.price_amount) : null,
+    currency:         row.currency,
+    countries:        row.countries ?? [],
+    isActive:         row.is_active,
+    clickCount:       parseInt(row.click_count) || 0,
+    transactionCount: parseInt(row.transaction_count) || 0,
+    rejectedCount:    parseInt(row.rejected_count) || 0,
+    totalCollected:   parseFloat(row.total_collected) || 0,
+    createdAt:        row.created_at,
   };
 }
 

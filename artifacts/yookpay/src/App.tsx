@@ -29,6 +29,7 @@ import AdminExchanges from "@/pages/admin/exchanges";
 import AdminFees from "@/pages/admin/fees";
 import Landing from "@/pages/landing";
 import YookLink from "@/pages/yooklink";
+import YookLinkDetail from "@/pages/yooklink-detail";
 import Pay from "@/pages/pay";
 import NotFound from "@/pages/not-found";
 
@@ -88,6 +89,7 @@ function Router() {
       <Route path="/api-keys/:id" component={() => <ProtectedRoute component={ApiKeyDetail} />} />
       <Route path="/kyc"              component={() => <ProtectedRoute component={Kyc} />} />
       <Route path="/yooklink"         component={() => <ProtectedRoute component={YookLink} />} />
+      <Route path="/yooklink/:id"     component={() => <ProtectedRoute component={YookLinkDetail} />} />
 
       {/* Public payment page — no auth required */}
       <Route path="/pay/:token" component={Pay} />
