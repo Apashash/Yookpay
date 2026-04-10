@@ -717,13 +717,11 @@ export default function AdminUserDetail() {
                 </div>
                 {/* KYB */}
                 <div className={`flex items-center justify-between gap-2 rounded-md border px-3 py-2 ${kycStatus !== "APPROVED" && kybStatus !== "APPROVED" ? "opacity-50" : ""}`}>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-1.5 text-xs font-semibold">
-                      <ShieldCheck className="h-3.5 w-3.5 text-blue-600" />
-                      KYB
-                    </div>
+                  <div className="flex items-center gap-1.5 text-xs font-semibold">
+                    <ShieldCheck className="h-3.5 w-3.5 text-blue-600" />
+                    KYB
                     {kycStatus !== "APPROVED" && kybStatus !== "APPROVED" && (
-                      <p className="text-[10px] text-muted-foreground mt-0.5">KYC requis</p>
+                      <span className="text-[10px] text-muted-foreground font-normal">(KYC requis)</span>
                     )}
                   </div>
                   <Button

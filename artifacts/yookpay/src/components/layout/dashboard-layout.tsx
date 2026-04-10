@@ -1,6 +1,8 @@
 import { useState, useEffect } from "react";
 import { Link, useLocation } from "wouter";
 import { useAuth } from "@/lib/auth";
+import { useQuery } from "@tanstack/react-query";
+import { customFetch } from "@workspace/api-client-react";
 import {
   LayoutDashboard,
   ArrowDownToLine,
@@ -34,6 +36,16 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
   const { user, logout } = useAuth();
   const [location] = useLocation();
   const [sidebarOpen, setSidebarOpen] = useState(false);
+
+  const isDashboard = location === "/dashboard";
+  const { data: kycData } = useQuery<{ profile: { kycStatus: string; kybStatus: string } | null }>({
+    queryKey: ["kyc-status-layout"],
+    queryFn: () => customFetch("/api/kyc"),
+    enabled: isDashboard && !!user,
+    staleTime: 30_000,
+  });
+  const kycApproved = kycData?.profile?.kycStatus === "APPROVED";
+  const kybApproved = kycData?.profile?.kybStatus === "APPROVED";
 
   // Close sidebar on route change
   useEffect(() => {
@@ -209,10 +221,28 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
 
           <YookPayLogo size="sm" />
 
-          <div className="ml-auto">
+          <div className="ml-auto flex items-center gap-1.5">
             <h1 className="text-sm font-medium text-muted-foreground capitalize">
               {pageTitle}
             </h1>
+            {isDashboard && (
+              <>
+                {kycApproved ? (
+                  <span title="KYC Vérifié" className="inline-flex items-center justify-center w-4 h-4 rounded-full bg-blue-600 text-white">
+                    <ShieldCheck className="h-2.5 w-2.5" />
+                  </span>
+                ) : kycData !== undefined ? (
+                  <span title="KYC non vérifié" className="inline-flex items-center justify-center w-4 h-4 rounded-full bg-red-500 text-white text-[9px] font-bold animate-pulse">
+                    ?
+                  </span>
+                ) : null}
+                {kybApproved && (
+                  <span title="KYB Vérifié" className="inline-flex items-center justify-center w-4 h-4 rounded-full bg-blue-600 text-white">
+                    <ShieldCheck className="h-2.5 w-2.5" />
+                  </span>
+                )}
+              </>
+            )}
           </div>
         </header>
 

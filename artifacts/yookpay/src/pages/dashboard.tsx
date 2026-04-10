@@ -1,6 +1,4 @@
 import { useState, useMemo } from "react";
-import { useQuery } from "@tanstack/react-query";
-import { customFetch } from "@workspace/api-client-react";
 import { useAuth } from "@/lib/auth";
 import {
   useGetDashboardSummary,
@@ -34,7 +32,6 @@ import {
   ArrowRightLeft,
   CalendarIcon,
   X,
-  ShieldCheck,
 } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Link } from "wouter";
@@ -84,14 +81,6 @@ export default function Dashboard() {
   const { data: volumeData, isLoading: isLoadingVolume } = useGetVolumeChart({
     query: { queryKey: getGetVolumeChartQueryKey() },
   });
-
-  const { data: kycData } = useQuery<{ profile: { kycStatus: string; kybStatus: string } | null }>({
-    queryKey: ["kyc-status-dashboard"],
-    queryFn: () => customFetch("/api/kyc"),
-    staleTime: 120_000,
-  });
-  const kycApproved = kycData?.profile?.kycStatus === "APPROVED";
-  const kybApproved = kycData?.profile?.kybStatus === "APPROVED";
 
   const periodStart = useMemo(() => getPeriodStart(period, customDate), [period, customDate]);
 
@@ -208,24 +197,6 @@ export default function Dashboard() {
 
   return (
     <div className="space-y-6">
-
-      {/* ── Verification badges ── */}
-      {(kycApproved || kybApproved) && (
-        <div className="flex justify-end gap-2">
-          {kycApproved && (
-            <div className="flex items-center gap-1.5 bg-blue-600 text-white text-xs font-semibold px-3 py-1.5 rounded-full shadow-sm">
-              <ShieldCheck className="h-3.5 w-3.5" />
-              KYC Vérifié
-            </div>
-          )}
-          {kybApproved && (
-            <div className="flex items-center gap-1.5 bg-blue-600 text-white text-xs font-semibold px-3 py-1.5 rounded-full shadow-sm">
-              <ShieldCheck className="h-3.5 w-3.5" />
-              KYB Vérifié
-            </div>
-          )}
-        </div>
-      )}
 
       {/* ── Wallet Balance Cards ── */}
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
