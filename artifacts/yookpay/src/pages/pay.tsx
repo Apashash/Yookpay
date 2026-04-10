@@ -611,12 +611,12 @@ export default function Pay() {
                       <span className="text-xs text-muted-foreground ml-2">(montant fixé par le marchand)</span>
                     )}
                   </Label>
-                  <Input type="number" min={100} step={1} placeholder="Minimum 100"
+                  <Input type="number" min={50} step={1} placeholder="Minimum 50"
                     value={amount} onChange={(e) => setAmount(e.target.value)}
                     readOnly={linkData.priceType === "FIXED"}
                     className={linkData.priceType === "FIXED" ? "bg-muted cursor-not-allowed" : ""}
                   />
-                  {selectedCountry && <p className="text-xs text-muted-foreground">Minimum : 100 {selectedCountry.currency}</p>}
+                  {selectedCountry && <p className="text-xs text-muted-foreground">Minimum : 50 {selectedCountry.currency}</p>}
                 </div>
               )}
 
