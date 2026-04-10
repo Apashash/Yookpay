@@ -116,7 +116,7 @@ router.post("/", authMiddleware, async (req: AuthRequest, res) => {
     return;
   }
 
-  const token = crypto.randomBytes(16).toString("hex");
+  const token = crypto.randomBytes(5).toString("hex");
 
   try {
     const r = await pool.query<{

@@ -138,69 +138,51 @@ export default function YookLink() {
           </CardContent>
         </Card>
       ) : (
-        <div className="grid gap-4 sm:grid-cols-2">
+        <div className="space-y-2">
           {links.map((link) => (
             <Card key={link.id} className="hover:border-cyan-500/30 transition-colors">
-              <CardContent className="p-5 space-y-3">
-                <div className="flex gap-3">
-                  {link.photoData ? (
+              <CardContent className="p-4">
+                <div className="flex items-start gap-3">
+                  {link.photoData && (
                     <img
                       src={link.photoData}
                       alt={link.title}
-                      className="w-14 h-14 rounded-lg object-cover flex-shrink-0 border border-border"
+                      className="w-10 h-10 rounded-md object-cover flex-shrink-0 border border-border"
                     />
-                  ) : (
-                    <div className="w-14 h-14 rounded-lg bg-muted flex items-center justify-center flex-shrink-0 border border-border">
-                      <Image className="w-6 h-6 text-muted-foreground/40" />
-                    </div>
                   )}
                   <div className="min-w-0 flex-1">
-                    <p className="font-semibold truncate">{link.title}</p>
-                    {link.description && (
-                      <p className="text-xs text-muted-foreground line-clamp-2 mt-0.5">{link.description}</p>
-                    )}
-                    <div className="flex gap-2 mt-1 flex-wrap">
-                      <Badge variant="outline" className="text-xs">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <p className="font-semibold text-sm truncate">{link.title}</p>
+                      <Badge variant="outline" className="text-xs shrink-0">
                         {link.priceType === "FIXED"
                           ? `${link.priceAmount?.toLocaleString("fr-FR")} ${link.currency}`
                           : "Montant libre"}
                       </Badge>
-                      <Badge variant="outline" className="text-xs text-muted-foreground">
+                      <Badge variant="outline" className="text-xs text-muted-foreground shrink-0">
                         {link.countries.length} pays
                       </Badge>
                     </div>
+                    <div className="flex items-center gap-2 mt-2">
+                      <code className="flex-1 text-xs bg-muted rounded px-2 py-1 truncate text-muted-foreground min-w-0">
+                        {getPublicUrl(link.token)}
+                      </code>
+                      <CopyButton text={getPublicUrl(link.token)} />
+                      <Button variant="outline" size="sm" className="gap-1.5 shrink-0" asChild>
+                        <a href={getPublicUrl(link.token)} target="_blank" rel="noopener noreferrer">
+                          <ExternalLink className="w-3.5 h-3.5" />
+                          Voir
+                        </a>
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="shrink-0 text-destructive hover:text-destructive"
+                        onClick={() => setDeleteId(link.id)}
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </Button>
+                    </div>
                   </div>
-                </div>
-
-                <Separator />
-
-                <div className="flex items-center gap-2">
-                  <code className="flex-1 text-xs bg-muted rounded px-2 py-1.5 truncate text-muted-foreground">
-                    {getPublicUrl(link.token)}
-                  </code>
-                </div>
-
-                <div className="flex gap-2">
-                  <CopyButton text={getPublicUrl(link.token)} />
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="gap-1.5"
-                    asChild
-                  >
-                    <a href={getPublicUrl(link.token)} target="_blank" rel="noopener noreferrer">
-                      <ExternalLink className="w-3.5 h-3.5" />
-                      Voir
-                    </a>
-                  </Button>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="gap-1.5 ml-auto text-destructive hover:text-destructive"
-                    onClick={() => setDeleteId(link.id)}
-                  >
-                    <Trash2 className="w-3.5 h-3.5" />
-                  </Button>
                 </div>
               </CardContent>
             </Card>
