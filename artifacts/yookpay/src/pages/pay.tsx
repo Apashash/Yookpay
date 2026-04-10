@@ -419,7 +419,9 @@ export default function Pay() {
         <div className="flex items-center justify-center gap-2 text-xs text-muted-foreground pb-4">
           <ShieldCheck className="w-3.5 h-3.5 text-emerald-500" />
           <span>Paiement sécurisé par</span>
-          <YookPayLogo size="sm" />
+          <a href="/" className="hover:opacity-80 transition-opacity">
+            <YookPayLogo size="sm" />
+          </a>
         </div>
       </div>
     </div>
