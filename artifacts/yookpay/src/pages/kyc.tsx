@@ -486,10 +486,11 @@ export default function Kyc() {
   });
 
   const statusConfig: Record<string, { label: string; className: string; icon: any }> = {
-    NOT_STARTED: { label: "Non démarré",    className: "text-muted-foreground border-muted-foreground/30",                                       icon: AlertCircle },
-    PENDING:     { label: "En cours de vérification", className: "text-amber-700 border-amber-200 bg-amber-50 dark:bg-amber-950/20 dark:text-amber-400", icon: Clock },
-    VERIFIED:    { label: "Vérifié ✓",      className: "text-green-700 border-green-200 bg-green-50 dark:bg-green-950/20 dark:text-green-400",   icon: ShieldCheck },
-    REJECTED:    { label: "Rejeté",         className: "text-red-700 border-red-200 bg-red-50 dark:bg-red-950/20 dark:text-red-400",             icon: AlertCircle },
+    NOT_STARTED: { label: "Non démarré",              className: "text-muted-foreground border-muted-foreground/30",                                       icon: AlertCircle },
+    PENDING:     { label: "En cours de vérification", className: "text-amber-700 border-amber-200 bg-amber-50 dark:bg-amber-950/20 dark:text-amber-400",   icon: Clock },
+    VERIFIED:    { label: "Vérifié ✓",                className: "text-green-700 border-green-200 bg-green-50 dark:bg-green-950/20 dark:text-green-400",   icon: ShieldCheck },
+    APPROVED:    { label: "Approuvé ✓",               className: "text-green-700 border-green-200 bg-green-50 dark:bg-green-950/20 dark:text-green-400",   icon: ShieldCheck },
+    REJECTED:    { label: "Rejeté",                   className: "text-red-700 border-red-200 bg-red-50 dark:bg-red-950/20 dark:text-red-400",             icon: AlertCircle },
   };
 
   if (isLoading) {
