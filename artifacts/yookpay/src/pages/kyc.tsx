@@ -136,18 +136,43 @@ const BUSINESS_CATEGORIES = [
 ];
 
 const BUSINESS_TYPES = [
+  // Sociétés de capitaux
   "SARL — Société à Responsabilité Limitée",
   "SARLU — Société à Responsabilité Limitée Unipersonnelle",
+  "SUARL — Société Unipersonnelle à Responsabilité Limitée",
+  "EURL — Entreprise Unipersonnelle à Responsabilité Limitée",
   "SA — Société Anonyme",
   "SAS — Société par Actions Simplifiée",
+  "SASU — Société par Actions Simplifiée Unipersonnelle",
+  // Sociétés de personnes
   "SNC — Société en Nom Collectif",
-  "SCA — Société en Commandite par Actions",
   "SCS — Société en Commandite Simple",
+  "SCA — Société en Commandite par Actions",
+  // Sociétés civiles
+  "SC — Société Civile",
+  "SCI — Société Civile Immobilière",
+  "SCP — Société Civile Professionnelle",
+  // Groupements & structures collectives
   "GIE — Groupement d'Intérêt Économique",
+  "GIEC — Groupement d'Intérêt Économique et Commercial",
+  "Coopérative (COOP)",
+  "Mutuelle",
+  "Groupement Villageois / Pré-coopératif",
+  // Établissements publics
+  "EPA — Établissement Public à caractère Administratif",
+  "EPIC — Établissement Public à caractère Industriel et Commercial",
+  // Entreprises individuelles & informelles
   "Entreprise Individuelle",
   "Auto-entrepreneur / Micro-entreprise",
-  "Coopérative",
+  "Commerçant / Artisan",
+  // Organisations à but non lucratif
   "Association / ONG",
+  "Fondation",
+  "Congrégation religieuse / Église",
+  // Autres
+  "Franchise",
+  "Bureau de représentation",
+  "Succursale d'entreprise étrangère",
   "Autre forme juridique",
 ];
 

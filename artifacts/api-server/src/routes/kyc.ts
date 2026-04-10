@@ -130,7 +130,7 @@ router.post("/kyb", authMiddleware, async (req: AuthRequest, res) => {
     businessDescription: z.string().min(10).max(4000),
     businessWebsite:     z.string().max(500).optional().default(""),
     businessCategory:    z.string().min(1).max(200),
-    businessType:        z.string().min(1).max(50),
+    businessType:        z.string().min(1).max(100),
     niuNumber:           z.string().max(100).optional().default(""),
     rccmNumber:          z.string().max(100).optional().default(""),
     signatureData:       z.string().min(1),
