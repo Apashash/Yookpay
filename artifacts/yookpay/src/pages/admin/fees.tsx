@@ -85,8 +85,8 @@ export default function AdminFees() {
           <CardDescription>Via NowPayments — frais réseau Tron inclus</CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="rounded-md border overflow-hidden">
-            <table className="w-full text-sm">
+          <div className="rounded-md border overflow-x-auto">
+            <table className="w-full min-w-[320px] text-sm">
               <thead>
                 <tr className="bg-muted/50 text-muted-foreground text-xs uppercase">
                   <th className="text-left px-4 py-2 font-medium">Opération</th>
@@ -125,8 +125,8 @@ export default function AdminFees() {
               <CardDescription>Mobile Money via PixPay Innov</CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="rounded-md border overflow-hidden">
-                <table className="w-full text-sm">
+              <div className="rounded-md border overflow-x-auto">
+                <table className="w-full min-w-[380px] text-sm">
                   <thead>
                     <tr className="bg-muted/50 text-muted-foreground text-xs uppercase">
                       <th className="text-left px-4 py-2 font-medium">Opérateur</th>
