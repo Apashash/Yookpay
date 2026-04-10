@@ -1,4 +1,5 @@
 import { useState, useRef } from "react";
+import { KycGate } from "@/components/kyc-gate";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useLocation } from "wouter";
 import { customFetch } from "@workspace/api-client-react";
@@ -100,6 +101,7 @@ export default function YookLink() {
   });
 
   return (
+    <KycGate require="kyc">
     <div className="space-y-6">
       {/* Header */}
       <div className="flex items-center justify-between">
@@ -320,6 +322,7 @@ export default function YookLink() {
         </AlertDialogContent>
       </AlertDialog>
     </div>
+    </KycGate>
   );
 }
 

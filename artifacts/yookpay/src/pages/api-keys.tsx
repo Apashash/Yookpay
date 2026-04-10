@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { KycGate } from "@/components/kyc-gate";
 import { useLocation } from "wouter";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { customFetch } from "@workspace/api-client-react";
@@ -85,6 +86,7 @@ export default function ApiKeys() {
   const activeKeys = data?.keys.filter((k) => k.active) ?? [];
 
   return (
+    <KycGate require="kyb">
     <div className="max-w-3xl mx-auto space-y-6">
       {/* Header */}
       <div className="flex items-start justify-between">
@@ -228,5 +230,6 @@ export default function ApiKeys() {
         </DialogContent>
       </Dialog>
     </div>
+    </KycGate>
   );
 }

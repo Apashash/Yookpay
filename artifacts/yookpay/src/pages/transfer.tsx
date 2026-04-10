@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
+import { KycGate } from "@/components/kyc-gate";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -184,6 +185,7 @@ export default function Transfer() {
   ];
 
   return (
+    <KycGate require="kyc">
     <div className="max-w-2xl mx-auto space-y-4">
 
       {/* Page header */}
@@ -448,5 +450,6 @@ export default function Transfer() {
         </Card>
       )}
     </div>
+    </KycGate>
   );
 }
