@@ -401,10 +401,10 @@ async function getPlatformConfig(key: string): Promise<string | null> {
 // Minimum amounts per country from PixPay documentation
 // https://docs.pixpay.sn/fr — "Gammes de montants par pays"
 const COUNTRY_MIN_AMOUNTS: Partial<Record<Country, number>> = {
-  CI: 200, SN: 200, GM: 200,                   // 200 XOF minimum
-  TG: 500, BJ: 500, ML: 500, BF: 500,           // 500 XOF minimum
-  CM: 500, CG: 500, GA: 500, CD: 500,           // 500 XAF/CDF minimum
-  GN: 1000,                                      // 1000 XOF minimum
+  CI: 50, SN: 50, GM: 50,
+  TG: 50, BJ: 50, ML: 50, BF: 50,
+  CM: 50, CG: 50, GA: 50, CD: 50,
+  GN: 50,
 };
 
 // POST /transactions/deposit
