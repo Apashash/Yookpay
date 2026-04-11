@@ -946,6 +946,12 @@ router.post("/crypto-deposit", authMiddleware, transactionRateLimit, async (req:
     }
   }
 
+  // Check per-user USDT deposit fee (default: 0%)
+  const customDepositRate = await getUserFeeRate(req.userId!, "USDT", "NOWPAYMENTS", "DEPOSIT");
+  const depositFeeRate = customDepositRate ?? 0;
+  const depositFee = parseFloat((amountUsdt * depositFeeRate).toFixed(8));
+  const depositNet = parseFloat((amountUsdt - depositFee).toFixed(8));
+
   const reference = generateReference();
 
   try {
@@ -958,13 +964,13 @@ router.post("/crypto-deposit", authMiddleware, transactionRateLimit, async (req:
         type: "DEPOSIT",
         status: "PENDING",
         amount: amountUsdt.toString(),
-        fee: "0",
-        netAmount: amountUsdt.toFixed(8),
+        fee: depositFee.toFixed(8),
+        netAmount: depositNet.toFixed(8),
         currency: "USDT",
         country: "ZZ",
         operator: "CRYPTO",
         reference,
-        feeRate: "0",
+        feeRate: depositFeeRate.toString(),
         metadata: { provider: "NOWPAYMENTS", initiatedAt: new Date().toISOString() },
       })
       .returning();
@@ -1038,8 +1044,9 @@ router.post("/crypto-withdraw", authMiddleware, transactionRateLimit, async (req
   }
   const { amountUsdt, address, network } = parse.data;
 
-  // Fee 1% on crypto withdrawals
-  const feeRate = 0.01;
+  // Fee on crypto withdrawals: check per-user override, fallback to 1%
+  const customWithdrawRate = await getUserFeeRate(req.userId!, "USDT", "CRYPTO", "WITHDRAWAL");
+  const feeRate = customWithdrawRate ?? 0.01;
   const fee = parseFloat((amountUsdt * feeRate).toFixed(8));
   const netAmount = parseFloat((amountUsdt - fee).toFixed(8));
 

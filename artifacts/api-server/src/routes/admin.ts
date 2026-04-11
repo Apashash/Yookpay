@@ -1391,5 +1391,83 @@ router.put("/support-links", async (req: AuthRequest, res) => {
   }
 });
 
+// ── Per-user USDT fees ────────────────────────────────────────────────────────
+// Stored in user_fees table:
+//   DEPOSIT  → country='USDT', operator='NOWPAYMENTS'
+//   WITHDRAWAL → country='USDT', operator='CRYPTO'
+const USDT_COUNTRY = "USDT";
+const USDT_OP_DEPOSIT = "NOWPAYMENTS";
+const USDT_OP_WITHDRAW = "CRYPTO";
+
+// GET /admin/users/:id/usdt-fees
+router.get("/users/:id/usdt-fees", async (req: AuthRequest, res) => {
+  const userId = parseInt(req.params.id);
+  if (isNaN(userId)) { res.status(400).json({ error: "ValidationError", message: "Invalid user ID" }); return; }
+  try {
+    const rows = await db.select().from(userFeesTable).where(
+      and(eq(userFeesTable.userId, userId), eq(userFeesTable.country, USDT_COUNTRY))
+    );
+    const deposit = rows.find((r) => r.operator === USDT_OP_DEPOSIT && r.transactionType === "DEPOSIT");
+    const withdraw = rows.find((r) => r.operator === USDT_OP_WITHDRAW && r.transactionType === "WITHDRAWAL");
+    res.json({
+      depositRate:  deposit  ? parseFloat(deposit.rate)  : null,
+      withdrawRate: withdraw ? parseFloat(withdraw.rate) : null,
+      depositDefault:  0,
+      withdrawDefault: 0.01,
+    });
+  } catch (err) {
+    res.status(500).json({ error: "InternalError" });
+  }
+});
+
+// PUT /admin/users/:id/usdt-fees
+router.put("/users/:id/usdt-fees", async (req: AuthRequest, res) => {
+  const userId = parseInt(req.params.id);
+  if (isNaN(userId)) { res.status(400).json({ error: "ValidationError", message: "Invalid user ID" }); return; }
+
+  const schema = z.object({
+    depositRate:  z.number().min(0).max(1).nullable().optional(),
+    withdrawRate: z.number().min(0).max(1).nullable().optional(),
+  });
+  const parse = schema.safeParse(req.body);
+  if (!parse.success) { res.status(400).json({ error: "ValidationError", message: "Données invalides" }); return; }
+
+  const { depositRate, withdrawRate } = parse.data;
+
+  async function upsertUsdtFee(operator: string, txType: string, rate: number | null | undefined) {
+    if (rate === undefined) return;
+    if (rate === null) {
+      // delete custom override
+      await db.delete(userFeesTable).where(and(
+        eq(userFeesTable.userId, userId),
+        eq(userFeesTable.country, USDT_COUNTRY),
+        eq(userFeesTable.operator, operator),
+        eq(userFeesTable.transactionType, txType),
+      ));
+      return;
+    }
+    const existing = await db.select({ id: userFeesTable.id }).from(userFeesTable).where(and(
+      eq(userFeesTable.userId, userId),
+      eq(userFeesTable.country, USDT_COUNTRY),
+      eq(userFeesTable.operator, operator),
+      eq(userFeesTable.transactionType, txType),
+    )).limit(1);
+    if (existing.length > 0) {
+      await db.update(userFeesTable).set({ rate: String(rate), updatedAt: new Date() }).where(eq(userFeesTable.id, existing[0].id));
+    } else {
+      await db.insert(userFeesTable).values({ userId, country: USDT_COUNTRY, operator, transactionType: txType, rate: String(rate), minFee: 0, maxFee: null });
+    }
+  }
+
+  try {
+    await upsertUsdtFee(USDT_OP_DEPOSIT, "DEPOSIT", depositRate);
+    await upsertUsdtFee(USDT_OP_WITHDRAW, "WITHDRAWAL", withdrawRate);
+    res.json({ success: true, message: "Frais USDT mis à jour" });
+  } catch (err) {
+    req.log.error({ err }, "Admin set USDT fee error");
+    res.status(500).json({ error: "InternalError" });
+  }
+});
+
 export default router;
 

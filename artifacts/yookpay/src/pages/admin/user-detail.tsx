@@ -504,6 +504,153 @@ function OperatorFeesSection({ userId }: { userId: number }) {
   );
 }
 
+// ── USDT Fees Section ──────────────────────────────────────────────────────────
+function UsdtFeesSection({ userId }: { userId: number }) {
+  const { toast } = useToast();
+
+  const { data, isLoading, refetch } = useQuery<{
+    depositRate: number | null;
+    withdrawRate: number | null;
+    depositDefault: number;
+    withdrawDefault: number;
+  }>({
+    queryKey: ["admin-usdt-fees", userId],
+    queryFn: () => customFetch(`/api/admin/users/${userId}/usdt-fees`),
+  });
+
+  const [depInput, setDepInput]  = useState<string>("");
+  const [wdInput, setWdInput]    = useState<string>("");
+
+  useEffect(() => {
+    if (!data) return;
+    setDepInput(data.depositRate  !== null ? (data.depositRate  * 100).toFixed(2) : "");
+    setWdInput(data.withdrawRate  !== null ? (data.withdrawRate * 100).toFixed(2) : "");
+  }, [data]);
+
+  const saveMutation = useMutation({
+    mutationFn: (body: { depositRate?: number | null; withdrawRate?: number | null }) =>
+      customFetch(`/api/admin/users/${userId}/usdt-fees`, { method: "PUT", body: JSON.stringify(body) }),
+    onSuccess: () => {
+      toast({ title: "Frais USDT mis à jour" });
+      refetch();
+    },
+    onError: () => toast({ title: "Erreur lors de la sauvegarde", variant: "destructive" }),
+  });
+
+  const handleSave = () => {
+    const depVal = depInput.trim() === "" ? null : parseFloat(depInput) / 100;
+    const wdVal  = wdInput.trim()  === "" ? null : parseFloat(wdInput)  / 100;
+    if ((depVal !== null && isNaN(depVal)) || (wdVal !== null && isNaN(wdVal))) {
+      toast({ title: "Valeur invalide", variant: "destructive" }); return;
+    }
+    saveMutation.mutate({ depositRate: depVal, withdrawRate: wdVal });
+  };
+
+  const depPlaceholder = `Défaut : ${((data?.depositDefault ?? 0) * 100).toFixed(2)}%`;
+  const wdPlaceholder  = `Défaut : ${((data?.withdrawDefault ?? 0.01) * 100).toFixed(2)}%`;
+
+  return (
+    <Card>
+      <CardHeader>
+        <div className="flex items-center justify-between">
+          <div>
+            <CardTitle className="text-base">Frais USDT personnalisés</CardTitle>
+            <p className="text-xs text-muted-foreground mt-1">
+              Définissez des frais spécifiques pour les opérations USDT de cet utilisateur. Laissez vide pour utiliser le défaut.
+            </p>
+          </div>
+          <Button size="sm" variant="outline" className="h-8 gap-1.5 text-xs" onClick={() => refetch()}>
+            <RefreshCw className="h-3 w-3" />
+            Actualiser
+          </Button>
+        </div>
+      </CardHeader>
+      <CardContent>
+        {isLoading ? (
+          <div className="space-y-3"><Skeleton className="h-10 w-full" /><Skeleton className="h-10 w-full" /></div>
+        ) : (
+          <div className="space-y-4">
+            {/* Dépôt USDT */}
+            <div className="flex items-center gap-4 p-3 rounded-lg border border-border bg-muted/20">
+              <div className="flex-1">
+                <p className="text-sm font-semibold">Frais de dépôt USDT</p>
+                <p className="text-xs text-muted-foreground">Appliqué au dépôt crypto (NowPayments)</p>
+              </div>
+              <div className="flex items-center gap-2">
+                <div className="relative w-28">
+                  <Input
+                    type="number"
+                    min="0"
+                    max="100"
+                    step="0.01"
+                    value={depInput}
+                    onChange={(e) => setDepInput(e.target.value)}
+                    placeholder={depPlaceholder}
+                    className="pr-7 text-sm"
+                  />
+                  <span className="absolute right-2.5 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">%</span>
+                </div>
+                {data?.depositRate !== null && (
+                  <Badge className="bg-violet-100 text-violet-700 border-violet-200 text-[10px]">Personnalisé</Badge>
+                )}
+              </div>
+            </div>
+
+            {/* Retrait USDT */}
+            <div className="flex items-center gap-4 p-3 rounded-lg border border-border bg-muted/20">
+              <div className="flex-1">
+                <p className="text-sm font-semibold">Frais de retrait USDT</p>
+                <p className="text-xs text-muted-foreground">Appliqué au retrait crypto (adresse externe)</p>
+              </div>
+              <div className="flex items-center gap-2">
+                <div className="relative w-28">
+                  <Input
+                    type="number"
+                    min="0"
+                    max="100"
+                    step="0.01"
+                    value={wdInput}
+                    onChange={(e) => setWdInput(e.target.value)}
+                    placeholder={wdPlaceholder}
+                    className="pr-7 text-sm"
+                  />
+                  <span className="absolute right-2.5 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">%</span>
+                </div>
+                {data?.withdrawRate !== null && (
+                  <Badge className="bg-violet-100 text-violet-700 border-violet-200 text-[10px]">Personnalisé</Badge>
+                )}
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2 pt-1">
+              <Button
+                size="sm"
+                className="gap-1.5"
+                onClick={handleSave}
+                disabled={saveMutation.isPending}
+              >
+                {saveMutation.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Save className="h-3.5 w-3.5" />}
+                Sauvegarder
+              </Button>
+              <Button
+                size="sm"
+                variant="outline"
+                className="gap-1.5 text-rose-600 hover:text-rose-700"
+                onClick={() => { setDepInput(""); setWdInput(""); saveMutation.mutate({ depositRate: null, withdrawRate: null }); }}
+                disabled={saveMutation.isPending}
+              >
+                <RotateCcw className="h-3.5 w-3.5" />
+                Réinitialiser
+              </Button>
+              <p className="text-xs text-muted-foreground ml-2">Laisser vide = défaut (dépôt 0%, retrait 1%)</p>
+            </div>
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
 export default function AdminUserDetail() {
   const params = useParams<{ id: string }>();
   const userId = parseInt(params.id ?? "0");
@@ -733,6 +880,9 @@ export default function AdminUserDetail() {
 
       {/* Operator Fees Editor */}
       <OperatorFeesSection userId={userId} />
+
+      {/* USDT Custom Fees */}
+      <UsdtFeesSection userId={userId} />
 
       {/* KYC Documents */}
       <Card>
