@@ -4,7 +4,7 @@ import { usersTable } from "./users";
 export const userFeesTable = pgTable("user_fees", {
   id: serial("id").primaryKey(),
   userId: integer("user_id").notNull().references(() => usersTable.id, { onDelete: "cascade" }),
-  country: varchar("country", { length: 2 }).notNull(),
+  country: varchar("country", { length: 10 }).notNull(),
   operator: varchar("operator", { length: 20 }).notNull(),
   transactionType: varchar("transaction_type", { length: 20 }).notNull(),
   rate: numeric("rate", { precision: 6, scale: 4 }).notNull(),
