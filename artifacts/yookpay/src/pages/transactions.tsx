@@ -8,14 +8,6 @@ import {
 import { useQueryClient } from "@tanstack/react-query";
 import { formatCurrency, formatDate } from "@/lib/format";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -32,7 +24,6 @@ import {
   SheetHeader,
   SheetTitle,
 } from "@/components/ui/sheet";
-import { Separator } from "@/components/ui/separator";
 import {
   ChevronLeft,
   ChevronRight,
@@ -44,6 +35,8 @@ import {
   RefreshCw,
 } from "lucide-react";
 import { COUNTRIES } from "@/lib/countries";
+import { format, isToday, isYesterday, isThisWeek, isThisMonth } from "date-fns";
+import { fr } from "date-fns/locale";
 
 type Tx = {
   id: number;
@@ -66,42 +59,28 @@ type Tx = {
 function StatusBadge({ status, pulse }: { status: string; pulse?: boolean }) {
   switch (status) {
     case "SUCCESS":
-      return <Badge className="bg-emerald-500/15 text-emerald-600 hover:bg-emerald-500/25 border-emerald-500/20">Réussi</Badge>;
+      return <Badge className="bg-emerald-500/15 text-emerald-600 hover:bg-emerald-500/25 border-emerald-500/20 text-[10px] px-1.5 py-0.5">Réussi</Badge>;
     case "PENDING":
       return (
-        <Badge className="bg-amber-500/15 text-amber-600 hover:bg-amber-500/25 border-amber-500/20">
-          {pulse && <span className="inline-block w-1.5 h-1.5 rounded-full bg-amber-500 mr-1.5 animate-pulse" />}
+        <Badge className="bg-amber-500/15 text-amber-600 hover:bg-amber-500/25 border-amber-500/20 text-[10px] px-1.5 py-0.5">
+          {pulse && <span className="inline-block w-1.5 h-1.5 rounded-full bg-amber-500 mr-1 animate-pulse" />}
           En attente
         </Badge>
       );
     case "FAILED":
-      return <Badge className="bg-rose-500/15 text-rose-600 hover:bg-rose-500/25 border-rose-500/20">Échoué</Badge>;
+      return <Badge className="bg-rose-500/15 text-rose-600 hover:bg-rose-500/25 border-rose-500/20 text-[10px] px-1.5 py-0.5">Échoué</Badge>;
     default:
-      return <Badge variant="outline">{status}</Badge>;
+      return <Badge variant="outline" className="text-[10px] px-1.5 py-0.5">{status}</Badge>;
   }
 }
 
 function TypeIcon({ type }: { type: string }) {
   switch (type) {
-    case "DEPOSIT":    return <ArrowDownCircle className="h-5 w-5 text-emerald-500" />;
-    case "WITHDRAWAL": return <ArrowUpCircle className="h-5 w-5 text-rose-500" />;
-    case "TRANSFER":   return <ArrowRightLeft className="h-5 w-5 text-blue-500" />;
+    case "DEPOSIT":    return <ArrowDownCircle className="h-5 w-5 text-emerald-500 shrink-0" />;
+    case "WITHDRAWAL": return <ArrowUpCircle className="h-5 w-5 text-rose-500 shrink-0" />;
+    case "TRANSFER":   return <ArrowRightLeft className="h-5 w-5 text-blue-500 shrink-0" />;
     default:           return null;
   }
-}
-
-function typeLabel(type: string) {
-  switch (type) {
-    case "DEPOSIT":    return "Dépôt";
-    case "WITHDRAWAL": return "Retrait";
-    case "TRANSFER":   return "Transfert";
-    default:           return type;
-  }
-}
-
-function fmtSmart(n: number, currency: string) {
-  const dec = currency === "USDT" ? 4 : 0;
-  return n.toLocaleString("en-US", { minimumFractionDigits: dec, maximumFractionDigits: dec }) + " " + currency;
 }
 
 function getExchangeMeta(tx: Tx) {
@@ -112,12 +91,6 @@ function getExchangeMeta(tx: Tx) {
   const type = m.exchangeType as string | undefined;
   if (!from || !to) return null;
   return { from, to, type };
-}
-
-function exchangeTypeLabel(tx: Tx) {
-  const meta = getExchangeMeta(tx);
-  if (!meta) return typeLabel(tx.type);
-  return `${meta.from} → ${meta.to}`;
 }
 
 function richTypeLabel(tx: Tx): string {
@@ -133,6 +106,34 @@ function richTypeLabel(tx: Tx): string {
   if (tx.type === "WITHDRAWAL") return "Retrait Mobile Money";
   if (tx.type === "TRANSFER")   return "Transfert";
   return tx.type;
+}
+
+function fmtSmart(n: number, currency: string) {
+  const dec = currency === "USDT" ? 4 : 0;
+  return n.toLocaleString("en-US", { minimumFractionDigits: dec, maximumFractionDigits: dec }) + " " + currency;
+}
+
+function fmtTime(d: string | Date) {
+  return format(new Date(d), "HH:mm");
+}
+
+function dateGroupLabel(d: string | Date): string {
+  const date = new Date(d);
+  if (isToday(date)) return "Aujourd'hui";
+  if (isYesterday(date)) return "Hier";
+  if (isThisWeek(date, { locale: fr })) return format(date, "EEEE", { locale: fr }).replace(/^\w/, (c) => c.toUpperCase());
+  if (isThisMonth(date)) return format(date, "d MMMM", { locale: fr });
+  return format(date, "d MMMM yyyy", { locale: fr });
+}
+
+function groupByDate(txs: Tx[]): { label: string; transactions: Tx[] }[] {
+  const groups: Map<string, Tx[]> = new Map();
+  for (const tx of txs) {
+    const label = dateGroupLabel(tx.createdAt);
+    if (!groups.has(label)) groups.set(label, []);
+    groups.get(label)!.push(tx);
+  }
+  return Array.from(groups.entries()).map(([label, transactions]) => ({ label, transactions }));
 }
 
 function CopyButton({ text }: { text: string }) {
@@ -188,7 +189,6 @@ function TransactionDetail({ tx, open, onClose }: { tx: Tx | null; open: boolean
   return (
     <Sheet open={open} onOpenChange={(v) => !v && onClose()}>
       <SheetContent side="right" className="w-full sm:max-w-[420px] overflow-y-auto p-0">
-        {/* Header gradient */}
         <div className={`px-5 pt-6 pb-5 ${isWithdraw ? "bg-rose-50 dark:bg-rose-900/20" : "bg-emerald-50 dark:bg-emerald-900/20"}`}>
           <SheetHeader className="mb-0">
             <SheetTitle className="flex items-center gap-2 text-base">
@@ -206,9 +206,7 @@ function TransactionDetail({ tx, open, onClose }: { tx: Tx | null; open: boolean
         </div>
 
         <div className="px-5 pb-8">
-          {/* ── Références ── */}
           <SectionTitle>Références</SectionTitle>
-
           <div className="space-y-1">
             <div className="flex justify-between items-center py-2.5 border-b border-border/50">
               <span className="text-sm text-muted-foreground">Réf. YookPay</span>
@@ -217,7 +215,6 @@ function TransactionDetail({ tx, open, onClose }: { tx: Tx | null; open: boolean
                 <CopyButton text={tx.reference} />
               </span>
             </div>
-
             {cryptoTxId && (
               <div className="flex justify-between items-center py-2.5 border-b border-border/50">
                 <span className="text-sm text-muted-foreground">ID paiement crypto</span>
@@ -227,7 +224,6 @@ function TransactionDetail({ tx, open, onClose }: { tx: Tx | null; open: boolean
                 </span>
               </div>
             )}
-
             {cryptoAddr && (
               <div className="flex justify-between items-start py-2.5 border-b border-border/50">
                 <span className="text-sm text-muted-foreground shrink-0 mr-4">Adresse crypto</span>
@@ -239,7 +235,6 @@ function TransactionDetail({ tx, open, onClose }: { tx: Tx | null; open: boolean
             )}
           </div>
 
-          {/* ── Détails financiers ── */}
           <SectionTitle>Détails financiers</SectionTitle>
           <div className="divide-y divide-border/50">
             {exMeta && (
@@ -271,15 +266,10 @@ function TransactionDetail({ tx, open, onClose }: { tx: Tx | null; open: boolean
             )}
           </div>
 
-          {/* ── Informations ── */}
           <SectionTitle>Informations</SectionTitle>
           <div className="divide-y divide-border/50">
-            <DetailRow label="Type" value={
-              <span className="font-semibold">{label}</span>
-            } />
-
+            <DetailRow label="Type" value={<span className="font-semibold">{label}</span>} />
             {!exMeta && <DetailRow label="Devise" value={tx.currency} />}
-
             {tx.phone && (
               <DetailRow label="Numéro de téléphone" value={
                 <span className="flex items-center font-mono font-semibold">
@@ -288,17 +278,12 @@ function TransactionDetail({ tx, open, onClose }: { tx: Tx | null; open: boolean
                 </span>
               } />
             )}
-
             {tx.operator && tx.operator !== "EXCHANGE" && !isCrypto && (
-              <DetailRow label="Opérateur" value={
-                <span className="font-semibold">{tx.operator}</span>
-              } />
+              <DetailRow label="Opérateur" value={<span className="font-semibold">{tx.operator}</span>} />
             )}
-
             {isCrypto && (
               <DetailRow label="Réseau" value="USDT (TRC20 / NowPayments)" />
             )}
-
             {country && (
               <DetailRow label="Pays" value={
                 <span className="flex items-center gap-1.5">
@@ -307,11 +292,9 @@ function TransactionDetail({ tx, open, onClose }: { tx: Tx | null; open: boolean
                 </span>
               } />
             )}
-
             <DetailRow label="ID transaction" value={
               <span className="font-mono text-xs text-muted-foreground">#{tx.id}</span>
             } />
-
             <DetailRow label="Date de création" value={
               <span className="text-xs">{formatDate(tx.createdAt)}</span>
             } />
@@ -327,23 +310,21 @@ function TransactionDetail({ tx, open, onClose }: { tx: Tx | null; open: boolean
 
 export default function Transactions() {
   const qc = useQueryClient();
-  const [page, setPage]       = useState(1);
-  const [status, setStatus]   = useState<string>("ALL");
+  const [page, setPage]         = useState(1);
+  const [status, setStatus]     = useState<string>("ALL");
   const [currency, setCurrency] = useState<string>("ALL");
   const [selectedTx, setSelectedTx] = useState<Tx | null>(null);
   const [sheetOpen, setSheetOpen]   = useState(false);
 
-  const params: Record<string, unknown> = { page, limit: 10 };
+  const params: Record<string, unknown> = { page, limit: 20 };
   if (status !== "ALL")   params.status   = status;
   if (currency !== "ALL") params.currency = currency;
 
-  // Track previous statuses to detect changes from PENDING → something else
   const prevStatusMapRef = useRef<Record<number, string>>({});
 
   const { data, isLoading, isFetching, refetch } = useGetTransactions(params as never, {
     query: {
       queryKey: getGetTransactionsQueryKey(params as never),
-      // Poll every 3s while there are PENDING transactions on the current page
       refetchInterval: (query) => {
         const txs = (query.state.data as { transactions?: { status: string }[] } | undefined)?.transactions;
         return txs?.some((tx) => tx.status === "PENDING") ? 3000 : false;
@@ -351,7 +332,6 @@ export default function Transactions() {
     },
   });
 
-  // When statuses change (PENDING → SUCCESS/FAILED), refresh wallet balance
   useEffect(() => {
     if (!data?.transactions) return;
     const current: Record<number, string> = {};
@@ -359,9 +339,7 @@ export default function Transactions() {
     for (const tx of data.transactions) {
       current[tx.id] = tx.status;
       const prev = prevStatusMapRef.current[tx.id];
-      if (prev === "PENDING" && tx.status !== "PENDING") {
-        changed = true;
-      }
+      if (prev === "PENDING" && tx.status !== "PENDING") changed = true;
     }
     if (changed) {
       qc.invalidateQueries({ queryKey: getGetWalletsQueryKey() });
@@ -370,7 +348,6 @@ export default function Transactions() {
     prevStatusMapRef.current = current;
   }, [data, qc]);
 
-  // Keep selectedTx in sync with latest data from polling
   useEffect(() => {
     if (!selectedTx || !data?.transactions) return;
     const updated = data.transactions.find((tx) => tx.id === selectedTx.id);
@@ -380,6 +357,7 @@ export default function Transactions() {
   }, [data, selectedTx]);
 
   const hasPending = data?.transactions.some((tx) => tx.status === "PENDING") ?? false;
+  const groups = groupByDate((data?.transactions ?? []) as unknown as Tx[]);
 
   const openDetail = (tx: Tx) => {
     setSelectedTx(tx);
@@ -389,7 +367,7 @@ export default function Transactions() {
   return (
     <div className="space-y-6">
       <Card>
-        <CardHeader className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <CardHeader className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4">
           <div className="flex items-center gap-3">
             <CardTitle>Historique des transactions</CardTitle>
             {hasPending && (
@@ -399,9 +377,9 @@ export default function Transactions() {
               </span>
             )}
           </div>
-          <div className="flex flex-col sm:flex-row gap-3">
+          <div className="flex flex-wrap gap-2">
             <Select value={status} onValueChange={(v) => { setStatus(v); setPage(1); }}>
-              <SelectTrigger className="w-[150px]" data-testid="filter-status">
+              <SelectTrigger className="w-[140px] h-9">
                 <SelectValue placeholder="Statut" />
               </SelectTrigger>
               <SelectContent>
@@ -413,7 +391,7 @@ export default function Transactions() {
             </Select>
 
             <Select value={currency} onValueChange={(v) => { setCurrency(v); setPage(1); }}>
-              <SelectTrigger className="w-[150px]" data-testid="filter-currency">
+              <SelectTrigger className="w-[140px] h-9">
                 <SelectValue placeholder="Devise" />
               </SelectTrigger>
               <SelectContent>
@@ -421,6 +399,7 @@ export default function Transactions() {
                 <SelectItem value="XAF">XAF</SelectItem>
                 <SelectItem value="XOF">XOF</SelectItem>
                 <SelectItem value="CDF">CDF</SelectItem>
+                <SelectItem value="USDT">USDT</SelectItem>
               </SelectContent>
             </Select>
 
@@ -429,7 +408,7 @@ export default function Transactions() {
               size="sm"
               onClick={() => refetch()}
               disabled={isFetching}
-              className="gap-1.5"
+              className="gap-1.5 h-9"
             >
               <RefreshCw className={`h-3.5 w-3.5 ${isFetching ? "animate-spin" : ""}`} />
               Actualiser
@@ -437,74 +416,90 @@ export default function Transactions() {
           </div>
         </CardHeader>
 
-        <CardContent>
-          <div className="rounded-md border border-border">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Référence</TableHead>
-                  <TableHead>Type</TableHead>
-                  <TableHead>Montant</TableHead>
-                  <TableHead>Net</TableHead>
-                  <TableHead>Date</TableHead>
-                  <TableHead className="text-right">Statut</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {isLoading ? (
-                  Array.from({ length: 5 }).map((_, i) => (
-                    <TableRow key={i}>
-                      {Array.from({ length: 6 }).map((_, j) => (
-                        <TableCell key={j}><Skeleton className="h-4 w-20" /></TableCell>
-                      ))}
-                    </TableRow>
-                  ))
-                ) : data?.transactions.length === 0 ? (
-                  <TableRow>
-                    <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
-                      Aucune transaction trouvée.
-                    </TableCell>
-                  </TableRow>
-                ) : (
-                  data?.transactions.map((tx) => (
-                    <TableRow
-                      key={tx.id}
-                      className="cursor-pointer hover:bg-muted/60 transition-colors"
-                      onClick={() => openDetail(tx as unknown as Tx)}
-                    >
-                      <TableCell className="font-medium text-xs font-mono">{tx.reference}</TableCell>
-                      <TableCell>
-                        <div className="flex items-center gap-1.5">
-                          <TypeIcon type={tx.type} />
-                          <div>
-                            <div className="text-sm font-medium">{richTypeLabel(tx as unknown as Tx)}</div>
-                            {tx.operator && tx.operator !== "EXCHANGE" && tx.operator !== "CRYPTO" && tx.operator !== "NOWPAYMENTS" && (
-                              <div className="text-xs text-muted-foreground">{tx.operator}</div>
-                            )}
-                            {tx.phone && (
-                              <div className="text-xs text-muted-foreground font-mono">{tx.phone}</div>
+        <CardContent className="pt-0">
+          {isLoading ? (
+            <div className="space-y-3">
+              {Array.from({ length: 6 }).map((_, i) => (
+                <div key={i} className="flex items-center gap-3 py-3 px-1">
+                  <Skeleton className="h-9 w-9 rounded-full" />
+                  <div className="flex-1 space-y-1.5">
+                    <Skeleton className="h-4 w-40" />
+                    <Skeleton className="h-3 w-24" />
+                  </div>
+                  <div className="text-right space-y-1.5">
+                    <Skeleton className="h-4 w-24 ml-auto" />
+                    <Skeleton className="h-3 w-14 ml-auto" />
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : groups.length === 0 ? (
+            <div className="text-center py-12 text-muted-foreground text-sm">
+              Aucune transaction trouvée.
+            </div>
+          ) : (
+            <div className="space-y-1">
+              {groups.map((group) => (
+                <div key={group.label}>
+                  {/* Section header */}
+                  <div className="px-1 pt-4 pb-1 first:pt-0">
+                    <span className="text-[11px] font-bold uppercase tracking-widest text-muted-foreground/60">
+                      {group.label}
+                    </span>
+                  </div>
+
+                  {/* Transactions in this group */}
+                  <div className="rounded-xl border border-border overflow-hidden divide-y divide-border/60">
+                    {group.transactions.map((tx) => {
+                      const exMeta = getExchangeMeta(tx);
+                      const isWithdraw = tx.type === "WITHDRAWAL";
+                      const netCur = exMeta ? exMeta.to : tx.currency;
+                      const sub = tx.operator && tx.operator !== "EXCHANGE" && tx.operator !== "CRYPTO" && tx.operator !== "NOWPAYMENTS"
+                        ? tx.operator
+                        : tx.phone ?? null;
+
+                      return (
+                        <button
+                          key={tx.id}
+                          className="w-full flex items-center gap-3 px-4 py-3.5 bg-card hover:bg-muted/50 transition-colors text-left"
+                          onClick={() => openDetail(tx)}
+                        >
+                          {/* Icon */}
+                          <div className={`flex items-center justify-center w-9 h-9 rounded-full shrink-0 ${
+                            isWithdraw ? "bg-rose-500/10" : tx.type === "TRANSFER" ? "bg-blue-500/10" : "bg-emerald-500/10"
+                          }`}>
+                            <TypeIcon type={tx.type} />
+                          </div>
+
+                          {/* Label + sub */}
+                          <div className="flex-1 min-w-0">
+                            <div className="text-sm font-medium truncate">{richTypeLabel(tx)}</div>
+                            {sub && (
+                              <div className="text-xs text-muted-foreground font-mono truncate">{sub}</div>
                             )}
                           </div>
-                        </div>
-                      </TableCell>
-                      <TableCell>{fmtSmart(tx.amount, tx.currency)}</TableCell>
-                      <TableCell>{(() => {
-                        const meta = getExchangeMeta(tx as unknown as Tx);
-                        return fmtSmart(tx.netAmount, meta ? meta.to : tx.currency);
-                      })()}</TableCell>
-                      <TableCell className="text-sm text-muted-foreground whitespace-nowrap">{formatDate(tx.createdAt)}</TableCell>
-                      <TableCell className="text-right">
-                        <StatusBadge status={tx.status} pulse={tx.status === "PENDING"} />
-                      </TableCell>
-                    </TableRow>
-                  ))
-                )}
-              </TableBody>
-            </Table>
-          </div>
+
+                          {/* Amount + status + time */}
+                          <div className="text-right shrink-0">
+                            <div className={`text-sm font-semibold tabular-nums ${isWithdraw ? "text-rose-600" : "text-emerald-600"}`}>
+                              {isWithdraw ? "−" : "+"}{fmtSmart(tx.amount, tx.currency)}
+                            </div>
+                            <div className="flex items-center justify-end gap-1.5 mt-0.5">
+                              <StatusBadge status={tx.status} pulse={tx.status === "PENDING"} />
+                              <span className="text-[10px] text-muted-foreground/60">{fmtTime(tx.createdAt)}</span>
+                            </div>
+                          </div>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
 
           {data && data.totalPages > 1 && (
-            <div className="flex items-center justify-between mt-4">
+            <div className="flex items-center justify-between mt-5 pt-4 border-t border-border">
               <div className="text-sm text-muted-foreground">
                 Page {data.page} sur {data.totalPages}
               </div>
@@ -514,7 +509,6 @@ export default function Transactions() {
                   size="sm"
                   onClick={() => setPage((p) => Math.max(1, p - 1))}
                   disabled={page === 1}
-                  data-testid="button-prev-page"
                 >
                   <ChevronLeft className="h-4 w-4 mr-1" />
                   Précédent
@@ -524,7 +518,6 @@ export default function Transactions() {
                   size="sm"
                   onClick={() => setPage((p) => Math.min(data.totalPages, p + 1))}
                   disabled={page === data.totalPages}
-                  data-testid="button-next-page"
                 >
                   Suivant
                   <ChevronRight className="h-4 w-4 ml-1" />
