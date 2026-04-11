@@ -367,6 +367,12 @@ export async function runStartupMigrations(): Promise<void> {
       INSERT INTO support_links (id) VALUES (1) ON CONFLICT (id) DO NOTHING
     `);
 
+    // Extend user_fees.country from varchar(2) to varchar(10) to support "USDT"
+    await client.query(`
+      ALTER TABLE user_fees
+        ALTER COLUMN country TYPE varchar(10)
+    `);
+
     logger.info("Startup migrations completed successfully");
   } catch (err) {
     logger.error({ err }, "Startup migration error");
