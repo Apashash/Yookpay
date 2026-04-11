@@ -428,15 +428,14 @@ export default function Withdraw() {
             <div>
               <div className="flex items-center justify-between mb-1.5">
                 <label className="text-sm font-medium">Montant USDT à retirer</label>
-                {usdtBalance > 0 && (
-                  <button
-                    type="button"
-                    onClick={() => setCryptoAmount(usdtBalance.toFixed(4))}
-                    className="text-[11px] font-bold uppercase tracking-wide text-cyan-600 hover:text-cyan-500 border border-cyan-500/30 hover:border-cyan-500/60 rounded px-2 py-0.5 transition-colors"
-                  >
-                    MAX
-                  </button>
-                )}
+                <button
+                  type="button"
+                  onClick={() => setCryptoAmount(usdtBalance.toFixed(4))}
+                  disabled={usdtBalance <= 0}
+                  className="text-[11px] font-bold uppercase tracking-wide text-cyan-600 hover:text-cyan-500 border border-cyan-500/30 hover:border-cyan-500/60 rounded px-2 py-0.5 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                >
+                  MAX
+                </button>
               </div>
               <input
                 type="number"
@@ -645,11 +644,12 @@ export default function Withdraw() {
                           ? `Montant que le destinataire recevra${currency ? ` (${currency})` : ""}`
                           : `Montant total à débiter de votre wallet${currency ? ` (${currency})` : ""}`}
                       </FormLabel>
-                      {selectedCountry && walletBalance > 0 && (
+                      {selectedCountry && (
                         <button
                           type="button"
                           onClick={handleMax}
-                          className="text-[11px] font-bold uppercase tracking-wide text-primary hover:text-primary/80 border border-primary/30 hover:border-primary/60 rounded px-2 py-0.5 transition-colors"
+                          disabled={walletBalance <= 0}
+                          className="text-[11px] font-bold uppercase tracking-wide text-primary hover:text-primary/80 border border-primary/30 hover:border-primary/60 rounded px-2 py-0.5 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
                         >
                           MAX
                         </button>
