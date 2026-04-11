@@ -232,6 +232,15 @@ router.get("/fx-rate", authMiddleware, async (req: AuthRequest, res) => {
   }
 });
 
+// GET /transactions/usdt-fee-rates
+// Returns this user's effective USDT deposit and withdrawal fee rates
+router.get("/usdt-fee-rates", authMiddleware, async (req: AuthRequest, res) => {
+  res.setHeader("Cache-Control", "no-store");
+  const depositRate  = (await getUserFeeRate(req.userId!, "USDT", "NOWPAYMENTS", "DEPOSIT"))  ?? 0.02;
+  const withdrawRate = (await getUserFeeRate(req.userId!, "USDT", "CRYPTO",      "WITHDRAWAL")) ?? 0.02;
+  res.json({ depositRate, withdrawRate });
+});
+
 // GET /transactions/:id  — status polling endpoint
 router.get("/:id", authMiddleware, async (req: AuthRequest, res) => {
   const id = parseInt(req.params.id, 10);
@@ -909,15 +918,6 @@ router.post("/transfer", authMiddleware, transactionRateLimit, async (req: AuthR
     req.log.error({ err, reference }, "Transfer error");
     res.status(500).json({ error: "InternalError", message: "Transfer failed" });
   }
-});
-
-// GET /transactions/usdt-fee-rates
-// Returns this user's effective USDT deposit and withdrawal fee rates
-router.get("/usdt-fee-rates", authMiddleware, async (req: AuthRequest, res) => {
-  res.setHeader("Cache-Control", "no-store");
-  const depositRate  = (await getUserFeeRate(req.userId!, "USDT", "NOWPAYMENTS", "DEPOSIT"))  ?? 0.02;
-  const withdrawRate = (await getUserFeeRate(req.userId!, "USDT", "CRYPTO",      "WITHDRAWAL")) ?? 0.02;
-  res.json({ depositRate, withdrawRate });
 });
 
 // POST /transactions/crypto-deposit
