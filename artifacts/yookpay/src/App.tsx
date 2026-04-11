@@ -21,7 +21,6 @@ import AdminDashboard from "@/pages/admin/index";
 import AdminUsers from "@/pages/admin/users";
 import AdminUserDetail from "@/pages/admin/user-detail";
 import AdminKycQueue from "@/pages/admin/kyc-queue";
-import AdminConversion from "@/pages/admin/conversion";
 import AdminPixPayConfig from "@/pages/admin/pixpay-config";
 import AdminTransactions from "@/pages/admin/transactions";
 import AdminTransactionDetail from "@/pages/admin/transaction-detail";
@@ -100,7 +99,6 @@ function Router() {
       <Route path="/admin/users"      component={() => <AdminRoute component={AdminUsers} />} />
       <Route path="/admin/users/:id"  component={() => <AdminRoute component={AdminUserDetail} />} />
       <Route path="/admin/kyc"        component={() => <AdminRoute component={AdminKycQueue} />} />
-      <Route path="/admin/conversion" component={() => <AdminRoute component={AdminConversion} />} />
       <Route path="/admin/pixpay-config" component={() => <AdminRoute component={AdminPixPayConfig} />} />
       <Route path="/admin/transactions" component={() => <AdminRoute component={AdminTransactions} />} />
       <Route path="/admin/transactions/:id" component={() => <AdminRoute component={AdminTransactionDetail} />} />
