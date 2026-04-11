@@ -471,10 +471,10 @@ export default function Dashboard() {
             </Link>
           </CardHeader>
           <CardContent className="flex-1 overflow-hidden p-0">
-            <div className="overflow-y-auto max-h-[420px] px-6 pb-4">
+            <div className="px-6 pb-4">
               <div className="space-y-4 mt-2">
                 {filteredTransactions.length > 0 ? (
-                  filteredTransactions.map((tx: any) => (
+                  filteredTransactions.slice(0, 6).map((tx: any) => (
                     <div key={tx.id} className="flex items-center">
                       <div className={`mr-4 h-9 w-9 rounded-full flex items-center justify-center border flex-shrink-0 ${
                         tx.type === "DEPOSIT"
