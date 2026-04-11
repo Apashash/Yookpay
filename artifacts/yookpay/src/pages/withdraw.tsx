@@ -151,10 +151,15 @@ export default function Withdraw() {
   const countryMinAmount = selectedCountry?.minAmount ?? 200;
 
   // Wallet balance for the selected country's currency
+  // useGetWallets returns the array directly (not wrapped in { wallets: [...] })
   const walletCurrency = selectedCountry?.currency ?? null;
   const walletBalance = walletCurrency
-    ? ((walletsData as { wallets?: { currency: string; balance: number }[] } | undefined)
-        ?.wallets?.find((w) => w.currency === walletCurrency)?.balance ?? 0)
+    ? parseFloat(
+        String(
+          (walletsData as { currency: string; balance: unknown }[] | undefined)
+            ?.find((w) => w.currency === walletCurrency)?.balance ?? 0
+        )
+      )
     : 0;
 
   // MAX amount: ensures wallet reaches exactly 0 after fees
