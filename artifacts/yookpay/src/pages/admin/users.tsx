@@ -6,7 +6,10 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { COUNTRIES } from "@/lib/countries";
-import { Search, ChevronRight, ShieldCheck, Users, Wallet, TrendingUp, Ban } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Search, ChevronRight, ShieldCheck, Users, Wallet, TrendingUp, Ban, ChevronLeft } from "lucide-react";
+
+const PAGE_SIZE = 30;
 
 interface AdminUser {
   id: number;
@@ -64,6 +67,7 @@ function UserAvatar({ name, isAdmin }: { name: string; isAdmin: boolean }) {
 
 export default function AdminUsers() {
   const [search, setSearch] = useState("");
+  const [page, setPage] = useState(1);
 
   const { data, isLoading } = useQuery<{ users: AdminUser[] }>({
     queryKey: ["admin-users"],
@@ -74,6 +78,10 @@ export default function AdminUsers() {
     const q = search.toLowerCase();
     return !q || u.name.toLowerCase().includes(q) || u.email.toLowerCase().includes(q) || (u.phone ?? "").includes(q);
   });
+
+  const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
+  const currentPage = Math.min(page, totalPages);
+  const paginated = filtered.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
 
   const totalUsers = data?.users.length ?? 0;
   const adminCount = data?.users.filter((u) => u.role === "ADMIN").length ?? 0;
@@ -131,7 +139,7 @@ export default function AdminUsers() {
         <Input
           placeholder="Rechercher par nom, email ou téléphone…"
           value={search}
-          onChange={(e) => setSearch(e.target.value)}
+          onChange={(e) => { setSearch(e.target.value); setPage(1); }}
           className="pl-9 bg-card"
         />
       </div>
@@ -157,7 +165,7 @@ export default function AdminUsers() {
         </div>
       ) : (
         <div className="bg-card border rounded-xl overflow-hidden divide-y">
-          {filtered.map((user) => {
+          {paginated.map((user) => {
             const kyc = KYC_CONFIG[user.kycStatus];
             const activeWallets = totalBalance(user.wallets);
             const countryName = getCountryName(user.country);
@@ -231,12 +239,37 @@ export default function AdminUsers() {
         </div>
       )}
 
-      {/* Footer count */}
+      {/* Pagination */}
       {filtered.length > 0 && (
-        <p className="text-center text-xs text-muted-foreground pb-2">
-          {filtered.length} utilisateur{filtered.length > 1 ? "s" : ""}
-          {search ? ` pour "${search}"` : ""}
-        </p>
+        <div className="flex items-center justify-between gap-2 pb-2">
+          <p className="text-xs text-muted-foreground">
+            {(currentPage - 1) * PAGE_SIZE + 1}–{Math.min(currentPage * PAGE_SIZE, filtered.length)} sur {filtered.length} utilisateur{filtered.length > 1 ? "s" : ""}
+            {search ? ` pour "${search}"` : ""}
+          </p>
+          {totalPages > 1 && (
+            <div className="flex items-center gap-1">
+              <Button
+                variant="outline" size="sm"
+                onClick={() => setPage((p) => Math.max(1, p - 1))}
+                disabled={currentPage === 1}
+                className="h-8 w-8 p-0"
+              >
+                <ChevronLeft className="h-4 w-4" />
+              </Button>
+              <span className="text-xs font-medium px-2">
+                {currentPage} / {totalPages}
+              </span>
+              <Button
+                variant="outline" size="sm"
+                onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                disabled={currentPage === totalPages}
+                className="h-8 w-8 p-0"
+              >
+                <ChevronRight className="h-4 w-4" />
+              </Button>
+            </div>
+          )}
+        </div>
       )}
     </div>
   );
