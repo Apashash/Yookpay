@@ -13,8 +13,10 @@ import {
 import { useToast } from "@/hooks/use-toast";
 import {
   CheckCircle2, XCircle, Clock, FileText, User, Building2, ExternalLink,
-  AlertCircle, Eye, PenLine,
+  AlertCircle, Eye, PenLine, ChevronLeft, ChevronRight,
 } from "lucide-react";
+
+const PAGE_SIZE = 30;
 
 interface KycDoc {
   id: number; userId: number; type: string; status: string;
@@ -131,6 +133,7 @@ export default function AdminKycQueue() {
   const qc = useQueryClient();
   const { toast } = useToast();
   const [filter, setFilter] = useState<"ALL" | "PENDING" | "VERIFIED" | "REJECTED">("PENDING");
+  const [page, setPage] = useState(1);
   const [selected, setSelected]   = useState<Submission | null>(null);
   const [adminNotes, setAdminNotes] = useState("");
   const [action, setAction] = useState<"kycVerify" | "kycReject" | "kybVerify" | "kybReject" | null>(null);
@@ -166,6 +169,10 @@ export default function AdminKycQueue() {
     return s.profile.kycStatus === filter || s.profile.kybStatus === filter;
   });
 
+  const totalPages  = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
+  const currentPage = Math.min(page, totalPages);
+  const paginated   = filtered.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
+
   const pendingCount   = submissions.filter((s) => s.profile.kycStatus === "PENDING" || s.profile.kybStatus === "PENDING").length;
   const verifiedCount  = submissions.filter((s) => isApproved(s.profile.kycStatus) && isApproved(s.profile.kybStatus)).length;
   const rejectedCount  = submissions.filter((s) => s.profile.kycStatus === "REJECTED" || s.profile.kybStatus === "REJECTED").length;
@@ -190,7 +197,7 @@ export default function AdminKycQueue() {
       {/* Filters */}
       <div className="flex gap-2 flex-wrap">
         {([["PENDING", "En attente", pendingCount], ["ALL", "Tous", submissions.length], ["VERIFIED", "Vérifiés", verifiedCount], ["REJECTED", "Rejetés", rejectedCount]] as const).map(([f, label, count]) => (
-          <Button key={f} variant={filter === f ? "default" : "outline"} size="sm" onClick={() => setFilter(f)} className="gap-1.5">
+          <Button key={f} variant={filter === f ? "default" : "outline"} size="sm" onClick={() => { setFilter(f); setPage(1); }} className="gap-1.5">
             {label}
             <Badge variant="secondary" className={`ml-1 text-xs ${filter === f ? "bg-white/20 text-white" : ""}`}>{count}</Badge>
           </Button>
@@ -206,7 +213,7 @@ export default function AdminKycQueue() {
         </div>
       ) : (
         <div className="space-y-3">
-          {filtered.map((s) => (
+          {paginated.map((s) => (
             <Card key={s.userId} className={
               (isApproved(s.profile.kycStatus) && isApproved(s.profile.kybStatus)) ? "border-green-200 dark:border-green-800" :
               (s.profile.kycStatus === "REJECTED" || s.profile.kybStatus === "REJECTED") ? "border-red-200 dark:border-red-800" : ""
@@ -250,6 +257,36 @@ export default function AdminKycQueue() {
               </CardContent>
             </Card>
           ))}
+        </div>
+      )}
+
+      {/* Pagination */}
+      {filtered.length > 0 && (
+        <div className="flex items-center justify-between gap-2 pb-2">
+          <p className="text-xs text-muted-foreground">
+            {(currentPage - 1) * PAGE_SIZE + 1}–{Math.min(currentPage * PAGE_SIZE, filtered.length)} sur {filtered.length} dossier{filtered.length > 1 ? "s" : ""}
+          </p>
+          {totalPages > 1 && (
+            <div className="flex items-center gap-1">
+              <Button
+                variant="outline" size="sm"
+                onClick={() => setPage((p) => Math.max(1, p - 1))}
+                disabled={currentPage === 1}
+                className="h-8 w-8 p-0"
+              >
+                <ChevronLeft className="h-4 w-4" />
+              </Button>
+              <span className="text-xs font-medium px-2">{currentPage} / {totalPages}</span>
+              <Button
+                variant="outline" size="sm"
+                onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                disabled={currentPage === totalPages}
+                className="h-8 w-8 p-0"
+              >
+                <ChevronRight className="h-4 w-4" />
+              </Button>
+            </div>
+          )}
         </div>
       )}
 
