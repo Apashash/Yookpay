@@ -991,7 +991,7 @@ router.post("/crypto-deposit", authMiddleware, transactionRateLimit, async (req:
     try {
       const npResult = await createNpPayment({
         priceAmount: amountUsdt,
-        priceCurrency: "usd",
+        priceCurrency: "usdttrc20",
         payCurrency: "usdttrc20",
         orderId: reference,
         orderDescription: `YookPay USDT deposit - user ${req.userId}`,
