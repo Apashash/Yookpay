@@ -150,6 +150,14 @@ export default function Withdraw() {
   const flow = operator ? getOperatorFlow(operator) : null;
   const countryMinAmount = selectedCountry?.minAmount ?? 200;
 
+  // USDT wallet balance (for crypto section)
+  const usdtBalance = parseFloat(
+    String(
+      (walletsData as { currency: string; balance: unknown }[] | undefined)
+        ?.find((w) => w.currency === "USDT")?.balance ?? 0
+    )
+  );
+
   // Wallet balance for the selected country's currency
   // useGetWallets returns the array directly (not wrapped in { wallets: [...] })
   const walletCurrency = selectedCountry?.currency ?? null;
@@ -407,16 +415,37 @@ export default function Withdraw() {
                 placeholder="Txxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
               />
             </div>
+            {/* Solde USDT disponible */}
+            <div className={`flex items-center justify-between rounded-lg px-3.5 py-2.5 text-sm border ${
+              usdtBalance > 0
+                ? "bg-cyan-500/8 border-cyan-500/20 text-cyan-700 dark:text-cyan-400"
+                : "bg-rose-500/8 border-rose-500/20 text-rose-600 dark:text-rose-400"
+            }`}>
+              <span className="font-medium">Solde disponible (USDT)</span>
+              <span className="font-bold tabular-nums">{usdtBalance.toFixed(4)} USDT</span>
+            </div>
+
             <div>
-              <label className="text-sm font-medium block mb-1.5">Montant USDT à retirer</label>
+              <div className="flex items-center justify-between mb-1.5">
+                <label className="text-sm font-medium">Montant USDT à retirer</label>
+                {usdtBalance > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => setCryptoAmount(usdtBalance.toFixed(4))}
+                    className="text-[11px] font-bold uppercase tracking-wide text-cyan-600 hover:text-cyan-500 border border-cyan-500/30 hover:border-cyan-500/60 rounded px-2 py-0.5 transition-colors"
+                  >
+                    MAX
+                  </button>
+                )}
+              </div>
               <input
                 type="number"
                 min="1"
-                step="0.01"
+                step="0.0001"
                 className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                 value={cryptoAmount}
                 onChange={(e) => setCryptoAmount(e.target.value)}
-                placeholder="10"
+                placeholder={usdtBalance > 0 ? `max. ${usdtBalance.toFixed(4)} USDT` : "10"}
               />
               <p className="text-xs text-muted-foreground mt-1">
                 Vous recevrez ≈ {(parseFloat(cryptoAmount || "0") * 0.99).toFixed(4)} USDT après frais (1%).
