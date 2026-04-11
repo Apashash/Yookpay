@@ -488,9 +488,6 @@ export default function Deposit() {
         <Card>
           <CardHeader>
             <CardTitle>Dépôt USDT (Crypto)</CardTitle>
-            <CardDescription>
-              Recevez une adresse de dépôt TRC-20. Envoyez vos USDT et ils seront crédités sur votre wallet YookPay sous 10–20 minutes.
-            </CardDescription>
           </CardHeader>
           <CardContent className="space-y-5">
             {!cryptoResult ? (
@@ -592,7 +589,7 @@ export default function Deposit() {
                   </svg>
                   <div>
                     <p className="text-sm font-medium text-cyan-700 dark:text-cyan-300">Vérification du paiement en cours…</p>
-                    <p className="text-xs text-cyan-600 dark:text-cyan-400 mt-0.5">La confirmation blockchain peut prendre 5 à 20 minutes. Cette page se met à jour automatiquement.</p>
+                    <p className="text-xs text-cyan-600 dark:text-cyan-400 mt-0.5">La vérification peut prendre de 1 seconde à 10 minutes. Cette page se met à jour automatiquement.</p>
                   </div>
                 </div>
 
