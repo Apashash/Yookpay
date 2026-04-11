@@ -642,7 +642,7 @@ function UsdtFeesSection({ userId }: { userId: number }) {
                 <RotateCcw className="h-3.5 w-3.5" />
                 Réinitialiser
               </Button>
-              <p className="text-xs text-muted-foreground ml-2">Laisser vide = défaut (dépôt 0%, retrait 1%)</p>
+              <p className="text-xs text-muted-foreground ml-2">Laisser vide = défaut (2% dépôt et retrait)</p>
             </div>
           </div>
         )}

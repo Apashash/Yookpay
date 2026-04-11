@@ -1412,8 +1412,8 @@ router.get("/users/:id/usdt-fees", async (req: AuthRequest, res) => {
     res.json({
       depositRate:  deposit  ? parseFloat(deposit.rate)  : null,
       withdrawRate: withdraw ? parseFloat(withdraw.rate) : null,
-      depositDefault:  0,
-      withdrawDefault: 0.01,
+      depositDefault:  0.02,
+      withdrawDefault: 0.02,
     });
   } catch (err) {
     res.status(500).json({ error: "InternalError" });
