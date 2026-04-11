@@ -24,10 +24,12 @@ import {
   History,
   BadgeDollarSign,
   Link2,
+  Headphones,
 } from "lucide-react";
 import { YookPayLogo } from "@/components/yookpay-logo";
 import { Button } from "@/components/ui/button";
 import { NotificationBell } from "@/components/notification-bell";
+import { SupportFloat } from "@/components/support-float";
 
 interface DashboardLayoutProps {
   children: React.ReactNode;
@@ -94,6 +96,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
     { href: "/admin/transactions",  label: "Transactions",   icon: History },
     { href: "/admin/exchanges",     label: "Échanges USDT",  icon: Coins },
     { href: "/admin/fees",          label: "Grille des frais", icon: BadgeDollarSign },
+    { href: "/admin/support-links", label: "Liens support",    icon: Headphones },
   ];
 
   const pageTitle = location.split("/")[1] || "Dashboard";
@@ -273,6 +276,9 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
           </div>
         </main>
       </div>
+
+      {/* Floating support button */}
+      <SupportFloat />
     </div>
   );
 }

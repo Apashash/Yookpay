@@ -27,6 +27,7 @@ import AdminTransactions from "@/pages/admin/transactions";
 import AdminTransactionDetail from "@/pages/admin/transaction-detail";
 import AdminExchanges from "@/pages/admin/exchanges";
 import AdminFees from "@/pages/admin/fees";
+import AdminSupportLinks from "@/pages/admin/support-links";
 import Landing from "@/pages/landing";
 import YookLink from "@/pages/yooklink";
 import YookLinkDetail from "@/pages/yooklink-detail";
@@ -105,6 +106,7 @@ function Router() {
       <Route path="/admin/transactions/:id" component={() => <AdminRoute component={AdminTransactionDetail} />} />
       <Route path="/admin/exchanges"        component={() => <AdminRoute component={AdminExchanges} />} />
       <Route path="/admin/fees"             component={() => <AdminRoute component={AdminFees} />} />
+      <Route path="/admin/support-links"   component={() => <AdminRoute component={AdminSupportLinks} />} />
 
       <Route component={NotFound} />
     </Switch>

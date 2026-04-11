@@ -1346,5 +1346,35 @@ router.put("/usdt-rates/:pair", async (req: AuthRequest, res) => {
   }
 });
 
+// ── Support Links ─────────────────────────────────────────────────────────────
+router.get("/support-links", async (_req, res) => {
+  try {
+    const r = await pool.query("SELECT whatsapp_url, facebook_url, telegram_url, phone_url FROM support_links WHERE id = 1");
+    res.json(r.rows[0] ?? { whatsapp_url: "", facebook_url: "", telegram_url: "", phone_url: "" });
+  } catch (err) {
+    res.status(500).json({ error: "InternalError" });
+  }
+});
+
+router.put("/support-links", async (req: AuthRequest, res) => {
+  const schema = z.object({
+    whatsapp_url: z.string().max(500).default(""),
+    facebook_url: z.string().max(500).default(""),
+    telegram_url: z.string().max(500).default(""),
+    phone_url:    z.string().max(500).default(""),
+  });
+  const parse = schema.safeParse(req.body);
+  if (!parse.success) { res.status(400).json({ error: "ValidationError" }); return; }
+  try {
+    await pool.query(
+      `UPDATE support_links SET whatsapp_url=$1, facebook_url=$2, telegram_url=$3, phone_url=$4, updated_at=NOW() WHERE id=1`,
+      [parse.data.whatsapp_url, parse.data.facebook_url, parse.data.telegram_url, parse.data.phone_url]
+    );
+    res.json({ ok: true });
+  } catch (err) {
+    res.status(500).json({ error: "InternalError" });
+  }
+});
+
 export default router;
 

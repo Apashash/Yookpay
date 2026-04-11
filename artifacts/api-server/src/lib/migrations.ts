@@ -351,6 +351,22 @@ export async function runStartupMigrations(): Promise<void> {
     `);
     await client.query(`CREATE INDEX IF NOT EXISTS notifications_user_id_idx ON notifications(user_id)`);
 
+    // 13. Create support_links table (single config row, id=1)
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS support_links (
+        id INTEGER PRIMARY KEY DEFAULT 1,
+        whatsapp_url TEXT NOT NULL DEFAULT '',
+        facebook_url TEXT NOT NULL DEFAULT '',
+        telegram_url TEXT NOT NULL DEFAULT '',
+        phone_url    TEXT NOT NULL DEFAULT '',
+        updated_at   TIMESTAMP DEFAULT NOW() NOT NULL,
+        CONSTRAINT single_row CHECK (id = 1)
+      )
+    `);
+    await client.query(`
+      INSERT INTO support_links (id) VALUES (1) ON CONFLICT (id) DO NOTHING
+    `);
+
     logger.info("Startup migrations completed successfully");
   } catch (err) {
     logger.error({ err }, "Startup migration error");
