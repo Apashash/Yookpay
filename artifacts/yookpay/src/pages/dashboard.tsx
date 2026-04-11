@@ -198,6 +198,7 @@ export default function Dashboard() {
   };
 
   return (
+    <>
     <div className="space-y-6">
 
       {/* ── Wallet Balance Cards ── */}
@@ -528,5 +529,6 @@ export default function Dashboard() {
       </div>
     </div>
     <SupportFloat />
+    </>
   );
 }
