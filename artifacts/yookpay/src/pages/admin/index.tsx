@@ -5,7 +5,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import {
   Users, FileCheck, ArrowRightLeft, ShieldCheck,
   ChevronRight, TrendingUp, BadgeDollarSign, CheckCircle2, History, Coins,
-  ArrowDownCircle, ArrowUpCircle,
+  ArrowDownCircle, ArrowUpCircle, Clock, UserCheck, Building2,
 } from "lucide-react";
 
 interface AdminStats {
@@ -20,6 +20,10 @@ interface AdminStats {
   depositMargin: number;
   withdrawalMargin: number;
   verifiedUsers: number;
+  pendingKycProfiles:  number;
+  pendingKybProfiles:  number;
+  verifiedKycProfiles: number;
+  verifiedKybProfiles: number;
   byCurrency: Array<{
     currency: string;
     volume: number;
@@ -225,22 +229,6 @@ export default function AdminDashboard() {
             href="/admin/users"
           />
           <StatCard
-            label="KYC/KYB vérifiés"
-            value={data?.verifiedUsers}
-            sub={`${data?.pendingKyc ?? 0} en attente de validation`}
-            icon={CheckCircle2}
-            colorClass="bg-violet-50 text-violet-600"
-            isLoading={isLoading}
-            href="/admin/kyc"
-          />
-        </div>
-      </div>
-
-      {/* Section — Transactions */}
-      <div>
-        <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground mb-3">Transactions</p>
-        <div className="grid grid-cols-2 gap-3">
-          <StatCard
             label="Transactions totales"
             value={data?.totalTx}
             sub={`${data?.successTx ?? 0} réussies`}
@@ -249,11 +237,42 @@ export default function AdminDashboard() {
             isLoading={isLoading}
             href="/admin/transactions"
           />
+        </div>
+      </div>
+
+      {/* Section — KYC / KYB */}
+      <div>
+        <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground mb-3">KYC / KYB</p>
+        <div className="grid grid-cols-2 gap-3">
           <StatCard
-            label="Documents KYC en attente"
-            value={data?.pendingKyc}
-            icon={FileCheck}
+            label="KYC en attente"
+            value={data?.pendingKycProfiles}
+            icon={Clock}
             colorClass="bg-amber-50 text-amber-600"
+            isLoading={isLoading}
+            href="/admin/kyc"
+          />
+          <StatCard
+            label="KYB en attente"
+            value={data?.pendingKybProfiles}
+            icon={Building2}
+            colorClass="bg-orange-50 text-orange-600"
+            isLoading={isLoading}
+            href="/admin/kyc"
+          />
+          <StatCard
+            label="KYC validés"
+            value={data?.verifiedKycProfiles}
+            icon={UserCheck}
+            colorClass="bg-green-50 text-green-600"
+            isLoading={isLoading}
+            href="/admin/kyc"
+          />
+          <StatCard
+            label="KYB validés"
+            value={data?.verifiedKybProfiles}
+            icon={CheckCircle2}
+            colorClass="bg-emerald-50 text-emerald-600"
             isLoading={isLoading}
             href="/admin/kyc"
           />

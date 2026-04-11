@@ -32,6 +32,7 @@ router.get("/stats", async (req: AuthRequest, res) => {
       [{ customFees }],
       [{ totalVolume, totalMargin, totalFees, depositMargin, withdrawalMargin, successTx }],
       [{ verifiedUsers }],
+      kycProfileStats,
       txByCurrency,
     ] = await Promise.all([
       db.select({ totalUsers: sql<number>`count(*)::int` }).from(usersTable),
@@ -47,6 +48,14 @@ router.get("/stats", async (req: AuthRequest, res) => {
         successTx:        sql<number>`count(*)::int`,
       }).from(transactionsTable).where(eq(transactionsTable.status, "SUCCESS")),
       db.select({ verifiedUsers: sql<number>`count(distinct user_id)::int` }).from(kycDocumentsTable).where(eq(kycDocumentsTable.status, "VERIFIED")),
+      db.execute<{ pending_kyc: number; pending_kyb: number; verified_kyc: number; verified_kyb: number }>(sql`
+        SELECT
+          count(*) FILTER (WHERE kyc_status = 'PENDING')::int                               AS pending_kyc,
+          count(*) FILTER (WHERE kyb_status = 'PENDING')::int                               AS pending_kyb,
+          count(*) FILTER (WHERE kyc_status IN ('VERIFIED','APPROVED'))::int                AS verified_kyc,
+          count(*) FILTER (WHERE kyb_status IN ('VERIFIED','APPROVED'))::int                AS verified_kyb
+        FROM kyc_profiles
+      `),
       db.select({
         currency:         transactionsTable.currency,
         volume:           sql<string>`coalesce(sum(amount::numeric), 0)`,
@@ -57,6 +66,8 @@ router.get("/stats", async (req: AuthRequest, res) => {
         count:            sql<number>`count(*)::int`,
       }).from(transactionsTable).where(eq(transactionsTable.status, "SUCCESS")).groupBy(transactionsTable.currency),
     ]);
+
+    const kp = kycProfileStats.rows[0] ?? { pending_kyc: 0, pending_kyb: 0, verified_kyc: 0, verified_kyb: 0 };
 
     res.json({
       totalUsers,
@@ -70,6 +81,10 @@ router.get("/stats", async (req: AuthRequest, res) => {
       depositMargin: parseFloat(depositMargin),
       withdrawalMargin: parseFloat(withdrawalMargin),
       verifiedUsers,
+      pendingKycProfiles:  Number(kp.pending_kyc),
+      pendingKybProfiles:  Number(kp.pending_kyb),
+      verifiedKycProfiles: Number(kp.verified_kyc),
+      verifiedKybProfiles: Number(kp.verified_kyb),
       byCurrency: txByCurrency.map((r) => ({
         currency: r.currency,
         volume: parseFloat(r.volume),
