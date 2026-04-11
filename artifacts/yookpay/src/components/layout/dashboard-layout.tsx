@@ -77,7 +77,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
     { href: "/dashboard",    label: "Dashboard",     icon: LayoutDashboard },
     { href: "/deposit",      label: "Dépôt",          icon: ArrowDownToLine },
     { href: "/withdraw",     label: "Retrait",        icon: ArrowUpFromLine },
-    { href: "/transfer",     label: "Échange USDT",   icon: ArrowRightLeft },
+    { href: "/transfer",     label: "Échange",         icon: ArrowRightLeft },
     { href: "/transactions", label: "Transactions",   icon: ListOrdered },
     { href: "/yooklink",     label: "YookLink",       icon: Link2 },
     { href: "/services",     label: "Mes Services",   icon: Briefcase },
