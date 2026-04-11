@@ -275,8 +275,6 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
         </main>
       </div>
 
-      {/* Floating support button */}
-      <SupportFloat />
     </div>
   );
 }

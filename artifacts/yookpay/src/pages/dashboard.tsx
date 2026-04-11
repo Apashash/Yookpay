@@ -1,4 +1,5 @@
 import { useState, useMemo } from "react";
+import { SupportFloat } from "@/components/support-float";
 import { useQuery } from "@tanstack/react-query";
 import { useAuth } from "@/lib/auth";
 import {
@@ -526,5 +527,6 @@ export default function Dashboard() {
         </Card>
       </div>
     </div>
+    <SupportFloat />
   );
 }

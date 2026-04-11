@@ -1,6 +1,7 @@
 import { Link } from "wouter";
 import { Button } from "@/components/ui/button";
 import { YookPayLogo } from "@/components/yookpay-logo";
+import { SupportFloat } from "@/components/support-float";
 import { useQuery } from "@tanstack/react-query";
 import { customFetch } from "@workspace/api-client-react";
 import {
@@ -333,6 +334,7 @@ export default function Landing() {
         </div>
       </footer>
 
+      <SupportFloat />
     </div>
   );
 }
