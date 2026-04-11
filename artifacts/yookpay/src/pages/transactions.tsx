@@ -33,6 +33,7 @@ import {
   Copy,
   Check,
   RefreshCw,
+  Pencil,
 } from "lucide-react";
 import { COUNTRIES } from "@/lib/countries";
 import { format, isToday, isYesterday, isThisWeek, isThisMonth } from "date-fns";
@@ -91,6 +92,20 @@ function getExchangeMeta(tx: Tx) {
   const type = m.exchangeType as string | undefined;
   if (!from || !to) return null;
   return { from, to, type };
+}
+
+function isRectified(tx: Tx): boolean {
+  const m = tx.metadata as Record<string, unknown> | null;
+  return !!m?.isRectification;
+}
+
+function RectificationBadge() {
+  return (
+    <span className="inline-flex items-center gap-0.5 text-[9px] font-semibold px-1.5 py-0.5 rounded-full bg-violet-500/10 text-violet-600 border border-violet-500/20">
+      <Pencil className="h-2 w-2" />
+      Rectification
+    </span>
+  );
 }
 
 function richTypeLabel(tx: Tx): string {
@@ -206,6 +221,20 @@ function TransactionDetail({ tx, open, onClose }: { tx: Tx | null; open: boolean
         </div>
 
         <div className="px-5 pb-8">
+          {isRectified(tx) && (
+            <div className="mt-4 mb-2 flex items-start gap-2 rounded-xl border border-violet-500/30 bg-violet-500/5 px-3 py-2.5">
+              <Pencil className="h-3.5 w-3.5 text-violet-500 mt-0.5 shrink-0" />
+              <div>
+                <p className="text-xs font-semibold text-violet-700 dark:text-violet-400">Transaction rectifiée</p>
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  Cette transaction a été modifiée manuellement par l'administration.
+                  {(tx.metadata as Record<string, unknown>)?.adminNote
+                    ? ` Note : ${(tx.metadata as Record<string, unknown>).adminNote}`
+                    : ""}
+                </p>
+              </div>
+            </div>
+          )}
           <SectionTitle>Références</SectionTitle>
           <div className="space-y-1">
             <div className="flex justify-between items-center py-2.5 border-b border-border/50">
@@ -476,6 +505,9 @@ export default function Transactions() {
                             <div className="text-sm font-medium truncate">{richTypeLabel(tx)}</div>
                             {sub && (
                               <div className="text-xs text-muted-foreground font-mono truncate">{sub}</div>
+                            )}
+                            {isRectified(tx) && (
+                              <div className="mt-0.5"><RectificationBadge /></div>
                             )}
                           </div>
 

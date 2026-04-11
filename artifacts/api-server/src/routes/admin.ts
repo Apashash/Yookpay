@@ -1179,7 +1179,14 @@ router.patch("/transactions/:id/status", async (req: AuthRequest, res) => {
     if (oldStatus === newStatus) { res.json({ success: true, message: "Statut inchangé" }); return; }
 
     const meta = (tx.metadata ?? {}) as Record<string, unknown>;
-    const adminNotes = notes ? { adminNote: notes, adminUpdatedAt: new Date().toISOString(), adminId: req.userId } : { adminUpdatedAt: new Date().toISOString(), adminId: req.userId };
+    // isRectification = admin is touching an already-finalized transaction (not first processing)
+    const isRectification = oldStatus !== "PENDING";
+    const adminNotes: Record<string, unknown> = {
+      adminUpdatedAt: new Date().toISOString(),
+      adminId: req.userId,
+      ...(notes ? { adminNote: notes } : {}),
+      ...(isRectification ? { isRectification: true, rectifiedFrom: oldStatus } : {}),
+    };
 
     // Atomic update: only succeeds if status hasn't changed since we read it (prevents double-credit race)
     const updateResult = await db.update(transactionsTable).set({
@@ -1222,7 +1229,28 @@ router.patch("/transactions/:id/status", async (req: AuthRequest, res) => {
       }
     }
 
-    req.log.info({ adminId: req.userId, txId: id, oldStatus, newStatus }, "Admin transaction status override");
+    // ── Notification for the user ───────────────────────────────────────────
+    const typeLabel = tx.type === "DEPOSIT" ? "Dépôt" : "Retrait";
+    const statusLabel = newStatus === "SUCCESS" ? "réussi" : newStatus === "FAILED" ? "échoué" : "en attente";
+    const amtStr = parseFloat(tx.amount).toLocaleString("fr-FR", { maximumFractionDigits: 2 }) + " " + tx.currency;
+    const notifTitle = isRectification
+      ? `Rectification — ${typeLabel} ${amtStr}`
+      : `${typeLabel} ${amtStr} mis à jour`;
+    const notifBody = isRectification
+      ? `Votre ${typeLabel.toLowerCase()} de ${amtStr} a été rectifié par l'administration. Nouveau statut : ${statusLabel}.${notes ? " Note : " + notes : ""}`
+      : `Votre ${typeLabel.toLowerCase()} de ${amtStr} est maintenant ${statusLabel}.`;
+
+    try {
+      await pool.query(
+        `INSERT INTO notifications (user_id, type, title, body, transaction_id, created_at)
+         VALUES ($1, $2, $3, $4, $5, NOW())`,
+        [tx.userId, tx.type, notifTitle, notifBody, tx.id],
+      );
+    } catch (notifErr) {
+      req.log.warn({ notifErr, txId: id }, "Failed to insert rectification notification — non-fatal");
+    }
+
+    req.log.info({ adminId: req.userId, txId: id, oldStatus, newStatus, isRectification }, "Admin transaction status override");
     res.json({ success: true, message: "Statut mis à jour" });
   } catch (err) {
     req.log.error({ err }, "Admin patch transaction status error");
