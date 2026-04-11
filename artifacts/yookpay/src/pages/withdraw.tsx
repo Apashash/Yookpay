@@ -7,7 +7,7 @@ import { useCreateWithdrawal, useGetWallets, customFetch, getGetWalletsQueryKey,
 import { formatCurrency } from "@/lib/format";
 import { useToast } from "@/hooks/use-toast";
 import { useLocation } from "wouter";
-import { useQueryClient } from "@tanstack/react-query";
+import { useQueryClient, useQuery } from "@tanstack/react-query";
 import { COUNTRIES, OPERATOR_LABELS, normalizePhone } from "@/lib/countries";
 import { getOperatorFlow } from "@/lib/operator-flow";
 
@@ -80,6 +80,15 @@ export default function Withdraw() {
   const [pendingResult, setPendingResult] = useState<WithdrawResult | null>(null);
   const [pollStatus, setPollStatus] = useState<PollStatus>("PENDING");
   const { data: walletsData } = useGetWallets();
+
+  // ─── USDT fee rates (user-specific) ───────────────────────────────────────
+  const { data: usdtFees } = useQuery<{ depositRate: number; withdrawRate: number }>({
+    queryKey: ["usdt-fee-rates"],
+    queryFn: () => customFetch("/api/transactions/usdt-fee-rates"),
+    staleTime: 60_000,
+  });
+  const usdtWithdrawRate = usdtFees?.withdrawRate ?? 0.02;
+  const usdtWithdrawPct  = (usdtWithdrawRate * 100).toFixed(0);
 
   // ─── Crypto withdraw mode ─────────────────────────────────────────────────
   const [withdrawMode, setWithdrawMode] = useState<"mobile" | "crypto">("mobile");
@@ -395,7 +404,7 @@ export default function Withdraw() {
           <CardHeader>
             <CardTitle>Retrait USDT vers crypto</CardTitle>
             <CardDescription>
-              Retirez vos USDT vers une adresse externe. Frais 1%. Disponible sur TRC-20 (Tron).
+              Retirez vos USDT vers une adresse externe. Frais {usdtWithdrawPct}%. Disponible sur TRC-20 (Tron).
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-5">
@@ -447,7 +456,7 @@ export default function Withdraw() {
                 placeholder={usdtBalance > 0 ? `max. ${usdtBalance.toFixed(4)} USDT` : "10"}
               />
               <p className="text-xs text-muted-foreground mt-1">
-                Vous recevrez ≈ {(parseFloat(cryptoAmount || "0") * 0.99).toFixed(4)} USDT après frais (1%).
+                Vous recevrez ≈ {(parseFloat(cryptoAmount || "0") * (1 - usdtWithdrawRate)).toFixed(4)} USDT après frais ({usdtWithdrawPct}%).
               </p>
             </div>
             <Alert className="border-amber-200 bg-amber-50 dark:bg-amber-900/20">

@@ -911,6 +911,14 @@ router.post("/transfer", authMiddleware, transactionRateLimit, async (req: AuthR
   }
 });
 
+// GET /transactions/usdt-fee-rates
+// Returns this user's effective USDT deposit and withdrawal fee rates
+router.get("/usdt-fee-rates", authMiddleware, async (req: AuthRequest, res) => {
+  const depositRate  = (await getUserFeeRate(req.userId!, "USDT", "NOWPAYMENTS", "DEPOSIT"))  ?? 0.02;
+  const withdrawRate = (await getUserFeeRate(req.userId!, "USDT", "CRYPTO",      "WITHDRAWAL")) ?? 0.02;
+  res.json({ depositRate, withdrawRate });
+});
+
 // POST /transactions/crypto-deposit
 // Creates a NowPayments USDT deposit address for the user
 router.post("/crypto-deposit", authMiddleware, transactionRateLimit, async (req: AuthRequest, res) => {
