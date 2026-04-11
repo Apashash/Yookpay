@@ -1155,6 +1155,75 @@ router.get("/transactions/:id", async (req: AuthRequest, res) => {
   }
 });
 
+// PATCH /admin/transactions/:id/status — manually set transaction status + wallet adjustment
+router.patch("/transactions/:id/status", async (req: AuthRequest, res) => {
+  const id = parseInt(req.params.id);
+  if (isNaN(id)) { res.status(400).json({ error: "BadRequest", message: "ID invalide" }); return; }
+
+  const parse = z.object({
+    status: z.enum(["SUCCESS", "PENDING", "FAILED"]),
+    notes: z.string().optional(),
+  }).safeParse(req.body);
+  if (!parse.success) { res.status(400).json({ error: "ValidationError", message: "Données invalides" }); return; }
+
+  const { status: newStatus, notes } = parse.data;
+
+  try {
+    const [tx] = await db.select().from(transactionsTable).where(eq(transactionsTable.id, id)).limit(1);
+    if (!tx) { res.status(404).json({ error: "NotFound", message: "Transaction introuvable" }); return; }
+    if (tx.type !== "DEPOSIT" && tx.type !== "WITHDRAWAL") {
+      res.status(400).json({ error: "BadRequest", message: "Seuls dépôts et retraits peuvent être modifiés manuellement" }); return;
+    }
+
+    const oldStatus = tx.status;
+    if (oldStatus === newStatus) { res.json({ success: true, message: "Statut inchangé" }); return; }
+
+    const meta = (tx.metadata ?? {}) as Record<string, unknown>;
+    const adminNotes = notes ? { adminNote: notes, adminUpdatedAt: new Date().toISOString(), adminId: req.userId } : { adminUpdatedAt: new Date().toISOString(), adminId: req.userId };
+
+    await db.update(transactionsTable).set({
+      status: newStatus,
+      metadata: { ...meta, ...adminNotes },
+      updatedAt: new Date(),
+    }).where(eq(transactionsTable.id, tx.id));
+
+    // ── Wallet adjustments ──────────────────────────────────────────────────
+    const [wallet] = await db.select().from(walletsTable)
+      .where(and(eq(walletsTable.userId, tx.userId), eq(walletsTable.currency, tx.currency)))
+      .limit(1);
+
+    if (wallet) {
+      let delta = 0;
+
+      if (tx.type === "DEPOSIT") {
+        const net = parseFloat(tx.netAmount);
+        if (oldStatus !== "SUCCESS" && newStatus === "SUCCESS") delta = +net;
+        if (oldStatus === "SUCCESS" && newStatus !== "SUCCESS") delta = -net;
+      }
+
+      if (tx.type === "WITHDRAWAL") {
+        // walletDebit is stored in metadata at initiation; fall back to amount
+        const walletDebit = typeof meta.walletDebit === "number" ? meta.walletDebit : parseFloat(tx.amount);
+        const wasFailed  = oldStatus === "FAILED" || oldStatus === "EXPIRED";
+        const isFailed   = newStatus === "FAILED";
+        if (!wasFailed && isFailed) delta = +walletDebit;   // refund
+        if (wasFailed  && !isFailed) delta = -walletDebit;  // re-debit
+      }
+
+      if (delta !== 0) {
+        const newBalance = Math.max(0, parseFloat(wallet.balance) + delta);
+        await db.update(walletsTable).set({ balance: newBalance.toString(), updatedAt: new Date() }).where(eq(walletsTable.id, wallet.id));
+      }
+    }
+
+    req.log.info({ adminId: req.userId, txId: id, oldStatus, newStatus }, "Admin transaction status override");
+    res.json({ success: true, message: "Statut mis à jour" });
+  } catch (err) {
+    req.log.error({ err }, "Admin patch transaction status error");
+    res.status(500).json({ error: "InternalError", message: "Erreur lors de la mise à jour" });
+  }
+});
+
 // ── Exchange Requests (USDT → Fiat) ─────────────────────────────────────────
 // GET /admin/exchanges — list pending exchange requests
 router.get("/exchanges", async (req: AuthRequest, res) => {
