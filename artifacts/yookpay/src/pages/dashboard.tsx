@@ -96,22 +96,11 @@ export default function Dashboard() {
     query: { queryKey: getGetVolumeChartQueryKey() },
   });
 
-  // Sort wallets: the one with the most recent transaction comes first
+  // Sort wallets by balance descending — stable regardless of selected period
   const sortedWallets = useMemo(() => {
     if (!summary) return [];
-    const lastTxDate: Record<string, number> = {};
-    for (const tx of summary.recentTransactions) {
-      const t = new Date(tx.createdAt).getTime();
-      if (!lastTxDate[tx.currency] || t > lastTxDate[tx.currency]) {
-        lastTxDate[tx.currency] = t;
-      }
-    }
-    return [...summary.wallets].sort((a, b) => {
-      const da = lastTxDate[a.currency] ?? 0;
-      const db = lastTxDate[b.currency] ?? 0;
-      return db - da;
-    });
-  }, [summary]);
+    return [...summary.wallets].sort((a, b) => b.balance - a.balance);
+  }, [summary?.wallets]);
 
   const filteredTransactions = useMemo(() => {
     if (!summary) return [];
