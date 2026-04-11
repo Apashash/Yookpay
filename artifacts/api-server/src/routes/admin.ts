@@ -1237,7 +1237,7 @@ router.patch("/transactions/:id/status", async (req: AuthRequest, res) => {
       ? `Rectification — ${typeLabel} ${amtStr}`
       : `${typeLabel} ${amtStr} mis à jour`;
     const notifBody = isRectification
-      ? `Votre ${typeLabel.toLowerCase()} de ${amtStr} a été rectifié par l'administration. Nouveau statut : ${statusLabel}.${notes ? " Note : " + notes : ""}`
+      ? `Votre ${typeLabel.toLowerCase()} de ${amtStr} a été rectifié. Nouveau statut : ${statusLabel}.${notes ? " Note : " + notes : ""}`
       : `Votre ${typeLabel.toLowerCase()} de ${amtStr} est maintenant ${statusLabel}.`;
 
     try {
