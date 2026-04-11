@@ -92,7 +92,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
     { href: "/admin/kyc",           label: "File KYC",       icon: FileCheck },
     { href: "/admin/pixpay-config", label: "PixPay",         icon: Zap },
     { href: "/admin/transactions",  label: "Transactions",   icon: History },
-    { href: "/admin/exchanges",     label: "Échanges USDT",  icon: Coins },
+    { href: "/admin/exchanges",     label: "Échanges",       icon: Coins },
     { href: "/admin/fees",          label: "Grille des frais", icon: BadgeDollarSign },
     { href: "/admin/support-links", label: "Liens support",    icon: Headphones },
   ];
