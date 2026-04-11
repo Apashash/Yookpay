@@ -1,7 +1,7 @@
 import { Router } from "express";
 import { db } from "@workspace/db";
 import { transactionsTable, walletsTable } from "@workspace/db/schema";
-import { eq, and, desc, sql, gte, count, sum } from "drizzle-orm";
+import { eq, and, desc, sql, gte, lte, count, sum } from "drizzle-orm";
 import { authMiddleware, type AuthRequest } from "../middlewares/authMiddleware";
 
 const router = Router();
@@ -10,6 +10,17 @@ router.get("/summary", authMiddleware, async (req: AuthRequest, res) => {
   const userId = req.userId!;
 
   try {
+    const fromParam = req.query.from as string | undefined;
+    const toParam   = req.query.to   as string | undefined;
+    const fromDate  = fromParam ? new Date(fromParam) : null;
+    const toDate    = toParam   ? new Date(toParam)   : null;
+
+    const dateFilter = and(
+      eq(transactionsTable.userId, userId),
+      fromDate ? gte(transactionsTable.createdAt, fromDate) : undefined,
+      toDate   ? lte(transactionsTable.createdAt, toDate)   : undefined,
+    );
+
     const [wallets, statsRows, recentTxs] = await Promise.all([
       db.select().from(walletsTable).where(eq(walletsTable.userId, userId)),
       db
@@ -21,14 +32,14 @@ router.get("/summary", authMiddleware, async (req: AuthRequest, res) => {
           txCount: count(),
         })
         .from(transactionsTable)
-        .where(eq(transactionsTable.userId, userId))
+        .where(dateFilter)
         .groupBy(transactionsTable.type, transactionsTable.status),
       db
         .select()
         .from(transactionsTable)
-        .where(eq(transactionsTable.userId, userId))
+        .where(dateFilter)
         .orderBy(desc(transactionsTable.createdAt))
-        .limit(5),
+        .limit(200),
     ]);
 
     let totalDeposited = 0;

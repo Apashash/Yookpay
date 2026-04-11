@@ -1,10 +1,10 @@
 import { useState, useMemo } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { useAuth } from "@/lib/auth";
 import {
-  useGetDashboardSummary,
   useGetVolumeChart,
-  getGetDashboardSummaryQueryKey,
   getGetVolumeChartQueryKey,
+  customFetch,
 } from "@workspace/api-client-react";
 import { formatCurrency, formatDate } from "@/lib/format";
 import {
@@ -48,7 +48,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { format, startOfDay, endOfDay, startOfWeek, endOfWeek, startOfMonth, endOfMonth, startOfYear, endOfYear, isAfter, isBefore } from "date-fns";
+import { format, startOfDay, endOfDay, startOfWeek, endOfWeek, startOfMonth, endOfMonth, startOfYear, endOfYear } from "date-fns";
 import { fr } from "date-fns/locale";
 import type { DateRange } from "react-day-picker";
 
@@ -78,15 +78,23 @@ export default function Dashboard() {
   const [customRange, setCustomRange] = useState<DateRange | undefined>(undefined);
   const [txType, setTxType] = useState<TxType>("ALL");
 
-  const { data: summary, isLoading: isLoadingSummary } = useGetDashboardSummary({
-    query: { queryKey: getGetDashboardSummaryQueryKey() },
+  const periodRange = useMemo(() => getPeriodRange(period, customRange), [period, customRange]);
+
+  const summaryParams = useMemo(() => {
+    const params = new URLSearchParams();
+    if (periodRange?.from) params.set("from", periodRange.from.toISOString());
+    if (periodRange?.to)   params.set("to",   periodRange.to.toISOString());
+    return params.toString();
+  }, [periodRange]);
+
+  const { data: summary, isLoading: isLoadingSummary } = useQuery({
+    queryKey: ["dashboard-summary", summaryParams],
+    queryFn: () => customFetch<any>(`/api/dashboard/summary${summaryParams ? `?${summaryParams}` : ""}`),
   });
 
   const { data: volumeData, isLoading: isLoadingVolume } = useGetVolumeChart({
     query: { queryKey: getGetVolumeChartQueryKey() },
   });
-
-  const periodRange = useMemo(() => getPeriodRange(period, customRange), [period, customRange]);
 
   // Sort wallets: the one with the most recent transaction comes first
   const sortedWallets = useMemo(() => {
@@ -107,15 +115,10 @@ export default function Dashboard() {
 
   const filteredTransactions = useMemo(() => {
     if (!summary) return [];
-    return summary.recentTransactions.filter((tx) => {
-      const txDate = new Date(tx.createdAt);
-      const inRange = periodRange
-        ? !isBefore(txDate, periodRange.from) && !isAfter(txDate, periodRange.to)
-        : true;
-      const matchType = txType === "ALL" || tx.type === txType;
-      return inRange && matchType;
+    return summary.recentTransactions.filter((tx: any) => {
+      return txType === "ALL" || tx.type === txType;
     });
-  }, [summary, periodRange, txType]);
+  }, [summary, txType]);
 
   function rangeLabel(): string {
     if (period !== "custom") {
@@ -283,7 +286,7 @@ export default function Dashboard() {
               {PERIODS.map(({ key, label }) => (
                 <button
                   key={key}
-                  onClick={() => { setPeriod(key); setCustomDate(undefined); }}
+                  onClick={() => { setPeriod(key); setCustomRange(undefined); }}
                   className={`px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${
                     period === key && key !== "custom"
                       ? "bg-primary text-primary-foreground shadow-sm"
