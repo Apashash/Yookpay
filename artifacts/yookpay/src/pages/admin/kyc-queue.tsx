@@ -53,9 +53,12 @@ const DOC_TYPE_LABELS: Record<string, string> = {
 const STATUS_CONFIG: Record<string, { label: string; className: string; icon: any }> = {
   NOT_STARTED: { label: "Non démarré",  className: "text-muted-foreground",                                                                  icon: AlertCircle },
   PENDING:     { label: "En attente",   className: "text-amber-700 border-amber-200 bg-amber-50 dark:bg-amber-950/20 dark:text-amber-400",   icon: Clock },
-  VERIFIED:    { label: "Vérifié",      className: "text-green-700 border-green-200 bg-green-50 dark:bg-green-950/20 dark:text-green-400",   icon: CheckCircle2 },
+  VERIFIED:    { label: "Approuvé",     className: "text-green-700 border-green-200 bg-green-50 dark:bg-green-950/20 dark:text-green-400",   icon: CheckCircle2 },
+  APPROVED:    { label: "Approuvé",     className: "text-green-700 border-green-200 bg-green-50 dark:bg-green-950/20 dark:text-green-400",   icon: CheckCircle2 },
   REJECTED:    { label: "Rejeté",       className: "text-red-700 border-red-200 bg-red-50 dark:bg-red-950/20 dark:text-red-400",             icon: XCircle },
 };
+
+const isApproved = (s: string) => s === "VERIFIED" || s === "APPROVED";
 
 function fmtDate(d: string) {
   return new Date(d).toLocaleDateString("fr-FR", { day: "2-digit", month: "short", year: "numeric" });
@@ -159,11 +162,12 @@ export default function AdminKycQueue() {
   const submissions = data?.submissions ?? [];
   const filtered = submissions.filter((s) => {
     if (filter === "ALL") return true;
+    if (filter === "VERIFIED") return isApproved(s.profile.kycStatus) || isApproved(s.profile.kybStatus);
     return s.profile.kycStatus === filter || s.profile.kybStatus === filter;
   });
 
   const pendingCount   = submissions.filter((s) => s.profile.kycStatus === "PENDING" || s.profile.kybStatus === "PENDING").length;
-  const verifiedCount  = submissions.filter((s) => s.profile.kycStatus === "VERIFIED" && s.profile.kybStatus === "VERIFIED").length;
+  const verifiedCount  = submissions.filter((s) => isApproved(s.profile.kycStatus) && isApproved(s.profile.kybStatus)).length;
   const rejectedCount  = submissions.filter((s) => s.profile.kycStatus === "REJECTED" || s.profile.kybStatus === "REJECTED").length;
 
   const confirmAction = () => {
@@ -204,7 +208,7 @@ export default function AdminKycQueue() {
         <div className="space-y-3">
           {filtered.map((s) => (
             <Card key={s.userId} className={
-              (s.profile.kycStatus === "VERIFIED" && s.profile.kybStatus === "VERIFIED") ? "border-green-200 dark:border-green-800" :
+              (isApproved(s.profile.kycStatus) && isApproved(s.profile.kybStatus)) ? "border-green-200 dark:border-green-800" :
               (s.profile.kycStatus === "REJECTED" || s.profile.kybStatus === "REJECTED") ? "border-red-200 dark:border-red-800" : ""
             }>
               <CardContent className="pt-4 pb-4">
@@ -289,7 +293,7 @@ export default function AdminKycQueue() {
                   ))}
                 </div>
                 {/* KYC actions */}
-                {selected.profile.kycStatus !== "VERIFIED" && (
+                {!isApproved(selected.profile.kycStatus) && (
                   <div className="flex gap-2 flex-wrap">
                     <Button size="sm" className="gap-1.5 bg-green-600 hover:bg-green-700 text-white" onClick={() => setAction("kycVerify")}>
                       <CheckCircle2 className="h-3.5 w-3.5" />Valider KYC
@@ -356,7 +360,7 @@ export default function AdminKycQueue() {
                   <SignatureButton userId={selected.userId} />
                 )}
                 {/* KYB actions */}
-                {selected.profile.kybStatus !== "VERIFIED" && selected.profile.kybStatus !== "NOT_STARTED" && (
+                {!isApproved(selected.profile.kybStatus) && selected.profile.kybStatus !== "NOT_STARTED" && (
                   <div className="flex gap-2 flex-wrap">
                     <Button size="sm" className="gap-1.5 bg-green-600 hover:bg-green-700 text-white" onClick={() => setAction("kybVerify")}>
                       <CheckCircle2 className="h-3.5 w-3.5" />Valider KYB
