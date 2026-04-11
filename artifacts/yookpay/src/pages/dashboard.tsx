@@ -456,8 +456,8 @@ export default function Dashboard() {
           </CardContent>
         </Card>
 
-        <Card className="col-span-3">
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
+        <Card className="col-span-3 flex flex-col">
+          <CardHeader className="flex flex-row items-center justify-between pb-2 shrink-0">
             <div className="space-y-1">
               <CardTitle>Activité récente</CardTitle>
               <CardDescription>
@@ -466,50 +466,62 @@ export default function Dashboard() {
                   : `${filteredTransactions.length} transaction${filteredTransactions.length > 1 ? "s" : ""}`}
               </CardDescription>
             </div>
-            <Link href="/transactions" className="text-sm font-medium text-primary hover:underline">
+            <Link href="/transactions" className="text-sm font-medium text-primary hover:underline shrink-0">
               Voir tout
             </Link>
           </CardHeader>
-          <CardContent>
-            <div className="space-y-5 mt-2">
-              {filteredTransactions.length > 0 ? (
-                filteredTransactions.map((tx) => (
-                  <div key={tx.id} className="flex items-center">
-                    <div className={`mr-4 h-9 w-9 rounded-full flex items-center justify-center border flex-shrink-0 ${
-                      tx.type === "DEPOSIT"
-                        ? "bg-primary/10 text-primary border-primary/20"
-                        : tx.type === "WITHDRAWAL"
-                        ? "bg-rose-500/10 text-rose-500 border-rose-500/20"
-                        : "bg-amber-500/10 text-amber-500 border-amber-500/20"
-                    }`}>
-                      {tx.type === "DEPOSIT"
-                        ? <ArrowDownRight className="h-4 w-4" />
-                        : tx.type === "WITHDRAWAL"
-                        ? <ArrowUpRight className="h-4 w-4" />
-                        : <ArrowRightLeft className="h-4 w-4" />}
-                    </div>
-                    <div className="flex-1 space-y-0.5 min-w-0">
-                      <p className="text-sm font-medium leading-none">
-                        {tx.type === "DEPOSIT" ? "Dépôt" : tx.type === "WITHDRAWAL" ? "Retrait" : "Transfert"}
-                      </p>
-                      <p className="text-xs text-muted-foreground truncate">
-                        {formatDate(tx.createdAt)}
-                      </p>
-                    </div>
-                    <div className="flex flex-col items-end gap-1 ml-2">
-                      <div className="font-semibold text-sm">
-                        {tx.type === "WITHDRAWAL" ? "-" : "+"}{formatCurrency(tx.amount, tx.currency)}
+          <CardContent className="flex-1 overflow-hidden p-0">
+            <div className="overflow-y-auto max-h-[420px] px-6 pb-4">
+              <div className="space-y-4 mt-2">
+                {filteredTransactions.length > 0 ? (
+                  filteredTransactions.map((tx: any) => (
+                    <div key={tx.id} className="flex items-center">
+                      <div className={`mr-4 h-9 w-9 rounded-full flex items-center justify-center border flex-shrink-0 ${
+                        tx.type === "DEPOSIT"
+                          ? "bg-primary/10 text-primary border-primary/20"
+                          : tx.type === "WITHDRAWAL"
+                          ? "bg-rose-500/10 text-rose-500 border-rose-500/20"
+                          : "bg-amber-500/10 text-amber-500 border-amber-500/20"
+                      }`}>
+                        {tx.type === "DEPOSIT"
+                          ? <ArrowDownRight className="h-4 w-4" />
+                          : tx.type === "WITHDRAWAL"
+                          ? <ArrowUpRight className="h-4 w-4" />
+                          : <ArrowRightLeft className="h-4 w-4" />}
                       </div>
-                      {getStatusBadge(tx.status)}
+                      <div className="flex-1 space-y-0.5 min-w-0">
+                        <p className="text-sm font-medium leading-none">
+                          {tx.type === "DEPOSIT" ? "Dépôt" : tx.type === "WITHDRAWAL" ? "Retrait" : "Transfert"}
+                        </p>
+                        <p className="text-xs text-muted-foreground truncate">
+                          {formatDate(tx.createdAt)}
+                        </p>
+                      </div>
+                      <div className="flex flex-col items-end gap-1 ml-2">
+                        <div className="font-semibold text-sm">
+                          {tx.type === "WITHDRAWAL" ? "-" : "+"}{formatCurrency(tx.amount, tx.currency)}
+                        </div>
+                        {getStatusBadge(tx.status)}
+                      </div>
                     </div>
+                  ))
+                ) : (
+                  <div className="text-center py-10 text-muted-foreground text-sm">
+                    Aucune transaction trouvée pour cette période.
                   </div>
-                ))
-              ) : (
-                <div className="text-center py-10 text-muted-foreground text-sm">
-                  Aucune transaction trouvée pour cette période.
-                </div>
-              )}
+                )}
+              </div>
             </div>
+            {filteredTransactions.length > 0 && (
+              <div className="px-6 pb-4 pt-1 border-t border-border/50">
+                <Link
+                  href="/transactions"
+                  className="block w-full text-center text-sm font-medium text-primary hover:underline py-1"
+                >
+                  Voir les {filteredTransactions.length} transactions →
+                </Link>
+              </div>
+            )}
           </CardContent>
         </Card>
       </div>
