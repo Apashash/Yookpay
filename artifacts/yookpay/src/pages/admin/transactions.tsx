@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Link } from "wouter";
+import { Link, useLocation } from "wouter";
 import { customFetch } from "@workspace/api-client-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -14,8 +14,8 @@ import { COUNTRIES } from "@/lib/countries";
 import { formatDate } from "@/lib/format";
 import {
   ArrowDownLeft, ArrowUpRight, ArrowLeftRight,
-  ChevronLeft, ChevronRight, Search, X, Copy, Check,
-  ChevronDown, ChevronUp, ExternalLink, CheckCircle, XCircle, Loader2,
+  ChevronLeft, ChevronRight, ChevronDown, ChevronUp, Search, X, Copy, Check,
+  ExternalLink, CheckCircle, XCircle, Loader2,
 } from "lucide-react";
 import {
   Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter,
@@ -337,6 +337,7 @@ const TYPE_OPTIONS   = ["", "DEPOSIT", "WITHDRAWAL", "TRANSFER"];
 export default function AdminTransactions() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const [, navigate] = useLocation();
 
   // Transactions state
   const [page,         setPage]         = useState(1);
@@ -344,7 +345,6 @@ export default function AdminTransactions() {
   const [type,         setType]         = useState("");
   const [search,       setSearch]       = useState("");
   const [searchInput,  setSearchInput]  = useState("");
-  const [expandedId,   setExpandedId]   = useState<number | null>(null);
 
   // Exchange management state
   const [dialog,       setDialog]       = useState<ActionDialog>(null);
@@ -420,10 +420,6 @@ export default function AdminTransactions() {
   function applySearch() { setSearch(searchInput.trim()); setPage(1); }
   function clearFilters() { setStatus(""); setType(""); setSearch(""); setSearchInput(""); setPage(1); }
   const hasFilters = status || type || search;
-
-  function toggleRow(id: number) {
-    setExpandedId((prev) => (prev === id ? null : id));
-  }
 
   return (
     <div className="max-w-5xl mx-auto space-y-4">
@@ -645,12 +641,11 @@ export default function AdminTransactions() {
         ) : (
           <div className="divide-y">
             {data.transactions.map((tx) => {
-              const isOpen = expandedId === tx.id;
               return (
                 <div key={tx.id}>
                   {/* Main row — compact */}
                   <div
-                    onClick={() => toggleRow(tx.id)}
+                    onClick={() => navigate(`/admin/transactions/${tx.id}`)}
                     className="grid grid-cols-[1fr_auto] sm:grid-cols-[1fr_90px_100px_80px_70px_16px] gap-2 px-3 py-2 hover:bg-muted/30 cursor-pointer transition-colors items-center"
                   >
                     {/* User + ref */}
@@ -698,16 +693,11 @@ export default function AdminTransactions() {
                       <p className="text-xs font-semibold tabular-nums">{fmt(tx.amount, tx.currency)}</p>
                       <StatusBadge status={tx.status} />
                     </div>
-                    {/* Chevron */}
+                    {/* Arrow */}
                     <div className="hidden sm:flex justify-end">
-                      {isOpen
-                        ? <ChevronUp   className="h-3 w-3 text-muted-foreground" />
-                        : <ChevronDown className="h-3 w-3 text-muted-foreground" />}
+                      <ChevronRight className="h-3 w-3 text-muted-foreground" />
                     </div>
                   </div>
-
-                  {/* Expanded details */}
-                  {isOpen && <ExpandedDetail tx={tx} />}
                 </div>
               );
             })}
