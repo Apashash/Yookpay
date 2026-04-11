@@ -1181,11 +1181,17 @@ router.patch("/transactions/:id/status", async (req: AuthRequest, res) => {
     const meta = (tx.metadata ?? {}) as Record<string, unknown>;
     const adminNotes = notes ? { adminNote: notes, adminUpdatedAt: new Date().toISOString(), adminId: req.userId } : { adminUpdatedAt: new Date().toISOString(), adminId: req.userId };
 
-    await db.update(transactionsTable).set({
+    // Atomic update: only succeeds if status hasn't changed since we read it (prevents double-credit race)
+    const updateResult = await db.update(transactionsTable).set({
       status: newStatus,
       metadata: { ...meta, ...adminNotes },
       updatedAt: new Date(),
-    }).where(eq(transactionsTable.id, tx.id));
+    }).where(and(eq(transactionsTable.id, tx.id), eq(transactionsTable.status, oldStatus)));
+
+    if ((updateResult as any).rowCount === 0) {
+      res.status(409).json({ error: "Conflict", message: "Le statut a déjà été modifié par un autre acteur. Veuillez recharger la page." });
+      return;
+    }
 
     // ── Wallet adjustments ──────────────────────────────────────────────────
     const [wallet] = await db.select().from(walletsTable)

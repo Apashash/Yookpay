@@ -267,7 +267,7 @@ router.get("/:id", authMiddleware, async (req: AuthRequest, res) => {
           const newStatus = pixStatus.isSuccess ? "SUCCESS" : "FAILED";
           req.log.info({ txId: tx.id, pixStatus: pixStatus.state, newStatus }, "Auto-sync from PixPay status check");
 
-          await db
+          const syncResult = await db
             .update(transactionsTable)
             .set({
               status: newStatus,
@@ -278,9 +278,12 @@ router.get("/:id", authMiddleware, async (req: AuthRequest, res) => {
               },
               updatedAt: new Date(),
             })
-            .where(eq(transactionsTable.id, tx.id));
+            .where(and(eq(transactionsTable.id, tx.id), eq(transactionsTable.status, "PENDING")));
 
-          if (pixStatus.isSuccess && tx.type === "DEPOSIT") {
+          // Only touch wallet if this UPDATE actually claimed the row (prevents double-credit race)
+          const rowClaimed = (syncResult as any).rowCount > 0;
+
+          if (rowClaimed && pixStatus.isSuccess && tx.type === "DEPOSIT") {
             const [wallet] = await db
               .select()
               .from(walletsTable)
@@ -294,7 +297,7 @@ router.get("/:id", authMiddleware, async (req: AuthRequest, res) => {
                 .where(eq(walletsTable.id, wallet.id));
               req.log.info({ txId: tx.id, credit, currency: tx.currency }, "Auto-sync DEPOSIT credited wallet");
             }
-          } else if (pixStatus.isFailed && tx.type === "WITHDRAWAL") {
+          } else if (rowClaimed && pixStatus.isFailed && tx.type === "WITHDRAWAL") {
             const [wallet] = await db
               .select()
               .from(walletsTable)
@@ -1424,7 +1427,7 @@ router.post("/webhook", async (req, res) => {
       return;
     }
 
-    await db
+    const webhookResult = await db
       .update(transactionsTable)
       .set({
         status,
@@ -1432,7 +1435,14 @@ router.post("/webhook", async (req, res) => {
         metadata: { ...(tx.metadata as object), webhookAt: new Date().toISOString(), ...(metadata ?? {}) },
         updatedAt: new Date(),
       })
-      .where(eq(transactionsTable.id, tx.id));
+      .where(and(eq(transactionsTable.id, tx.id), eq(transactionsTable.status, "PENDING")));
+
+    // If rowCount = 0, someone else (admin or another webhook) already changed the status — skip wallet
+    if ((webhookResult as any).rowCount === 0) {
+      req.log.warn({ reference, txId: tx.id }, "Webhook: transaction already processed by another actor — skipping wallet");
+      res.json({ success: true, message: "Transaction already processed" });
+      return;
+    }
 
     if (status === "SUCCESS" && tx.type === "DEPOSIT") {
       const [wallet] = await db
