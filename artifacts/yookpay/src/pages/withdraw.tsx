@@ -84,7 +84,7 @@ export default function Withdraw() {
   // ─── USDT fee rates (user-specific) ───────────────────────────────────────
   const { data: usdtFees } = useQuery<{ depositRate: number; withdrawRate: number }>({
     queryKey: ["usdt-fee-rates"],
-    queryFn: () => customFetch("/api/transactions/usdt-fee-rates"),
+    queryFn: () => customFetch(`/api/transactions/usdt-fee-rates?_=${Date.now()}`),
   });
   const usdtWithdrawRate = usdtFees?.withdrawRate ?? 0.02;
   const usdtWithdrawPct  = (usdtWithdrawRate * 100).toFixed(0);
