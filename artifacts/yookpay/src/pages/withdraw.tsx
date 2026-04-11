@@ -3,7 +3,7 @@ import { KycGate } from "@/components/kyc-gate";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { useCreateWithdrawal, customFetch, getGetWalletsQueryKey, getGetDashboardSummaryQueryKey } from "@workspace/api-client-react";
+import { useCreateWithdrawal, useGetWallets, customFetch, getGetWalletsQueryKey, getGetDashboardSummaryQueryKey } from "@workspace/api-client-react";
 import { formatCurrency } from "@/lib/format";
 import { useToast } from "@/hooks/use-toast";
 import { useLocation } from "wouter";
@@ -79,6 +79,7 @@ export default function Withdraw() {
   const [feePreview, setFeePreview] = useState<FeePreview | null>(null);
   const [pendingResult, setPendingResult] = useState<WithdrawResult | null>(null);
   const [pollStatus, setPollStatus] = useState<PollStatus>("PENDING");
+  const { data: walletsData } = useGetWallets();
 
   // ─── Crypto withdraw mode ─────────────────────────────────────────────────
   const [withdrawMode, setWithdrawMode] = useState<"mobile" | "crypto">("mobile");
@@ -148,6 +149,30 @@ export default function Withdraw() {
   const operators = selectedCountry?.operators ?? [];
   const flow = operator ? getOperatorFlow(operator) : null;
   const countryMinAmount = selectedCountry?.minAmount ?? 200;
+
+  // Wallet balance for the selected country's currency
+  const walletCurrency = selectedCountry?.currency ?? null;
+  const walletBalance = walletCurrency
+    ? ((walletsData as { wallets?: { currency: string; balance: number }[] } | undefined)
+        ?.wallets?.find((w) => w.currency === walletCurrency)?.balance ?? 0)
+    : 0;
+
+  // MAX amount: ensures wallet reaches exactly 0 after fees
+  const handleMax = () => {
+    if (!walletBalance || walletBalance <= 0) return;
+    const rate = feePreview?.feeRate ?? 0.025;
+    let maxAmount: number;
+    if (feeBearer === "SENDER") {
+      // wallet debited = amount + fee = amount * (1 + rate)
+      // so amount = walletBalance / (1 + rate)
+      maxAmount = Math.floor(walletBalance / (1 + rate));
+    } else {
+      // wallet debited = amount exactly
+      maxAmount = Math.floor(walletBalance);
+    }
+    maxAmount = Math.max(maxAmount, 0);
+    form.setValue("amount", maxAmount, { shouldValidate: true });
+  };
 
   useEffect(() => {
     form.setValue("operator", "");
@@ -482,6 +507,20 @@ export default function Withdraw() {
                 )}
               />
 
+              {/* Solde disponible pour la devise du pays */}
+              {selectedCountry && (
+                <div className={`flex items-center justify-between rounded-lg px-3.5 py-2.5 text-sm border ${
+                  walletBalance > 0
+                    ? "bg-emerald-500/8 border-emerald-500/20 text-emerald-700 dark:text-emerald-400"
+                    : "bg-rose-500/8 border-rose-500/20 text-rose-600 dark:text-rose-400"
+                }`}>
+                  <span className="font-medium">Solde disponible ({selectedCountry.currency})</span>
+                  <span className="font-bold tabular-nums">
+                    {walletBalance.toLocaleString("fr-FR")} {selectedCountry.currency}
+                  </span>
+                </div>
+              )}
+
               {/* Opérateur */}
               {operators.length > 0 && (
                 <FormField
@@ -566,13 +605,33 @@ export default function Withdraw() {
                 name="amount"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>
-                      {feeBearer === "SENDER"
-                        ? `Montant que le destinataire recevra${currency ? ` (${currency})` : ""}`
-                        : `Montant total à débiter de votre wallet${currency ? ` (${currency})` : ""}`}
-                    </FormLabel>
+                    <div className="flex items-center justify-between mb-1">
+                      <FormLabel className="mb-0">
+                        {feeBearer === "SENDER"
+                          ? `Montant que le destinataire recevra${currency ? ` (${currency})` : ""}`
+                          : `Montant total à débiter de votre wallet${currency ? ` (${currency})` : ""}`}
+                      </FormLabel>
+                      {selectedCountry && walletBalance > 0 && (
+                        <button
+                          type="button"
+                          onClick={handleMax}
+                          className="text-[11px] font-bold uppercase tracking-wide text-primary hover:text-primary/80 border border-primary/30 hover:border-primary/60 rounded px-2 py-0.5 transition-colors"
+                        >
+                          MAX
+                        </button>
+                      )}
+                    </div>
                     <FormControl>
-                      <Input type="number" placeholder="1000" data-testid="input-amount" {...field} />
+                      <Input
+                        type="number"
+                        placeholder={
+                          selectedCountry && walletBalance > 0
+                            ? `min. ${countryMinAmount.toLocaleString("fr-FR")} — appuyez MAX pour le solde total`
+                            : "1000"
+                        }
+                        data-testid="input-amount"
+                        {...field}
+                      />
                     </FormControl>
                     {selectedCountry && (
                       <FormDescription>
