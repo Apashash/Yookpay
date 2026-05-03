@@ -39,7 +39,7 @@ outputType = "console"
 
 [[workflows.workflow.tasks]]
 task = "shell.exec"
-args = "PORT=8080 NODE_ENV=development pnpm --filter @workspace/api-server run build && PORT=8080 NODE_ENV=development pnpm --filter @workspace/api-server run start"
+args = "PORT=8080 NODE_ENV=development SUPABASE_DATABASE_URL='postgresql://postgres.tcgvodxxtbipghukgifv:kuLUu2FIpj42euRQ@aws-1-eu-west-2.pooler.supabase.com:6543/postgres' pnpm --filter @workspace/api-server run build && PORT=8080 NODE_ENV=development SUPABASE_DATABASE_URL='postgresql://postgres.tcgvodxxtbipghukgifv:kuLUu2FIpj42euRQ@aws-1-eu-west-2.pooler.supabase.com:6543/postgres' pnpm --filter @workspace/api-server run start"
 waitForPort = 8080
 
 [[workflows.workflow]]
