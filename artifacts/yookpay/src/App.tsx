@@ -28,6 +28,7 @@ import AdminExchanges from "@/pages/admin/exchanges";
 import AdminFees from "@/pages/admin/fees";
 import AdminSupportLinks from "@/pages/admin/support-links";
 import Landing from "@/pages/landing";
+import Health from "@/pages/health";
 import YookLink from "@/pages/yooklink";
 import YookLinkDetail from "@/pages/yooklink-detail";
 import Pay from "@/pages/pay";
@@ -74,6 +75,7 @@ function Router() {
   return (
     <Switch>
       <Route path="/" component={Landing} />
+      <Route path="/health" component={Health} />
       <Route path="/login" component={Login} />
       <Route path="/register" component={Register} />
       
