@@ -61682,9 +61682,9 @@ router.get("/healthz", (_req, res) => {
 });
 router.get("/healthz/db", async (_req, res) => {
   try {
-    await db.execute("select 1");
+    await pool.query("select 1");
     res.json({ status: "ok" });
-  } catch (error40) {
+  } catch (_error) {
     res.status(500).json({ status: "error" });
   }
 });
