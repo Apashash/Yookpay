@@ -69295,10 +69295,11 @@ async function startServer() {
   } catch (err) {
     logger.error({ err }, "Startup migrations failed");
   }
-  app_default.listen(port, () => {
+  const server = app_default.listen(port, () => {
     logger.info({ port }, "Server listening");
     startExpiryWorker();
-  }).on("error", (err) => {
+  });
+  server.on("error", (err) => {
     logger.error({ err }, "Error listening on port");
     process.exit(1);
   });

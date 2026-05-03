@@ -22,10 +22,12 @@ async function startServer(): Promise<void> {
     logger.error({ err }, "Startup migrations failed");
   }
 
-  app.listen(port, () => {
+  const server = app.listen(port, () => {
     logger.info({ port }, "Server listening");
     startExpiryWorker();
-  }).on("error", (err) => {
+  });
+
+  server.on("error", (err) => {
     logger.error({ err }, "Error listening on port");
     process.exit(1);
   });
