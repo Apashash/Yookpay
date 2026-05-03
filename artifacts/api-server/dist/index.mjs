@@ -69291,13 +69291,26 @@ if (Number.isNaN(port) || port <= 0) {
 }
 async function startServer() {
   try {
+    await pool.query("select 1");
+    logger.info(
+      {
+        dbHost: new URL(process.env.SUPABASE_DATABASE_URL || process.env.DATABASE_URL || "").hostname
+      },
+      "Database connection check passed"
+    );
+  } catch (err) {
+    logger.error({ err }, "Database connection check failed");
+  }
+  try {
     await runStartupMigrations();
   } catch (err) {
     logger.error({ err }, "Startup migrations failed");
   }
   const server = app_default.listen(port, () => {
     logger.info({ port }, "Server listening");
-    startExpiryWorker();
+    if (process.env.SKIP_EXPIRY_WORKER !== "true") {
+      startExpiryWorker();
+    }
   });
   server.on("error", (err) => {
     logger.error({ err }, "Error listening on port");
