@@ -69268,9 +69268,7 @@ function startExpiryWorker() {
 // server/index.ts
 var rawPort = process.env["PORT"];
 if (!rawPort) {
-  throw new Error(
-    "PORT environment variable is required but was not provided."
-  );
+  throw new Error("PORT environment variable is required but was not provided.");
 }
 var port = Number(rawPort);
 if (Number.isNaN(port) || port <= 0) {
@@ -69282,13 +69280,12 @@ async function startServer() {
   } catch (err) {
     logger.error({ err }, "Startup migrations failed");
   }
-  app_default.listen(port, (err) => {
-    if (err) {
-      logger.error({ err }, "Error listening on port");
-      process.exit(1);
-    }
+  app_default.listen(port, () => {
     logger.info({ port }, "Server listening");
     startExpiryWorker();
+  }).on("error", (err) => {
+    logger.error({ err }, "Error listening on port");
+    process.exit(1);
   });
 }
 void startServer();
