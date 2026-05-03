@@ -17,7 +17,13 @@ if (Number.isNaN(port) || port <= 0) {
   throw new Error(`Invalid PORT value: "${rawPort}"`);
 }
 
-runStartupMigrations().then(() => {
+async function startServer(): Promise<void> {
+  try {
+    await runStartupMigrations();
+  } catch (err) {
+    logger.error({ err }, "Startup migrations failed");
+  }
+
   app.listen(port, (err) => {
     if (err) {
       logger.error({ err }, "Error listening on port");
@@ -27,4 +33,6 @@ runStartupMigrations().then(() => {
     logger.info({ port }, "Server listening");
     startExpiryWorker();
   });
-});
+}
+
+void startServer();
