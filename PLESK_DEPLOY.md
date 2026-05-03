@@ -1,18 +1,24 @@
 # Guide de déploiement Plesk — YookPay
 
 ## Architecture
-Le backend Express (`app.js`) sert à la fois l'API (`/api/...`) et le frontend React (fichiers statiques).
-**Un seul processus Node.js suffit pour tout faire tourner.**
+
+Un seul fichier `dist/index.cjs` sert à la fois l'API Express et le frontend React (fichiers statiques dans `dist/public/`).
+
+```
+dist/
+  index.cjs                ← Startup file Plesk (backend bundlé, ~2.6MB, auto-suffisant)
+  pino-*.cjs               ← Workers pino (logging)
+  thread-stream-worker.cjs
+  public/
+    index.html             ← Frontend React buildé
+    assets/                ← JS/CSS bundlés par Vite
+```
 
 ---
 
 ## Étape 1 — Cloner le repo sur Plesk
 
-Dans Plesk > Git, connecte ton repo GitHub et fais un pull :
-```
-git clone https://github.com/TON_USER/TON_REPO.git .
-```
-ou via le panel Git de Plesk → **Pull**.
+Dans Plesk > Git, connecte ton repo GitHub et fais un pull.
 
 ---
 
@@ -24,16 +30,16 @@ Dans **Plesk > Node.js** :
 |---|---|
 | Application Mode | `production` |
 | Application Root | `/` (racine du repo) |
-| Application Startup File | `app.js` |
+| **Application Startup File** | **`dist/index.cjs`** |
 | Node.js version | `20` ou `22` |
 
-> ⚠️ **Pas besoin de lancer `npm install`** — le backend est déjà compilé et auto-suffisant dans `artifacts/api-server/dist/`.
+> ✅ **Pas besoin de npm install ni npm build** — tout est déjà compilé dans `dist/`.
 
 ---
 
 ## Étape 3 — Variables d'environnement dans Plesk
 
-Dans **Plesk > Node.js > Environment Variables**, ajoute :
+Dans **Plesk > Node.js > Environment Variables** :
 
 | Variable | Description |
 |---|---|
@@ -57,27 +63,53 @@ Dans **Plesk > Node.js > Environment Variables**, ajoute :
 
 Dans Plesk > Node.js → **Restart**.
 
-L'app sera disponible sur `https://ton-domaine.cybrancee.com`
+L'app sera disponible sur `https://ton-domaine.cybrancee.com` ✓
 
 ---
 
 ## Workflow quotidien (après mise à jour du code)
 
-1. Dans Replit : faire les modifications → le build se génère automatiquement
-2. Push vers GitHub
-3. Dans Plesk : **Git → Pull** puis **Node.js → Restart**
+1. Dans Replit : faire les modifications
+2. Lancer le build : `npm run build` (génère `dist/index.cjs` + `dist/public/`)
+3. Push vers GitHub
+4. Dans Plesk : **Git → Pull** puis **Node.js → Restart**
 
 C'est tout. ✓
 
 ---
 
+## Structure du projet
+
+```
+client/src/       ← Frontend React (source)
+server/           ← Backend Express (source)
+shared/           ← DB schema + types partagés
+dist/index.cjs    ← Build final backend (Plesk startup file)
+dist/public/      ← Build final frontend (servi par Express)
+```
+
+---
+
+## Commandes build
+
+```bash
+npm run build:frontend   # Vite → dist/public/
+npm run build:backend    # esbuild → dist/index.cjs
+npm run build            # Les deux ensemble
+```
+
+---
+
 ## En cas d'erreur
 
-### "PORT environment variable is required"
-→ Plesk assigne le PORT automatiquement. Vérifie que `app.js` est bien le startup file.
+### Erreur 500 au démarrage
+→ Vérifier que le startup file est bien `dist/index.cjs` (et non `app.js` ou `startup.js`)
 
 ### "password authentication failed for user postgres"
 → La variable `SUPABASE_DATABASE_URL` est manquante ou incorrecte dans Plesk.
 
 ### Pages blanches / 404 sur rafraîchissement
-→ Normal — Express gère le routage SPA. Vérifie que le startup file est `app.js` et non un fichier HTML.
+→ Normal — Express gère le routage SPA. Vérifie que le startup file est `dist/index.cjs`.
+
+### "PORT environment variable is required"
+→ Ne jamais ajouter PORT manuellement — Plesk l'assigne automatiquement.

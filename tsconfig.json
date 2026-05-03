@@ -1,16 +1,26 @@
 {
-  "extends": "./tsconfig.base.json",
-  "compileOnSave": false,
-  "files": [],
-  "references": [
-    {
-      "path": "./lib/db"
-    },
-    {
-      "path": "./lib/api-client-react"
-    },
-    {
-      "path": "./lib/api-zod"
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "lib": ["ES2022", "DOM", "DOM.Iterable"],
+    "jsx": "react-jsx",
+    "strict": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "resolveJsonModule": true,
+    "allowImportingTsExtensions": true,
+    "noEmit": true,
+    "baseUrl": ".",
+    "paths": {
+      "@workspace/db": ["./shared/db.ts"],
+      "@workspace/db/schema": ["./shared/schema/index.ts"],
+      "@workspace/api-zod": ["./shared/api-zod/index.ts"],
+      "@workspace/api-client-react": ["./client/src/lib/api/index.ts"],
+      "@/*": ["./client/src/*"],
+      "@assets/*": ["./attached_assets/*"]
     }
-  ]
+  },
+  "include": ["server/**/*", "client/src/**/*", "shared/**/*", "build.mjs", "vite.config.ts"],
+  "exclude": ["node_modules", "dist", "artifacts", "lib"]
 }

@@ -1,3 +1,3 @@
 "use strict";
 
-require("./startup.js");
+require("./dist/index.cjs");
