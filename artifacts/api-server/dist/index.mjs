@@ -63387,8 +63387,8 @@ var userFeesTable = pgTable("user_fees", {
 var { Pool: Pool3 } = esm_default;
 var connectionString = process.env.SUPABASE_DATABASE_URL || process.env.DATABASE_URL;
 if (!connectionString) {
-  throw new Error(
-    "SUPABASE_DATABASE_URL must be set."
+  console.error(
+    "[db] WARNING: SUPABASE_DATABASE_URL (or DATABASE_URL) is not set. Database queries will fail until this environment variable is configured."
   );
 }
 var pool = new Pool3({
@@ -69281,30 +69281,34 @@ function startExpiryWorker() {
 }
 
 // src/index.ts
-var rawPort = process.env["PORT"];
-if (!rawPort) {
-  throw new Error("PORT environment variable is required but was not provided.");
-}
+var rawPort = process.env["PORT"] ?? process.env["port"] ?? "3000";
 var port = Number(rawPort);
 if (Number.isNaN(port) || port <= 0) {
   throw new Error(`Invalid PORT value: "${rawPort}"`);
 }
 async function startServer() {
-  try {
-    await pool.query("select 1");
-    logger.info(
-      {
-        dbHost: new URL(process.env.SUPABASE_DATABASE_URL || process.env.DATABASE_URL || "").hostname
-      },
-      "Database connection check passed"
+  const dbUrl = process.env.SUPABASE_DATABASE_URL || process.env.DATABASE_URL;
+  if (!dbUrl) {
+    logger.error(
+      "SUPABASE_DATABASE_URL is not set \u2014 database queries will fail. Add it to your environment variables (cPanel \u2192 Node.js \u2192 Environment Variables)."
     );
-  } catch (err) {
-    logger.error({ err }, "Database connection check failed");
-  }
-  try {
-    await runStartupMigrations();
-  } catch (err) {
-    logger.error({ err }, "Startup migrations failed");
+  } else {
+    try {
+      await pool.query("select 1");
+      logger.info(
+        {
+          dbHost: new URL(dbUrl).hostname
+        },
+        "Database connection check passed"
+      );
+    } catch (err) {
+      logger.error({ err }, "Database connection check failed");
+    }
+    try {
+      await runStartupMigrations();
+    } catch (err) {
+      logger.error({ err }, "Startup migrations failed");
+    }
   }
   const server = app_default.listen(port, () => {
     logger.info({ port }, "Server listening");
