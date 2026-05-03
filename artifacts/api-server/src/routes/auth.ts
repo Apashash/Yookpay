@@ -1,5 +1,5 @@
 import { Router } from "express";
-import bcrypt from "bcrypt";
+import bcrypt from "bcryptjs";
 import { db } from "@workspace/db";
 import { usersTable, walletsTable } from "@workspace/db/schema";
 import { eq } from "drizzle-orm";

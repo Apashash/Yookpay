@@ -1,7 +1,7 @@
 # See https://docs.github.com/en/get-started/getting-started-with-git/ignoring-files for more about ignoring files.
 
 # compiled output
-dist
+# dist folders are committed for Plesk deployment (pre-built)
 tmp
 out-tsc
 *.tsbuildinfo
