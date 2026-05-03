@@ -3,7 +3,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { build as esbuild } from "esbuild";
 import esbuildPluginPino from "esbuild-plugin-pino";
-import { rm } from "node:fs/promises";
+import { rm, writeFile } from "node:fs/promises";
 
 // Plugins (e.g. 'esbuild-plugin-pino') may use `require` to resolve dependencies
 globalThis.require = createRequire(import.meta.url);
@@ -117,6 +117,21 @@ globalThis.__dirname = __bannerPath.dirname(globalThis.__filename);
     `,
     },
   });
+
+  // Write a CJS wrapper so cPanel/Passenger can use "dist/index.cjs" as the startup file.
+  // Node.js CJS modules support dynamic import() since v12, and cPanel typically runs Node ≥18.
+  const cjsWrapper = `'use strict';
+// CJS entry-point for cPanel / Passenger deployment.
+// The actual server is compiled as ESM (dist/index.mjs); this shim loads it dynamically.
+(async () => {
+  await import('./index.mjs');
+})().catch((err) => {
+  console.error(err);
+  process.exit(1);
+});
+`;
+  await writeFile(path.join(distDir, "index.cjs"), cjsWrapper, "utf8");
+  console.log("Wrote dist/index.cjs (cPanel startup shim)");
 }
 
 buildAll().catch((err) => {

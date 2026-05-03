@@ -68878,7 +68878,7 @@ app.get("/healthz", (_req, res) => {
   res.status(200).json({ status: "ok" });
 });
 app.use("/api", routes_default);
-var frontendDist = path.resolve(__dirname2, "../../yookpay/dist/public");
+var frontendDist = process.env.FRONTEND_DIST_PATH ? path.resolve(process.env.FRONTEND_DIST_PATH) : path.resolve(__dirname2, "../../yookpay/dist/public");
 app.use(import_express16.default.static(frontendDist));
 app.get(/^(?!\/api).*/, (_req, res) => {
   res.sendFile(path.join(frontendDist, "index.html"));
