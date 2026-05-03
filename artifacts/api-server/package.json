@@ -30,7 +30,7 @@
     "@types/jsonwebtoken": "^9.0.10",
     "@types/node": "catalog:",
     "bcrypt": "^6.0.0",
-    "esbuild": "^0.27.3",
+    "esbuild": "^0.25.8",
     "esbuild-plugin-pino": "^2.3.3",
     "express-rate-limit": "^8.3.2",
     "jsonwebtoken": "^9.0.3",
