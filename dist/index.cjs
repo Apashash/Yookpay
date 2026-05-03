@@ -63371,17 +63371,42 @@ var userFeesTable = pgTable("user_fees", {
 
 // shared/db.ts
 var { Pool: Pool3 } = esm_default;
-var connectionString = process.env.SUPABASE_DATABASE_URL || process.env.DATABASE_URL;
-if (!connectionString) {
-  throw new Error(
-    "SUPABASE_DATABASE_URL must be set."
-  );
+function getConnectionString() {
+  const url2 = process.env.SUPABASE_DATABASE_URL || process.env.DATABASE_URL;
+  if (!url2) {
+    throw new Error(
+      "SUPABASE_DATABASE_URL must be set. Add it in Plesk > Node.js > Environment Variables."
+    );
+  }
+  return url2;
 }
-var pool = new Pool3({
-  connectionString,
-  ssl: { rejectUnauthorized: false }
+var _pool = null;
+var _db = null;
+function getPool() {
+  if (!_pool) {
+    _pool = new Pool3({
+      connectionString: getConnectionString(),
+      ssl: { rejectUnauthorized: false }
+    });
+  }
+  return _pool;
+}
+function getDb() {
+  if (!_db) {
+    _db = drizzle(getPool(), { schema: schema_exports });
+  }
+  return _db;
+}
+var pool = new Proxy({}, {
+  get(_target, prop) {
+    return getPool()[prop];
+  }
 });
-var db = drizzle(pool, { schema: schema_exports });
+var db = new Proxy({}, {
+  get(_target, prop) {
+    return getDb()[prop];
+  }
+});
 
 // server/middlewares/authMiddleware.ts
 var import_jsonwebtoken = __toESM(require_jsonwebtoken());

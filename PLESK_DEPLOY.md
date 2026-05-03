@@ -2,23 +2,23 @@
 
 ## Architecture
 
-Un seul fichier `dist/index.cjs` sert à la fois l'API Express et le frontend React (fichiers statiques dans `dist/public/`).
+Un seul fichier `dist/index.cjs` sert à la fois l'API Express et le frontend React (fichiers statiques dans `dist/public/`). Tout est pré-compilé et commité dans git — **aucun npm run build côté Plesk**.
 
 ```
 dist/
-  index.cjs                ← Startup file Plesk (backend bundlé, ~2.6MB, auto-suffisant)
+  index.cjs                ← Startup file Plesk (backend bundlé, auto-suffisant)
   pino-*.cjs               ← Workers pino (logging)
   thread-stream-worker.cjs
   public/
-    index.html             ← Frontend React buildé
-    assets/                ← JS/CSS bundlés par Vite
+    index.html             ← Frontend React
+    assets/                ← JS/CSS minifiés
 ```
 
 ---
 
-## Étape 1 — Cloner le repo sur Plesk
+## Étape 1 — Cloner / Pull le repo
 
-Dans Plesk > Git, connecte ton repo GitHub et fais un pull.
+Dans **Plesk > Git** : connecte le repo GitHub et clique **Pull**.
 
 ---
 
@@ -30,40 +30,52 @@ Dans **Plesk > Node.js** :
 |---|---|
 | Application Mode | `production` |
 | Application Root | `/` (racine du repo) |
-| **Application Startup File** | **`dist/index.cjs`** |
-| Node.js version | `20` ou `22` |
+| **Application Startup File** | **`startup.js`** |
+| Node.js version | `21` (ou `20` / `22` si disponible) |
 
-> ✅ **Pas besoin de npm install ni npm build** — tout est déjà compilé dans `dist/`.
+> ⚠️ **Le startup file doit être `startup.js`**, pas `app.js` ni `dist/index.cjs` directement.
+> `startup.js` configure le PORT et l'env avant de charger `dist/index.cjs`.
 
 ---
 
 ## Étape 3 — Variables d'environnement dans Plesk
 
-Dans **Plesk > Node.js > Environment Variables** :
+Dans **Plesk > Node.js > Environment Variables**, ajouter :
 
-| Variable | Description |
-|---|---|
-| `PORT` | Assigné automatiquement par Plesk — laisser vide |
-| `NODE_ENV` | `production` |
-| `SUPABASE_DATABASE_URL` | `postgresql://postgres.XXXXX:MOT_DE_PASSE@aws-1-eu-west-2.pooler.supabase.com:6543/postgres` |
-| `SESSION_SECRET` | Une longue chaîne aléatoire secrète |
-| `APP_URL` | `https://ton-domaine.cybrancee.com` |
-| `PIXPAY_API_KEY_XAF` | Clé PixPay pour XAF |
-| `PIXPAY_API_KEY_XOF` | Clé PixPay pour XOF |
-| `PIXPAY_API_KEY_CDF` | Clé PixPay pour CDF |
-| `PIXPAY_ENV` | `production` (ou `sandbox` pour les tests) |
-| `NOWPAYMENTS_API_KEY` | Clé NowPayments |
-| `NOWPAYMENTS_IPN_SECRET` | Secret IPN NowPayments |
-| `NOWPAYMENTS_EMAIL` | Email NowPayments |
-| `NOWPAYMENTS_PASSWORD` | Mot de passe NowPayments |
+| Variable | Valeur | Obligatoire |
+|---|---|---|
+| `NODE_ENV` | `production` | ✅ |
+| `SUPABASE_DATABASE_URL` | `postgresql://postgres.XXXXX:PASSWORD@aws-1-eu-west-2.pooler.supabase.com:6543/postgres` | ✅ |
+| `SESSION_SECRET` | Une longue chaîne aléatoire (ex: 64 caractères) | ✅ |
+| `APP_URL` | `https://Yook.ashtechpay.top` | ✅ |
+| `PIXPAY_API_KEY_XAF` | Clé PixPay pour XAF | selon usage |
+| `PIXPAY_API_KEY_XOF` | Clé PixPay pour XOF | selon usage |
+| `PIXPAY_API_KEY_CDF` | Clé PixPay pour CDF | selon usage |
+| `PIXPAY_ENV` | `production` (ou `sandbox`) | selon usage |
+| `NOWPAYMENTS_API_KEY` | Clé NowPayments | selon usage |
+| `NOWPAYMENTS_IPN_SECRET` | Secret IPN NowPayments | selon usage |
+| `NOWPAYMENTS_EMAIL` | Email NowPayments | selon usage |
+| `NOWPAYMENTS_PASSWORD` | Mot de passe NowPayments | selon usage |
+
+> ❌ **Ne pas ajouter `PORT`** — Plesk l'assigne automatiquement.
 
 ---
 
-## Étape 4 — Démarrer
+## Étape 4 — NPM Install dans Plesk
+
+Dans Plesk > Node.js → cliquer **NPM Install**.
+
+Les warnings `EBADENGINE` pour vite/react sont normaux et n'empêchent pas le fonctionnement (le build est déjà dans `dist/`, vite n'est pas exécuté côté serveur).
+
+---
+
+## Étape 5 — Démarrer
 
 Dans Plesk > Node.js → **Restart**.
 
-L'app sera disponible sur `https://ton-domaine.cybrancee.com` ✓
+L'app sera disponible sur `https://Yook.ashtechpay.top` ✓
+
+Tester : `https://Yook.ashtechpay.top/healthz` doit renvoyer `{"status":"ok"}`
 
 ---
 
@@ -78,38 +90,22 @@ C'est tout. ✓
 
 ---
 
-## Structure du projet
+## Dépannage
 
-```
-client/src/       ← Frontend React (source)
-server/           ← Backend Express (source)
-shared/           ← DB schema + types partagés
-dist/index.cjs    ← Build final backend (Plesk startup file)
-dist/public/      ← Build final frontend (servi par Express)
-```
+### Erreur : "dist/index.cjs introuvable"
+→ Le dossier `dist/` n'a pas été commité dans git. Vérifier que `.gitignore` n'exclut pas `dist/`.
 
----
-
-## Commandes build
-
-```bash
-npm run build:frontend   # Vite → dist/public/
-npm run build:backend    # esbuild → dist/index.cjs
-npm run build            # Les deux ensemble
-```
-
----
-
-## En cas d'erreur
+### Erreur : "SUPABASE_DATABASE_URL must be set"
+→ La variable d'environnement est absente dans Plesk > Node.js > Environment Variables.
 
 ### Erreur 500 au démarrage
-→ Vérifier que le startup file est bien `dist/index.cjs` (et non `app.js` ou `startup.js`)
+→ Vérifier les logs Plesk. Cause la plus fréquente : `SUPABASE_DATABASE_URL` manquant.
 
 ### "password authentication failed for user postgres"
-→ La variable `SUPABASE_DATABASE_URL` est manquante ou incorrecte dans Plesk.
+→ Le mot de passe dans `SUPABASE_DATABASE_URL` est incorrect ou le token Supabase a expiré.
 
 ### Pages blanches / 404 sur rafraîchissement
-→ Normal — Express gère le routage SPA. Vérifie que le startup file est `dist/index.cjs`.
+→ Normal — Express gère le routage SPA. Vérifier que le startup file est `startup.js`.
 
-### "PORT environment variable is required"
-→ Ne jamais ajouter PORT manuellement — Plesk l'assigne automatiquement.
+### Les warnings EBADENGINE dans npm install
+→ Ce sont des avertissements sans conséquence. `dist/` est pré-compilé, vite n'est pas utilisé côté serveur. Cliquer **Done** et continuer.
