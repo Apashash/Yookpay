@@ -68750,7 +68750,7 @@ app.use(import_express16.default.urlencoded({ extended: true, limit: "50mb" }));
 app.use("/api", routes_default);
 var frontendDist = path.resolve(__dirname2, "../../yookpay/dist/public");
 app.use(import_express16.default.static(frontendDist));
-app.get(/(.*)/, (_req, res) => {
+app.get(/^(?!\/api).*/, (_req, res) => {
   res.sendFile(path.join(frontendDist, "index.html"));
 });
 var app_default = app;

@@ -28,6 +28,7 @@ if (!basePath) {
 
 export default defineConfig({
   base: basePath,
+  publicDir: "public",
   plugins: [
     react(),
     tailwindcss(),
