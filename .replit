@@ -15,6 +15,43 @@ args = ["pnpm", "store", "prune"]
 env = { "CI" = "true" }
 
 [workflows]
+runButton = "Project"
+
+[[workflows.workflow]]
+name = "Project"
+mode = "parallel"
+author = "agent"
+
+[[workflows.workflow.tasks]]
+task = "workflow.run"
+args = "Start Backend"
+
+[[workflows.workflow.tasks]]
+task = "workflow.run"
+args = "Start application"
+
+[[workflows.workflow]]
+name = "Start Backend"
+author = "agent"
+
+[workflows.workflow.metadata]
+outputType = "console"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "PORT=8080 NODE_ENV=development pnpm --filter @workspace/api-server run build && PORT=8080 NODE_ENV=development pnpm --filter @workspace/api-server run start"
+waitForPort = 8080
+
+[[workflows.workflow]]
+name = "Start application"
+author = "agent"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "PORT=18182 BASE_PATH=/ pnpm --filter @workspace/yookpay run dev"
+
+[workflows.workflow.metadata]
+outputType = "webview"
 
 [agent]
 stack = "PNPM_WORKSPACE"
