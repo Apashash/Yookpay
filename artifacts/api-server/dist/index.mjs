@@ -68747,6 +68747,9 @@ app.use(
 app.use((0, import_cors.default)());
 app.use(import_express16.default.json({ limit: "50mb" }));
 app.use(import_express16.default.urlencoded({ extended: true, limit: "50mb" }));
+app.get("/healthz", (_req, res) => {
+  res.status(200).json({ status: "ok" });
+});
 app.use("/api", routes_default);
 var frontendDist = path.resolve(__dirname2, "../../yookpay/dist/public");
 app.use(import_express16.default.static(frontendDist));
