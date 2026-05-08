@@ -80,11 +80,16 @@ export default function Register() {
           setAuth(res.token, res.user);
           toast({ title: "Compte créé", description: "Bienvenue sur YookPay !" });
         },
-        onError: (err: { error?: { message?: string } }) => {
+        onError: (err: unknown) => {
+          const apiErr = err as { data?: { error?: string; message?: string }; status?: number };
+          const serverMsg = apiErr.data?.message ?? "";
+          const isEmailTaken = apiErr.data?.error === "Conflict" || serverMsg === "Email already registered";
           toast({
             variant: "destructive",
-            title: "Échec de l'inscription",
-            description: err.error?.message || "Une erreur s'est produite lors de la création du compte.",
+            title: isEmailTaken ? "Email déjà utilisé" : "Échec de l'inscription",
+            description: isEmailTaken
+              ? "Un compte existe déjà avec cet email. Veuillez vous connecter."
+              : serverMsg || "Une erreur s'est produite lors de la création du compte.",
           });
         },
       }
