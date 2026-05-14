@@ -1,16 +1,30 @@
-# Guide de déploiement Plesk — YookPay
+# Déploiement Plesk — YookPay
 
-## Workflow de déploiement
+## Workflow complet
 
 ```
-Git push → Plesk : git pull → bash deploy.sh → Restart
+[Replit]  bash deploy.sh
+[Replit]  git add -A && git commit -m "build" && git push
+
+[Plesk]   git pull
+[Plesk]   Restart
 ```
 
-C'est tout. Le script `deploy.sh` fait tout automatiquement.
+C'est tout. Aucune installation ni build côté Plesk — tout est déjà compilé dans `dist/`.
 
 ---
 
-## Configuration Plesk (à faire une seule fois)
+## Pourquoi ça marche sans installation sur Plesk
+
+- Le backend est compilé en un seul fichier autonome : `artifacts/api-server/dist/index.mjs`  
+  (toutes les dépendances sont bundlées à l'intérieur via esbuild)
+- Le frontend est compilé en fichiers statiques : `artifacts/yookpay/dist/public/`  
+  (servis directement par Express)
+- Ces fichiers `dist/` sont **committés dans Git** — Plesk n'a qu'à les récupérer
+
+---
+
+## Configuration Plesk (une seule fois)
 
 ### Application Startup File
 ```
@@ -24,76 +38,43 @@ startup.js
 
 ### Variables d'environnement (Plesk → Node.js → Environment Variables)
 
-| Variable               | Description                                      | Obligatoire |
-|------------------------|--------------------------------------------------|-------------|
-| `NODE_ENV`             | `production`                                     | ✅           |
-| `SUPABASE_DATABASE_URL`| URL PostgreSQL Supabase                          | ✅           |
-| `SESSION_SECRET`       | Clé secrète JWT (chaîne longue et aléatoire)     | ✅           |
-| `APP_URL`              | URL publique (ex: `https://yookpay.com`)         | ✅           |
-| `PIXPAY_API_KEY_XAF`   | Clé API PixPay — Cameroun (XAF)                 | ✅           |
-| `PIXPAY_API_KEY_XOF`   | Clé API PixPay — Sénégal/Afrique de l'Ouest (XOF)| ✅          |
-| `PIXPAY_API_KEY_CDF`   | Clé API PixPay — RDC (CDF)                      | ✅           |
-| `PIXPAY_ENV`           | `production` ou `sandbox`                        | ✅           |
-| `NOWPAYMENTS_API_KEY`  | Clé API NOWPayments (USDT)                       | ✅           |
-| `NOWPAYMENTS_IPN_SECRET`| Secret IPN NOWPayments                          | ✅           |
+| Variable                 | Exemple / Description                          |
+|--------------------------|------------------------------------------------|
+| `NODE_ENV`               | `production`                                   |
+| `SUPABASE_DATABASE_URL`  | URL PostgreSQL Supabase (port 6543)            |
+| `SESSION_SECRET`         | Clé JWT longue et aléatoire                    |
+| `APP_URL`                | `https://yookpay.com`                          |
+| `PIXPAY_API_KEY_XAF`     | Clé PixPay Cameroun                            |
+| `PIXPAY_API_KEY_XOF`     | Clé PixPay Sénégal / Afrique de l'Ouest        |
+| `PIXPAY_API_KEY_CDF`     | Clé PixPay RDC                                 |
+| `PIXPAY_ENV`             | `production`                                   |
+| `NOWPAYMENTS_API_KEY`    | Clé NOWPayments (USDT)                         |
+| `NOWPAYMENTS_IPN_SECRET` | Secret IPN NOWPayments                         |
 
 > ⚠️ Ne pas définir `PORT` — Plesk le gère automatiquement.
 
 ---
 
-## Déploiement initial (première fois)
+## Migrations de base de données
 
-1. Cloner le dépôt sur le serveur Plesk
-2. Configurer les variables d'environnement ci-dessus
-3. Exécuter le script de déploiement :
-   ```bash
-   bash deploy.sh
-   ```
-4. Appliquer le schéma de base de données (**une seule fois**) :
-   ```bash
-   pnpm --filter @workspace/db run push
-   ```
-5. Dans Plesk : configurer `startup.js` comme fichier de démarrage
-6. Redémarrer l'application
-
----
-
-## Mises à jour suivantes (workflow normal)
-
+À exécuter **sur Replit**, uniquement si le schéma a changé :
 ```bash
-git pull
-bash deploy.sh
-# Puis : Restart dans Plesk
+pnpm --filter @workspace/db run push
 ```
-
-> Les migrations de base de données (`pnpm --filter @workspace/db run push`) ne sont nécessaires que si le schéma a changé. Ne pas lancer cette commande à chaque déploiement — elle peut supprimer des données si le schéma a évolué.
+Ne pas lancer à chaque déploiement.
 
 ---
 
-## Structure des fichiers compilés
+## Structure des fichiers déployés
 
 ```
-startup.js                              ← Point d'entrée Plesk
+startup.js                                ← Point d'entrée Plesk
 artifacts/
-  api-server/
-    dist/
-      index.cjs                         ← Backend compilé (démarré par startup.js)
-      index.mjs                         ← Bundle ESM principal
-      pino-*.mjs                        ← Workers de logs
-  yookpay/
-    dist/
-      public/                           ← Frontend React compilé (servi par Express)
-        index.html
-        assets/
+  api-server/dist/
+    index.cjs                             ← Wrapper CJS (chargé par startup.js)
+    index.mjs                             ← Bundle backend complet (auto-contenu)
+    pino-*.mjs                            ← Workers de logs
+  yookpay/dist/public/
+    index.html                            ← Frontend React
+    assets/                               ← JS + CSS compilés
 ```
-
----
-
-## Ce que fait le backend au démarrage
-
-1. Connexion à la base de données PostgreSQL
-2. Application des migrations SQL intégrées
-3. Démarrage du serveur Express
-4. Service du frontend React depuis `artifacts/yookpay/dist/public/`
-5. Exposition de l'API sur `/api/*`
-6. Démarrage du worker d'expiration des transactions
