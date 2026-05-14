@@ -1,60 +1,99 @@
 # Guide de déploiement Plesk — YookPay
 
-## Structure
+## Workflow de déploiement
 
-- `client/src/` : frontend React
-- `server/` : backend Express
-- `shared/` : schémas/types partagés
-- `dist/index.cjs` : build final backend prêt pour Plesk
+```
+Git push → Plesk : git pull → bash deploy.sh → Restart
+```
 
-## Déploiement Plesk
+C'est tout. Le script `deploy.sh` fait tout automatiquement.
 
-1. `npm run build`
-2. Plesk pointe sur `dist/index.cjs`
-3. Variables d’environnement configurées dans Plesk
-4. L’app sert le frontend compilé + API Express sur le même serveur
+---
 
-## Entrée / démarrage
+## Configuration Plesk (à faire une seule fois)
 
-- Dev : `npm run dev`
-- Prod build : `npm run build`
-- Entrée Plesk : `dist/index.cjs`
+### Application Startup File
+```
+startup.js
+```
 
-## Fichiers importants
+### Node.js version
+```
+20 ou supérieure
+```
 
-- `client/src/App.tsx` — routing frontend
-- `client/src/pages/` — pages React
-- `client/src/components/` — composants UI
-- `server/index.ts` — serveur Express principal
-- `server/routes.ts` — routes API
-- `server/storage.ts` — couche data
-- `shared/schema.ts` — schémas + types partagés
+### Variables d'environnement (Plesk → Node.js → Environment Variables)
 
-## Flux
+| Variable               | Description                                      | Obligatoire |
+|------------------------|--------------------------------------------------|-------------|
+| `NODE_ENV`             | `production`                                     | ✅           |
+| `SUPABASE_DATABASE_URL`| URL PostgreSQL Supabase                          | ✅           |
+| `SESSION_SECRET`       | Clé secrète JWT (chaîne longue et aléatoire)     | ✅           |
+| `APP_URL`              | URL publique (ex: `https://yookpay.com`)         | ✅           |
+| `PIXPAY_API_KEY_XAF`   | Clé API PixPay — Cameroun (XAF)                 | ✅           |
+| `PIXPAY_API_KEY_XOF`   | Clé API PixPay — Sénégal/Afrique de l'Ouest (XOF)| ✅          |
+| `PIXPAY_API_KEY_CDF`   | Clé API PixPay — RDC (CDF)                      | ✅           |
+| `PIXPAY_ENV`           | `production` ou `sandbox`                        | ✅           |
+| `NOWPAYMENTS_API_KEY`  | Clé API NOWPayments (USDT)                       | ✅           |
+| `NOWPAYMENTS_IPN_SECRET`| Secret IPN NOWPayments                          | ✅           |
 
-- React rend le frontend
-- Express sert l’API
-- `shared/schema.ts` garde les types synchronisés
-- `npm run build` compile le tout en `dist/index.cjs`
-- Plesk exécute ce fichier
+> ⚠️ Ne pas définir `PORT` — Plesk le gère automatiquement.
 
-## Ce qui est préparé
+---
 
-- build unique prêt serveur
-- pas de proxy Vite à configurer
-- frontend/backend sur le même runtime
-- support des variables d’environnement
+## Déploiement initial (première fois)
 
-## Configuration Plesk
+1. Cloner le dépôt sur le serveur Plesk
+2. Configurer les variables d'environnement ci-dessus
+3. Exécuter le script de déploiement :
+   ```bash
+   bash deploy.sh
+   ```
+4. Appliquer le schéma de base de données (**une seule fois**) :
+   ```bash
+   pnpm --filter @workspace/db run push
+   ```
+5. Dans Plesk : configurer `startup.js` comme fichier de démarrage
+6. Redémarrer l'application
 
-- Application Startup File : `dist/index.cjs`
-- Node.js version : 21 ou 22
-- `NODE_ENV=production`
-- `SUPABASE_DATABASE_URL` défini
-- `SESSION_SECRET` défini
-- `APP_URL` défini
+---
 
-## Notes
+## Mises à jour suivantes (workflow normal)
 
-- Ne pas modifier les workflows
-- Ne pas forcer `PORT` dans Plesk
+```bash
+git pull
+bash deploy.sh
+# Puis : Restart dans Plesk
+```
+
+> Les migrations de base de données (`pnpm --filter @workspace/db run push`) ne sont nécessaires que si le schéma a changé. Ne pas lancer cette commande à chaque déploiement — elle peut supprimer des données si le schéma a évolué.
+
+---
+
+## Structure des fichiers compilés
+
+```
+startup.js                              ← Point d'entrée Plesk
+artifacts/
+  api-server/
+    dist/
+      index.cjs                         ← Backend compilé (démarré par startup.js)
+      index.mjs                         ← Bundle ESM principal
+      pino-*.mjs                        ← Workers de logs
+  yookpay/
+    dist/
+      public/                           ← Frontend React compilé (servi par Express)
+        index.html
+        assets/
+```
+
+---
+
+## Ce que fait le backend au démarrage
+
+1. Connexion à la base de données PostgreSQL
+2. Application des migrations SQL intégrées
+3. Démarrage du serveur Express
+4. Service du frontend React depuis `artifacts/yookpay/dist/public/`
+5. Exposition de l'API sur `/api/*`
+6. Démarrage du worker d'expiration des transactions

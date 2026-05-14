@@ -1,3 +1,4 @@
 "use strict";
 
-require("./dist/index.cjs");
+// Alias de startup.js — même point d'entrée Plesk
+require("./startup.js");
