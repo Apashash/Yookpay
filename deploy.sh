@@ -30,6 +30,16 @@ echo "▶ Build du backend Express..."
 pnpm --filter @workspace/api-server run build
 echo "✓ Backend compilé → artifacts/api-server/dist/index.cjs"
 
+# --- Mise à jour du point d'entrée Plesk (dist/index.cjs à la racine) ---
+mkdir -p dist
+cat > dist/index.cjs << 'EOF'
+'use strict';
+// Point d'entrée Plesk — redirige vers le backend compilé.
+// Ce fichier est régénéré automatiquement par deploy.sh à chaque build.
+require('../artifacts/api-server/dist/index.cjs');
+EOF
+echo "✓ dist/index.cjs (racine) mis à jour → pointe vers artifacts/api-server/dist/"
+
 echo ""
 echo "========================================="
 echo "  ✅ Build terminé !"
