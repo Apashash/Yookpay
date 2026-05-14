@@ -69272,6 +69272,10 @@ if (Number.isNaN(port) || port <= 0) {
   throw new Error(`Invalid PORT value: "${rawPort}"`);
 }
 async function startServer() {
+  const pixpayKeys = ["PIXPAY_API_KEY_XAF", "PIXPAY_API_KEY_XOF", "PIXPAY_API_KEY_CDF", "PIXPAY_API_KEY"];
+  for (const k of pixpayKeys) {
+    logger.info(`[ENV CHECK] ${k} = ${process.env[k] ? "SET \u2713" : "NOT SET \u2717"}`);
+  }
   const dbUrl = process.env.SUPABASE_DATABASE_URL || process.env.DATABASE_URL;
   if (!dbUrl) {
     logger.error(

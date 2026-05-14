@@ -12,6 +12,12 @@ if (Number.isNaN(port) || port <= 0) {
 }
 
 async function startServer(): Promise<void> {
+  // Diagnostic — log which PixPay keys are detected at startup
+  const pixpayKeys = ["PIXPAY_API_KEY_XAF", "PIXPAY_API_KEY_XOF", "PIXPAY_API_KEY_CDF", "PIXPAY_API_KEY"];
+  for (const k of pixpayKeys) {
+    logger.info(`[ENV CHECK] ${k} = ${process.env[k] ? "SET ✓" : "NOT SET ✗"}`);
+  }
+
   const dbUrl = process.env.SUPABASE_DATABASE_URL || process.env.DATABASE_URL;
 
   if (!dbUrl) {
