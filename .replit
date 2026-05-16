@@ -35,7 +35,7 @@ outputType = "webview"
 
 [[workflows.workflow.tasks]]
 task = "shell.exec"
-args = "PORT=5000 BASE_PATH=/ pnpm --filter @workspace/yookpay run dev"
+args = "PORT=5000 BACKEND_PORT=8080 node -e \"const { spawn } = require('child_process'); const be = spawn('pnpm', ['--filter', '@workspace/api-server', 'run', 'dev'], { env: { ...process.env, PORT: '8080' }, stdio: 'inherit' }); const fe = spawn('pnpm', ['--filter', '@workspace/yookpay', 'run', 'dev'], { env: { ...process.env, PORT: '5000', BACKEND_PORT: '8080', BASE_PATH: '/' }, stdio: 'inherit' }); be.on('exit', c => process.exit(c)); fe.on('exit', c => process.exit(c));\""
 waitForPort = 5000
 
 [agent]
@@ -63,7 +63,3 @@ PIXPAY_ENV = "production"
 [[ports]]
 localPort = 5000
 externalPort = 80
-
-[[ports]]
-localPort = 8080
-externalPort = 8080
