@@ -4,7 +4,7 @@ import { transactionsTable, walletsTable } from "@workspace/db/schema";
 import { eq, and } from "drizzle-orm";
 import { verifyNpIpnSignature } from "../lib/nowpayments";
 import pino from "pino";
-import { dispatchWebhook, buildTxPayload } from "../lib/webhookDispatch";
+import { dispatchWebhook, buildTxPayload, getNotificationUrl } from "../lib/webhookDispatch";
 
 const router = Router();
 const logger = pino({ level: "info" });
@@ -79,7 +79,7 @@ router.post("/ipn", async (req, res) => {
         })
         .where(eq(transactionsTable.id, tx.id));
 
-      dispatchWebhook(tx.userId, buildTxPayload({ ...tx, status: "SUCCESS", updatedAt: successUpdatedAt }));
+      dispatchWebhook(tx.userId, buildTxPayload({ ...tx, status: "SUCCESS", updatedAt: successUpdatedAt }), getNotificationUrl(tx.metadata));
       logger.info({ txId: tx.id, paymentId, actuallyPaid }, "NowPayments IPN: USDT credited");
     } else if (isFailed) {
       const failedUpdatedAt = new Date();
@@ -93,7 +93,7 @@ router.post("/ipn", async (req, res) => {
         })
         .where(eq(transactionsTable.id, tx.id));
 
-      dispatchWebhook(tx.userId, buildTxPayload({ ...tx, status: "FAILED", updatedAt: failedUpdatedAt }));
+      dispatchWebhook(tx.userId, buildTxPayload({ ...tx, status: "FAILED", updatedAt: failedUpdatedAt }), getNotificationUrl(tx.metadata));
       logger.info({ txId: tx.id, paymentId }, "NowPayments IPN: payment failed");
     } else {
       // Update status in metadata only

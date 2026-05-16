@@ -5,7 +5,7 @@ import { eq, and } from "drizzle-orm";
 import { sql } from "drizzle-orm";
 import type { Request, Response } from "express";
 import { createNotification } from "../lib/notify";
-import { dispatchWebhook, buildTxPayload } from "../lib/webhookDispatch";
+import { dispatchWebhook, buildTxPayload, getNotificationUrl } from "../lib/webhookDispatch";
 
 const router = Router();
 
@@ -80,7 +80,7 @@ router.post("/pixpay", async (req: Request, res: Response) => {
       .where(eq(transactionsTable.id, tx.id));
 
     // Fire-and-forget webhook notification to merchant
-    dispatchWebhook(tx.userId, buildTxPayload({ ...tx, status: newStatus, updatedAt }));
+    dispatchWebhook(tx.userId, buildTxPayload({ ...tx, status: newStatus, updatedAt }), getNotificationUrl(tx.metadata));
 
     if (isSuccess) {
       if (tx.type === "DEPOSIT") {

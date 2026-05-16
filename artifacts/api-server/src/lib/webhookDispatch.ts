@@ -26,26 +26,42 @@ export interface WebhookPayload {
 }
 
 /**
- * Fire-and-forget: look up the user's webhookUrl and POST the payload.
- * Never throws — failures are logged and silently swallowed so they
- * never block or break the caller (IPN handlers, expiry worker, etc.).
+ * Fire-and-forget webhook dispatch.
+ *
+ * Priority:
+ *  1. `notificationUrl` — per-transaction URL supplied in the original API
+ *     request and stored in metadata (merchant API flow).
+ *  2. User's saved `webhookUrl` — fallback for dashboard/payment-link flows.
+ *
+ * Never throws — failures are logged and silently swallowed so they never
+ * block or break the caller (IPN handlers, expiry worker, etc.).
  */
-export function dispatchWebhook(userId: number, payload: WebhookPayload): void {
+export function dispatchWebhook(
+  userId: number,
+  payload: WebhookPayload,
+  notificationUrl?: string | null,
+): void {
   void (async () => {
     try {
-      const [user] = await db
-        .select({ webhookUrl: usersTable.webhookUrl })
-        .from(usersTable)
-        .where(eq(usersTable.id, userId))
-        .limit(1);
+      let url = notificationUrl ?? null;
 
-      if (!user?.webhookUrl) return;
+      // Fall back to the user's stored webhook URL if no per-transaction URL
+      if (!url) {
+        const [user] = await db
+          .select({ webhookUrl: usersTable.webhookUrl })
+          .from(usersTable)
+          .where(eq(usersTable.id, userId))
+          .limit(1);
+        url = user?.webhookUrl ?? null;
+      }
 
-      const body    = JSON.stringify(payload);
-      const secret  = process.env.SESSION_SECRET ?? "yookpay-secret-key";
-      const sig     = crypto.createHmac("sha256", secret).update(body).digest("hex");
+      if (!url) return;
 
-      const resp = await fetch(user.webhookUrl, {
+      const body   = JSON.stringify(payload);
+      const secret = process.env.SESSION_SECRET ?? "yookpay-secret-key";
+      const sig    = crypto.createHmac("sha256", secret).update(body).digest("hex");
+
+      const resp = await fetch(url, {
         method: "POST",
         headers: {
           "Content-Type":        "application/json",
@@ -57,7 +73,7 @@ export function dispatchWebhook(userId: number, payload: WebhookPayload): void {
       });
 
       logger.info(
-        { userId, url: user.webhookUrl, httpStatus: resp.status, event: payload.event },
+        { userId, url, httpStatus: resp.status, event: payload.event },
         "Webhook dispatched",
       );
     } catch (err) {
@@ -99,4 +115,11 @@ export function buildTxPayload(tx: {
       updatedAt:  tx.updatedAt.toISOString(),
     },
   };
+}
+
+/** Extract the notificationUrl stored in a transaction's metadata (if any). */
+export function getNotificationUrl(metadata: unknown): string | null {
+  if (!metadata || typeof metadata !== "object") return null;
+  const url = (metadata as Record<string, unknown>).notificationUrl;
+  return typeof url === "string" && url ? url : null;
 }

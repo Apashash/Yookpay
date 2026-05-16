@@ -2,7 +2,7 @@ import { db } from "@workspace/db";
 import { transactionsTable, walletsTable } from "@workspace/db/schema";
 import { and, eq, lt, or, isNull, ne, sql } from "drizzle-orm";
 import { logger } from "./logger";
-import { dispatchWebhook, buildTxPayload } from "./webhookDispatch";
+import { dispatchWebhook, buildTxPayload, getNotificationUrl } from "./webhookDispatch";
 
 const EXPIRY_MINUTES = 8;
 const WORKER_INTERVAL_MS = 30_000; // check every 30 seconds
@@ -51,7 +51,7 @@ async function expireStaleTransactions(): Promise<void> {
         // Dispatch webhook only if we actually claimed this row (prevent double-fire)
         const rowClaimed = (updateResult as unknown as { rowCount?: number }).rowCount ?? 1;
         if (rowClaimed > 0) {
-          dispatchWebhook(tx.userId, buildTxPayload({ ...tx, status: "FAILED", updatedAt: expiredAt }));
+          dispatchWebhook(tx.userId, buildTxPayload({ ...tx, status: "FAILED", updatedAt: expiredAt }), getNotificationUrl(tx.metadata));
         }
 
         // Refund wallet for WITHDRAWAL that timed out

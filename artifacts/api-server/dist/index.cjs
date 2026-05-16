@@ -70106,15 +70106,19 @@ async function createNotification(userId, type, title, body, transactionId) {
 var import_crypto4 = __toESM(require("crypto"), 1);
 init_schema2();
 init_drizzle_orm();
-function dispatchWebhook(userId, payload) {
+function dispatchWebhook(userId, payload, notificationUrl) {
   void (async () => {
     try {
-      const [user] = await db.select({ webhookUrl: usersTable.webhookUrl }).from(usersTable).where(eq(usersTable.id, userId)).limit(1);
-      if (!user?.webhookUrl) return;
+      let url2 = notificationUrl ?? null;
+      if (!url2) {
+        const [user] = await db.select({ webhookUrl: usersTable.webhookUrl }).from(usersTable).where(eq(usersTable.id, userId)).limit(1);
+        url2 = user?.webhookUrl ?? null;
+      }
+      if (!url2) return;
       const body = JSON.stringify(payload);
       const secret = process.env.SESSION_SECRET ?? "yookpay-secret-key";
       const sig = import_crypto4.default.createHmac("sha256", secret).update(body).digest("hex");
-      const resp = await fetch(user.webhookUrl, {
+      const resp = await fetch(url2, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -70125,7 +70129,7 @@ function dispatchWebhook(userId, payload) {
         signal: AbortSignal.timeout(1e4)
       });
       logger.info(
-        { userId, url: user.webhookUrl, httpStatus: resp.status, event: payload.event },
+        { userId, url: url2, httpStatus: resp.status, event: payload.event },
         "Webhook dispatched"
       );
     } catch (err) {
@@ -70152,6 +70156,11 @@ function buildTxPayload(tx) {
       updatedAt: tx.updatedAt.toISOString()
     }
   };
+}
+function getNotificationUrl(metadata) {
+  if (!metadata || typeof metadata !== "object") return null;
+  const url2 = metadata.notificationUrl;
+  return typeof url2 === "string" && url2 ? url2 : null;
 }
 
 // src/routes/ipn.ts
@@ -70196,7 +70205,7 @@ router10.post("/pixpay", async (req, res) => {
       },
       updatedAt
     }).where(eq(transactionsTable.id, tx.id));
-    dispatchWebhook(tx.userId, buildTxPayload({ ...tx, status: newStatus, updatedAt }));
+    dispatchWebhook(tx.userId, buildTxPayload({ ...tx, status: newStatus, updatedAt }), getNotificationUrl(tx.metadata));
     if (isSuccess) {
       if (tx.type === "DEPOSIT") {
         const [wallet] = await db.select().from(walletsTable).where(and(eq(walletsTable.userId, tx.userId), eq(walletsTable.currency, tx.currency))).limit(1);
@@ -70308,7 +70317,7 @@ router11.post("/ipn", async (req, res) => {
         metadata: { ...tx.metadata, nowpaymentsStatus: status, actuallyPaid, completedAt: successUpdatedAt.toISOString() },
         updatedAt: successUpdatedAt
       }).where(eq(transactionsTable.id, tx.id));
-      dispatchWebhook(tx.userId, buildTxPayload({ ...tx, status: "SUCCESS", updatedAt: successUpdatedAt }));
+      dispatchWebhook(tx.userId, buildTxPayload({ ...tx, status: "SUCCESS", updatedAt: successUpdatedAt }), getNotificationUrl(tx.metadata));
       logger2.info({ txId: tx.id, paymentId, actuallyPaid }, "NowPayments IPN: USDT credited");
     } else if (isFailed) {
       const failedUpdatedAt = /* @__PURE__ */ new Date();
@@ -70318,7 +70327,7 @@ router11.post("/ipn", async (req, res) => {
         metadata: { ...tx.metadata, nowpaymentsStatus: status, failedAt: failedUpdatedAt.toISOString() },
         updatedAt: failedUpdatedAt
       }).where(eq(transactionsTable.id, tx.id));
-      dispatchWebhook(tx.userId, buildTxPayload({ ...tx, status: "FAILED", updatedAt: failedUpdatedAt }));
+      dispatchWebhook(tx.userId, buildTxPayload({ ...tx, status: "FAILED", updatedAt: failedUpdatedAt }), getNotificationUrl(tx.metadata));
       logger2.info({ txId: tx.id, paymentId }, "NowPayments IPN: payment failed");
     } else {
       await db.update(transactionsTable).set({
@@ -70993,6 +71002,7 @@ var payinSchema = external_exports.object({
   phone: external_exports.string().min(6).max(20),
   amount: external_exports.number().int().positive(),
   omOtp: external_exports.string().optional(),
+  notificationUrl: external_exports.string().url().optional(),
   metadata: external_exports.record(external_exports.unknown()).optional()
 });
 router15.post("/v1/payin", async (req, res) => {
@@ -71011,7 +71021,7 @@ router15.post("/v1/payin", async (req, res) => {
     res.status(400).json({ error: "ValidationError", message: parse3.error.errors[0]?.message });
     return;
   }
-  const { country, operator, phone, amount, omOtp, metadata } = parse3.data;
+  const { country, operator, phone, amount, omOtp, notificationUrl, metadata } = parse3.data;
   const currency = CURRENCY_MAP[country];
   if (!currency) {
     res.status(400).json({ error: "ValidationError", message: `Pays non support\xE9 : ${country}` });
@@ -71052,7 +71062,7 @@ router15.post("/v1/payin", async (req, res) => {
       reference,
       providerReference: String(pixResult.pixTransactionId ?? ""),
       status: "PENDING",
-      metadata: metadata ?? null
+      metadata: { ...metadata ?? {}, ...notificationUrl ? { notificationUrl } : {} }
     }).returning();
     logger.info({ merchantUserId: merchant.userId, ref: reference, amount, flow }, "Merchant payin initiated");
     const resp = {
@@ -71082,6 +71092,7 @@ var payoutSchema = external_exports.object({
   phone: external_exports.string().min(6).max(20),
   amount: external_exports.number().int().positive(),
   feeBearer: external_exports.enum(["SENDER", "RECIPIENT"]).default("SENDER"),
+  notificationUrl: external_exports.string().url().optional(),
   metadata: external_exports.record(external_exports.unknown()).optional()
 });
 router15.post("/v1/payout", async (req, res) => {
@@ -71103,7 +71114,7 @@ router15.post("/v1/payout", async (req, res) => {
     res.status(400).json({ error: "ValidationError", message: parse3.error.errors[0]?.message });
     return;
   }
-  const { country, operator, phone, amount, feeBearer, metadata } = parse3.data;
+  const { country, operator, phone, amount, feeBearer, notificationUrl, metadata } = parse3.data;
   const currency = CURRENCY_MAP[country];
   if (!currency) {
     res.status(400).json({ error: "ValidationError", message: `Pays non support\xE9 : ${country}` });
@@ -71151,7 +71162,7 @@ router15.post("/v1/payout", async (req, res) => {
       operator,
       phone,
       reference,
-      metadata: metadata ?? null
+      metadata: { ...metadata ?? {}, ...notificationUrl ? { notificationUrl } : {} }
     }).returning();
     const pixResult = await callPixPayAirtime({
       currency,
@@ -71675,7 +71686,7 @@ async function expireStaleTransactions() {
         }).where(and(eq(transactionsTable.id, tx.id), eq(transactionsTable.status, "PENDING")));
         const rowClaimed = updateResult.rowCount ?? 1;
         if (rowClaimed > 0) {
-          dispatchWebhook(tx.userId, buildTxPayload({ ...tx, status: "FAILED", updatedAt: expiredAt }));
+          dispatchWebhook(tx.userId, buildTxPayload({ ...tx, status: "FAILED", updatedAt: expiredAt }), getNotificationUrl(tx.metadata));
         }
         if (tx.type === "WITHDRAWAL") {
           const [wallet] = await db.select().from(walletsTable).where(and(eq(walletsTable.userId, tx.userId), eq(walletsTable.currency, tx.currency))).limit(1);

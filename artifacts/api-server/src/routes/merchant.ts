@@ -42,12 +42,13 @@ async function resolveMerchantFromAnyKey(rawKey: string): Promise<{ userId: numb
 }
 
 const payinSchema = z.object({
-  country:  z.string().length(2).toUpperCase(),
-  operator: z.string().min(2).max(20).toUpperCase(),
-  phone:    z.string().min(6).max(20),
-  amount:   z.number().int().positive(),
-  omOtp:    z.string().optional(),
-  metadata: z.record(z.unknown()).optional(),
+  country:         z.string().length(2).toUpperCase(),
+  operator:        z.string().min(2).max(20).toUpperCase(),
+  phone:           z.string().min(6).max(20),
+  amount:          z.number().int().positive(),
+  omOtp:           z.string().optional(),
+  notificationUrl: z.string().url().optional(),
+  metadata:        z.record(z.unknown()).optional(),
 });
 
 // POST /api/merchant/v1/payin
@@ -70,7 +71,7 @@ router.post("/v1/payin", async (req, res) => {
     return;
   }
 
-  const { country, operator, phone, amount, omOtp, metadata } = parse.data;
+  const { country, operator, phone, amount, omOtp, notificationUrl, metadata } = parse.data;
   const currency = CURRENCY_MAP[country as Country];
   if (!currency) {
     res.status(400).json({ error: "ValidationError", message: `Pays non supporté : ${country}` });
@@ -124,7 +125,7 @@ router.post("/v1/payin", async (req, res) => {
       reference,
       providerReference: String(pixResult.pixTransactionId ?? ""),
       status: "PENDING",
-      metadata: metadata ?? null,
+      metadata: { ...(metadata ?? {}), ...(notificationUrl ? { notificationUrl } : {}) },
     }).returning();
 
     logger.info({ merchantUserId: merchant.userId, ref: reference, amount, flow }, "Merchant payin initiated");
@@ -153,12 +154,13 @@ router.post("/v1/payin", async (req, res) => {
 });
 
 const payoutSchema = z.object({
-  country:   z.string().length(2).toUpperCase(),
-  operator:  z.string().min(2).max(20).toUpperCase(),
-  phone:     z.string().min(6).max(20),
-  amount:    z.number().int().positive(),
-  feeBearer: z.enum(["SENDER", "RECIPIENT"]).default("SENDER"),
-  metadata:  z.record(z.unknown()).optional(),
+  country:         z.string().length(2).toUpperCase(),
+  operator:        z.string().min(2).max(20).toUpperCase(),
+  phone:           z.string().min(6).max(20),
+  amount:          z.number().int().positive(),
+  feeBearer:       z.enum(["SENDER", "RECIPIENT"]).default("SENDER"),
+  notificationUrl: z.string().url().optional(),
+  metadata:        z.record(z.unknown()).optional(),
 });
 
 // POST /api/merchant/v1/payout
@@ -191,7 +193,7 @@ router.post("/v1/payout", async (req, res) => {
     return;
   }
 
-  const { country, operator, phone, amount, feeBearer, metadata } = parse.data;
+  const { country, operator, phone, amount, feeBearer, notificationUrl, metadata } = parse.data;
   const currency = CURRENCY_MAP[country as Country];
   if (!currency) {
     res.status(400).json({ error: "ValidationError", message: `Pays non supporté : ${country}` });
@@ -263,7 +265,7 @@ router.post("/v1/payout", async (req, res) => {
       operator,
       phone,
       reference,
-      metadata: metadata ?? null,
+      metadata: { ...(metadata ?? {}), ...(notificationUrl ? { notificationUrl } : {}) },
     }).returning();
 
     const pixResult = await callPixPayAirtime({
