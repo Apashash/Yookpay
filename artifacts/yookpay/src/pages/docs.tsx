@@ -226,12 +226,12 @@ const PAYIN_RESP = `// HTTP 201 Created
 {
   "success":           true,
   "reference":         "YPY-M9X1A2-K7TQ",  // ← à stocker
-  "providerReference": "PIX-20240516-001",
+  "providerReference": "TXN-20240516-001",
   "status":            "PENDING",
   "amount":            5000,
-  "netAmount":         4925,   // 5000 - 75 (1.5%)
+  "netAmount":         4925,   // amount − feeAmount
   "feeAmount":         75,
-  "feeRate":           0.015,  // 1.5%
+  "feeRate":           0.015,
   "currency":          "XAF",
   "transactionId":     412
 }`;
@@ -245,13 +245,13 @@ const PAYOUT_BODY = `{
   "metadata":  { "userId": 99 } // optionnel
 }`;
 
-const PAYOUT_RESP = `// HTTP 201 Created  (feeBearer: "SENDER", taux 1.5%)
+const PAYOUT_RESP = `// HTTP 201 Created  (feeBearer: "SENDER")
 {
   "success":           true,
   "reference":         "YPY-M9X1A2-K8PL",
-  "providerReference": "PIX-20240516-002",
+  "providerReference": "TXN-20240516-002",
   "status":            "PENDING",
-  "amount":            5075,   // débité wallet (5000 + 75 frais)
+  "amount":            5075,   // débité wallet (amount + feeAmount)
   "phoneReceives":     5000,   // reçu sur le téléphone
   "feeAmount":         75,
   "feeRate":           0.015,
@@ -369,20 +369,20 @@ console.log(\`Envoyé: \${phoneReceives} XAF | Débité wallet: \${amount} XAF\`
 
 const COUNTRIES = [
   // XAF
-  { flag: "🇨🇲", name: "Cameroun",          code: "CM", zone: "XAF", currency: "Franc CFA (BEAC)", dial: "+237", operators: ["MTN", "ORANGE"],                       payinRate: "1.5%", payoutRate: "1.5%" },
-  { flag: "🇨🇬", name: "Congo-Brazzaville", code: "CG", zone: "XAF", currency: "Franc CFA (BEAC)", dial: "+242", operators: ["MTN", "AIRTEL"],                       payinRate: "1.5%", payoutRate: "1.5%" },
-  { flag: "🇬🇦", name: "Gabon",             code: "GA", zone: "XAF", currency: "Franc CFA (BEAC)", dial: "+241", operators: ["AIRTEL", "MTN"],                       payinRate: "1.5%", payoutRate: "1.5%" },
+  { flag: "🇨🇲", name: "Cameroun",          code: "CM", zone: "XAF", currency: "Franc CFA (BEAC)",  dial: "+237", operators: ["MTN", "ORANGE"] },
+  { flag: "🇨🇬", name: "Congo-Brazzaville", code: "CG", zone: "XAF", currency: "Franc CFA (BEAC)",  dial: "+242", operators: ["MTN", "AIRTEL"] },
+  { flag: "🇬🇦", name: "Gabon",             code: "GA", zone: "XAF", currency: "Franc CFA (BEAC)",  dial: "+241", operators: ["AIRTEL", "MTN"] },
   // XOF
-  { flag: "🇨🇮", name: "Côte d'Ivoire",     code: "CI", zone: "XOF", currency: "Franc CFA (BCEAO)", dial: "+225", operators: ["MTN", "ORANGE", "MOOV", "WAVE"],     payinRate: "1.9%", payoutRate: "1.9%" },
-  { flag: "🇸🇳", name: "Sénégal",           code: "SN", zone: "XOF", currency: "Franc CFA (BCEAO)", dial: "+221", operators: ["ORANGE", "FREE", "WAVE"],             payinRate: "1.9%", payoutRate: "1.9%" },
-  { flag: "🇧🇫", name: "Burkina Faso",      code: "BF", zone: "XOF", currency: "Franc CFA (BCEAO)", dial: "+226", operators: ["ORANGE", "MOOV"],                    payinRate: "1.9%", payoutRate: "1.9%" },
-  { flag: "🇧🇯", name: "Bénin",             code: "BJ", zone: "XOF", currency: "Franc CFA (BCEAO)", dial: "+229", operators: ["MTN", "MOOV"],                       payinRate: "1.9%", payoutRate: "1.9%" },
-  { flag: "🇬🇲", name: "Gambie",            code: "GM", zone: "XOF", currency: "Dalasi (GMD)*",     dial: "+220", operators: ["AFRICELL", "QMONEY"],                payinRate: "1.9%", payoutRate: "1.9%" },
-  { flag: "🇬🇳", name: "Guinée-Conakry",   code: "GN", zone: "XOF", currency: "Franc guinéen*",    dial: "+224", operators: ["MTN", "ORANGE", "CELLCOM"],           payinRate: "1.9%", payoutRate: "1.9%" },
-  { flag: "🇲🇱", name: "Mali",              code: "ML", zone: "XOF", currency: "Franc CFA (BCEAO)", dial: "+223", operators: ["ORANGE", "MOOV"],                    payinRate: "1.9%", payoutRate: "1.9%" },
-  { flag: "🇹🇬", name: "Togo",              code: "TG", zone: "XOF", currency: "Franc CFA (BCEAO)", dial: "+228", operators: ["TOGOCEL", "MOOV"],                   payinRate: "1.9%", payoutRate: "1.9%" },
+  { flag: "🇨🇮", name: "Côte d'Ivoire",     code: "CI", zone: "XOF", currency: "Franc CFA (BCEAO)", dial: "+225", operators: ["MTN", "ORANGE", "MOOV", "WAVE"] },
+  { flag: "🇸🇳", name: "Sénégal",           code: "SN", zone: "XOF", currency: "Franc CFA (BCEAO)", dial: "+221", operators: ["ORANGE", "FREE", "WAVE"] },
+  { flag: "🇧🇫", name: "Burkina Faso",      code: "BF", zone: "XOF", currency: "Franc CFA (BCEAO)", dial: "+226", operators: ["ORANGE", "MOOV"] },
+  { flag: "🇧🇯", name: "Bénin",             code: "BJ", zone: "XOF", currency: "Franc CFA (BCEAO)", dial: "+229", operators: ["MTN", "MOOV"] },
+  { flag: "🇬🇲", name: "Gambie",            code: "GM", zone: "XOF", currency: "Dalasi (GMD)*",     dial: "+220", operators: ["AFRICELL", "QMONEY"] },
+  { flag: "🇬🇳", name: "Guinée-Conakry",   code: "GN", zone: "XOF", currency: "Franc guinéen*",    dial: "+224", operators: ["MTN", "ORANGE", "CELLCOM"] },
+  { flag: "🇲🇱", name: "Mali",              code: "ML", zone: "XOF", currency: "Franc CFA (BCEAO)", dial: "+223", operators: ["ORANGE", "MOOV"] },
+  { flag: "🇹🇬", name: "Togo",              code: "TG", zone: "XOF", currency: "Franc CFA (BCEAO)", dial: "+228", operators: ["TOGOCEL", "MOOV"] },
   // CDF
-  { flag: "🇨🇩", name: "Congo RDC",         code: "CD", zone: "CDF", currency: "Franc congolais",   dial: "+243", operators: ["VODACOM", "AIRTEL", "ORANGE", "AFRICELL"], payinRate: "3.0%", payoutRate: "3.5%" },
+  { flag: "🇨🇩", name: "Congo RDC",         code: "CD", zone: "CDF", currency: "Franc congolais",   dial: "+243", operators: ["VODACOM", "AIRTEL", "ORANGE", "AFRICELL"] },
 ];
 
 /* ═══════════════════════════════════════════════════════════
@@ -620,11 +620,11 @@ export default function Docs() {
             <div className="rounded-xl border border-white/10 bg-white/[0.02] p-5 space-y-3">
               <p className="text-xs font-bold uppercase tracking-widest text-white/25 mb-4">Flux de la transaction</p>
               {[
-                { n: "1", from: "Votre serveur",     arrow: "→", to: "YookPay API",    detail: "POST /payin — clé validée, frais calculés, status: PENDING retourné" },
-                { n: "2", from: "YookPay API",       arrow: "→", to: "PixPay",         detail: "Requête de paiement transmise à l'opérateur" },
-                { n: "3", from: "PixPay",            arrow: "→", to: "Téléphone client", detail: "Notification USSD ou SMS envoyée au client" },
-                { n: "4", from: "Client",            arrow: "→", to: "Téléphone",      detail: "Le client confirme le paiement" },
-                { n: "5", from: "PixPay (IPN)",      arrow: "→", to: "YookPay API",    detail: "Confirmation reçue → status → SUCCESS, wallet crédité" },
+                { n: "1", from: "Votre serveur",     arrow: "→", to: "YookPay API",      detail: "POST /payin — clé validée, statut PENDING retourné immédiatement" },
+                { n: "2", from: "YookPay API",       arrow: "→", to: "Opérateur MoMo",  detail: "Requête de paiement transmise au réseau Mobile Money" },
+                { n: "3", from: "Opérateur MoMo",    arrow: "→", to: "Téléphone client", detail: "Notification USSD ou SMS envoyée au client" },
+                { n: "4", from: "Client",            arrow: "→", to: "Téléphone",       detail: "Le client confirme le paiement sur son téléphone" },
+                { n: "5", from: "Opérateur (IPN)",   arrow: "→", to: "YookPay API",    detail: "Confirmation reçue → status → SUCCESS, wallet crédité" },
               ].map(s => (
                 <div key={s.n} className="flex items-start gap-3 text-sm">
                   <div className="h-5 w-5 rounded bg-blue-500/20 border border-blue-500/30 flex items-center justify-center text-blue-300 text-[11px] font-bold shrink-0 mt-0.5">{s.n}</div>
@@ -660,12 +660,12 @@ export default function Docs() {
             />
             <RespTable rows={[
               { name: "reference",         type: "string",  desc: "Référence unique YookPay (ex: YPY-M9X1A2-K7TQ). Stockez-la en base de données pour le suivi." },
-              { name: "providerReference", type: "string",  desc: "Référence interne PixPay. Transmettez-la au support en cas de litige." },
+              { name: "providerReference", type: "string",  desc: "Référence opérateur. Transmettez-la au support en cas de litige." },
               { name: "status",            type: "string",  desc: 'Toujours "PENDING" à la réponse initiale. Évolue en SUCCESS ou FAILED de manière asynchrone.' },
               { name: "amount",            type: "integer", desc: "Montant brut envoyé (= votre champ amount)." },
               { name: "netAmount",         type: "integer", desc: "Montant crédité dans votre wallet après frais. netAmount = amount − feeAmount." },
-              { name: "feeAmount",         type: "integer", desc: "Frais YookPay prélevés sur cette transaction." },
-              { name: "feeRate",           type: "number",  desc: "Taux appliqué en proportion décimale (0.015 = 1.5%)." },
+              { name: "feeAmount",         type: "integer", desc: "Frais prélevés sur cette transaction (selon votre configuration)." },
+              { name: "feeRate",           type: "number",  desc: "Taux de frais appliqué, en proportion décimale." },
               { name: "currency",          type: "string",  desc: "Devise déduite du pays : XAF (CM/CG/GA), XOF (autres), CDF (CD)." },
               { name: "transactionId",     type: "integer", desc: "Identifiant interne YookPay de la transaction." },
             ]} />
@@ -690,10 +690,10 @@ export default function Docs() {
             <div className="rounded-xl border border-white/10 bg-white/[0.02] p-5 space-y-3">
               <p className="text-xs font-bold uppercase tracking-widest text-white/25 mb-4">Flux de la transaction</p>
               {[
-                { n: "1", from: "Votre serveur",  to: "YookPay API",    detail: "POST /payout — clé validée, solde vérifié, wallet débité, status: PENDING retourné" },
-                { n: "2", from: "YookPay API",    to: "PixPay",         detail: "Ordre de virement transmis à l'opérateur" },
-                { n: "3", from: "PixPay",         to: "Destinataire",   detail: "L'argent arrive sur le compte Mobile Money du destinataire" },
-                { n: "4", from: "PixPay (IPN)",   to: "YookPay API",    detail: "Confirmation reçue → status → SUCCESS" },
+                { n: "1", from: "Votre serveur",      to: "YookPay API",   detail: "POST /payout — clé validée, solde vérifié, wallet débité, status: PENDING retourné" },
+                { n: "2", from: "YookPay API",      to: "Opérateur MoMo", detail: "Ordre de virement transmis au réseau Mobile Money" },
+                { n: "3", from: "Opérateur MoMo",   to: "Destinataire",  detail: "L'argent arrive sur le compte Mobile Money du destinataire" },
+                { n: "4", from: "Opérateur (IPN)",  to: "YookPay API",   detail: "Confirmation reçue → status → SUCCESS" },
               ].map(s => (
                 <div key={s.n} className="flex items-start gap-3 text-sm">
                   <div className="h-5 w-5 rounded bg-purple-500/20 border border-purple-500/30 flex items-center justify-center text-purple-300 text-[11px] font-bold shrink-0 mt-0.5">{s.n}</div>
@@ -714,8 +714,7 @@ export default function Docs() {
             {/* feeBearer */}
             <SubHeading id="payout-fearbearer" label="feeBearer — Qui paie les frais ?" />
             <p className="text-white/50 text-sm leading-relaxed mb-4">
-              Le champ <IC>feeBearer</IC> détermine si c'est vous (SENDER) ou le destinataire (RECIPIENT) qui supporte les frais.
-              Exemple avec <strong className="text-white/80">10 000 XAF et 1.5% de frais (150 XAF)</strong> :
+              Le champ <IC>feeBearer</IC> détermine si c'est vous (SENDER) ou le destinataire (RECIPIENT) qui supporte les frais configurés sur votre compte.
             </p>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="rounded-xl border border-purple-500/30 bg-purple-500/5 p-5 space-y-3">
@@ -725,9 +724,9 @@ export default function Docs() {
                 </div>
                 <p className="text-xs text-white/50 leading-relaxed">Vous payez les frais <em>en plus</em>. Le destinataire reçoit exactement le montant demandé.</p>
                 <div className="rounded-lg bg-black/30 border border-white/10 p-3 font-mono text-xs space-y-1.5">
-                  <div className="flex justify-between text-white/50"><span>Votre wallet débité</span><span className="text-red-400">10 150 XAF</span></div>
-                  <div className="flex justify-between text-white/40 text-[11px]"><span>dont frais YookPay</span><span>150 XAF (1.5%)</span></div>
-                  <div className="flex justify-between border-t border-white/10 pt-2 mt-1 font-bold"><span className="text-white/70">Téléphone reçoit</span><span className="text-green-400">10 000 XAF ✓</span></div>
+                  <div className="flex justify-between text-white/50"><span>Votre wallet débité</span><span className="text-red-400">amount + frais</span></div>
+                  <div className="flex justify-between text-white/40 text-[11px]"><span>dont frais</span><span>feeAmount</span></div>
+                  <div className="flex justify-between border-t border-white/10 pt-2 mt-1 font-bold"><span className="text-white/70">Téléphone reçoit</span><span className="text-green-400">amount ✓</span></div>
                 </div>
                 <p className="text-[11px] text-white/30">Usage : salaires, remboursements (montant exact garanti au destinataire)</p>
               </div>
@@ -735,9 +734,9 @@ export default function Docs() {
                 <code className="font-mono font-bold text-indigo-300">"RECIPIENT"</code>
                 <p className="text-xs text-white/50 leading-relaxed">Les frais sont déduits du montant reçu. Votre wallet est débité exactement du montant saisi.</p>
                 <div className="rounded-lg bg-black/30 border border-white/10 p-3 font-mono text-xs space-y-1.5">
-                  <div className="flex justify-between text-white/50"><span>Votre wallet débité</span><span className="text-red-400">10 000 XAF</span></div>
-                  <div className="flex justify-between text-white/40 text-[11px]"><span>frais déduits du reçu</span><span>150 XAF (1.5%)</span></div>
-                  <div className="flex justify-between border-t border-white/10 pt-2 mt-1 font-bold"><span className="text-white/70">Téléphone reçoit</span><span className="text-yellow-400">9 850 XAF</span></div>
+                  <div className="flex justify-between text-white/50"><span>Votre wallet débité</span><span className="text-red-400">amount</span></div>
+                  <div className="flex justify-between text-white/40 text-[11px]"><span>frais déduits du reçu</span><span>feeAmount</span></div>
+                  <div className="flex justify-between border-t border-white/10 pt-2 mt-1 font-bold"><span className="text-white/70">Téléphone reçoit</span><span className="text-yellow-400">amount − frais</span></div>
                 </div>
                 <p className="text-[11px] text-white/30">Usage : cashback, bonus (votre coût est fixe, connu à l'avance)</p>
               </div>
@@ -762,12 +761,12 @@ export default function Docs() {
             />
             <RespTable rows={[
               { name: "reference",         type: "string",  desc: "Référence unique YookPay. Stockez-la pour le suivi." },
-              { name: "providerReference", type: "string",  desc: "Référence PixPay / opérateur. Utile pour le support." },
+              { name: "providerReference", type: "string",  desc: "Référence opérateur. Utile pour le support." },
               { name: "status",            type: "string",  desc: 'Toujours "PENDING" à la réponse. Évolue en SUCCESS ou FAILED.' },
               { name: "amount",            type: "integer", desc: "Total débité de votre wallet. Inclut les frais si feeBearer = SENDER." },
               { name: "phoneReceives",     type: "integer", desc: "Ce que le destinataire reçoit effectivement sur son téléphone." },
-              { name: "feeAmount",         type: "integer", desc: "Frais YookPay de la transaction." },
-              { name: "feeRate",           type: "number",  desc: "Taux en décimal (ex: 0.015 = 1.5%)." },
+              { name: "feeAmount",         type: "integer", desc: "Frais prélevés sur cette transaction (selon votre configuration)." },
+              { name: "feeRate",           type: "number",  desc: "Taux de frais appliqué, en proportion décimale." },
               { name: "currency",          type: "string",  desc: "Devise de la transaction." },
               { name: "transactionId",     type: "integer", desc: "Identifiant interne YookPay." },
             ]} />
@@ -822,7 +821,7 @@ export default function Docs() {
                     ["400", "ValidationError",   "Pays ou opérateur non supporté",                   "Vérifiez les valeurs exactes dans le tableau Pays & Opérateurs."],
                     ["400", "InsufficientFunds", "Solde wallet insuffisant (payout)",                 "Rechargez votre wallet YookPay avant de relancer."],
                     ["400", "WalletNotFound",    "Wallet dans cette devise introuvable",             "Contactez le support pour ouvrir un wallet dans la devise souhaitée."],
-                    ["500", "PayinFailed",       "Erreur PixPay ou clé API opérateur non configurée","Vérifiez la config PixPay de votre compte. Contactez le support si persistant."],
+                    ["500", "PayinFailed",       "Erreur opérateur ou clé API non configurée",       "Vérifiez la configuration de votre compte. Contactez le support si persistant."],
                     ["500", "PayoutFailed",      "Erreur opérateur lors de l'envoi",                 "Le wallet sera remboursé automatiquement. Réessayez après quelques minutes."],
                   ].map(([code, err, cause, sol]) => (
                     <tr key={err + cause} className="border-b border-white/5 hover:bg-white/[0.015] align-top">
@@ -841,7 +840,7 @@ export default function Docs() {
           <Section id="countries">
             <SectionHeading icon={Globe} label="Pays & Opérateurs supportés" color="text-emerald-400" />
             <p className="text-white/50 text-sm leading-relaxed">
-              Utilisez exactement les valeurs <IC>country</IC> et <IC>operator</IC> indiquées. Les taux de frais Payin et Payout peuvent différer (ex : Congo RDC).
+              Utilisez exactement les valeurs <IC>country</IC> et <IC>operator</IC> indiquées ci-dessous.
             </p>
 
             {/* XAF */}
@@ -854,7 +853,7 @@ export default function Docs() {
               <div className="rounded-lg border border-white/10 overflow-hidden overflow-x-auto">
                 <table className="w-full text-xs min-w-[520px]">
                   <thead className="bg-white/[0.04] border-b border-white/10">
-                    <tr>{["Pays", "country", "Indicatif", "Opérateurs (operator)", "Payin", "Payout"].map(h => <th key={h} className="text-left px-4 py-2.5 text-white/40 font-semibold">{h}</th>)}</tr>
+                    <tr>{["Pays", "country", "Indicatif", "Opérateurs (operator)"].map(h => <th key={h} className="text-left px-4 py-2.5 text-white/40 font-semibold">{h}</th>)}</tr>
                   </thead>
                   <tbody>
                     {xafCountries.map(c => (
@@ -867,8 +866,6 @@ export default function Docs() {
                             {c.operators.map(op => <span key={op} className="font-mono text-[11px] bg-white/5 border border-white/10 px-2 py-0.5 rounded text-white/60">{op}</span>)}
                           </div>
                         </td>
-                        <td className="px-4 py-3 font-mono text-blue-300">{c.payinRate}</td>
-                        <td className="px-4 py-3 font-mono text-purple-300">{c.payoutRate}</td>
                       </tr>
                     ))}
                   </tbody>
@@ -884,12 +881,12 @@ export default function Docs() {
                 <div className="h-px flex-1 bg-emerald-500/20" />
               </div>
               <Callout type="info">
-                La Gambie (GMD) et la Guinée-Conakry (GNF) utilisent des devises nationales différentes du XOF, mais leur <IC>currency</IC> retourné par l'API est <IC>"XOF"</IC> car leurs transactions sont traitées dans la même zone PixPay.
+                La Gambie (GMD) et la Guinée-Conakry (GNF) utilisent des devises nationales différentes du XOF, mais leur <IC>currency</IC> retourné par l'API est <IC>"XOF"</IC> car leurs transactions sont traitées dans la même zone.
               </Callout>
               <div className="rounded-lg border border-white/10 overflow-hidden overflow-x-auto">
                 <table className="w-full text-xs min-w-[520px]">
                   <thead className="bg-white/[0.04] border-b border-white/10">
-                    <tr>{["Pays", "country", "Indicatif", "Opérateurs (operator)", "Payin", "Payout"].map(h => <th key={h} className="text-left px-4 py-2.5 text-white/40 font-semibold">{h}</th>)}</tr>
+                    <tr>{["Pays", "country", "Indicatif", "Opérateurs (operator)"].map(h => <th key={h} className="text-left px-4 py-2.5 text-white/40 font-semibold">{h}</th>)}</tr>
                   </thead>
                   <tbody>
                     {xofCountries.map(c => (
@@ -902,8 +899,6 @@ export default function Docs() {
                             {c.operators.map(op => <span key={op} className="font-mono text-[11px] bg-white/5 border border-white/10 px-2 py-0.5 rounded text-white/60">{op}</span>)}
                           </div>
                         </td>
-                        <td className="px-4 py-3 font-mono text-blue-300">{c.payinRate}</td>
-                        <td className="px-4 py-3 font-mono text-purple-300">{c.payoutRate}</td>
                       </tr>
                     ))}
                   </tbody>
@@ -918,13 +913,10 @@ export default function Docs() {
                 <span className="text-xs font-bold uppercase tracking-widest text-orange-400 px-3 py-1 rounded-full bg-orange-500/10 border border-orange-500/20">Zone CDF — Franc congolais (Congo RDC)</span>
                 <div className="h-px flex-1 bg-orange-500/20" />
               </div>
-              <Callout type="warn">
-                Les taux pour le Congo RDC sont <strong>différents</strong> entre Payin (3.0%) et Payout (3.5%) — c'est la seule exception.
-              </Callout>
               <div className="rounded-lg border border-white/10 overflow-hidden overflow-x-auto">
                 <table className="w-full text-xs min-w-[520px]">
                   <thead className="bg-white/[0.04] border-b border-white/10">
-                    <tr>{["Pays", "country", "Indicatif", "Opérateurs (operator)", "Payin", "Payout"].map(h => <th key={h} className="text-left px-4 py-2.5 text-white/40 font-semibold">{h}</th>)}</tr>
+                    <tr>{["Pays", "country", "Indicatif", "Opérateurs (operator)"].map(h => <th key={h} className="text-left px-4 py-2.5 text-white/40 font-semibold">{h}</th>)}</tr>
                   </thead>
                   <tbody>
                     {cdfCountries.map(c => (
@@ -937,8 +929,6 @@ export default function Docs() {
                             {c.operators.map(op => <span key={op} className="font-mono text-[11px] bg-white/5 border border-white/10 px-2 py-0.5 rounded text-white/60">{op}</span>)}
                           </div>
                         </td>
-                        <td className="px-4 py-3 font-mono text-blue-300">{c.payinRate}</td>
-                        <td className="px-4 py-3 font-mono text-orange-400 font-bold">{c.payoutRate}</td>
                       </tr>
                     ))}
                   </tbody>
@@ -989,7 +979,7 @@ export default function Docs() {
                 },
                 {
                   q: "Puis-je envoyer vers n'importe quel numéro ?",
-                  a: "Le numéro doit être actif sur l'opérateur indiqué dans le même pays. Un numéro inactif, suspendu ou appartenant à un autre opérateur entraînera un FAILED côté PixPay.",
+                  a: "Le numéro doit être actif sur l'opérateur indiqué dans le même pays. Un numéro inactif, suspendu ou appartenant à un autre opérateur entraînera un FAILED côté opérateur.",
                 },
                 {
                   q: "Quelle devise utiliser pour le montant ?",
