@@ -7,6 +7,7 @@ export const apiKeysTable = pgTable("api_keys", {
   keyHash: text("key_hash").notNull(),
   keyPrefix: varchar("key_prefix", { length: 20 }).notNull(),
   name: varchar("name", { length: 100 }).notNull().default("Clé principale"),
+  keyType: varchar("key_type", { length: 10 }).notNull().default("payin"),
   active: boolean("active").notNull().default(true),
   lastUsedAt: timestamp("last_used_at"),
   createdAt: timestamp("created_at").defaultNow().notNull(),

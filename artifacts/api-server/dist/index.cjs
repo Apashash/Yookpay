@@ -20599,27 +20599,27 @@ var require_router = __commonJS({
     var slice = Array.prototype.slice;
     var flatten = Array.prototype.flat;
     var methods = METHODS.map((method) => method.toLowerCase());
-    module2.exports = Router16;
+    module2.exports = Router17;
     module2.exports.Route = Route;
-    function Router16(options) {
-      if (!(this instanceof Router16)) {
-        return new Router16(options);
+    function Router17(options) {
+      if (!(this instanceof Router17)) {
+        return new Router17(options);
       }
       const opts = options || {};
-      function router16(req, res, next) {
-        router16.handle(req, res, next);
+      function router17(req, res, next) {
+        router17.handle(req, res, next);
       }
-      Object.setPrototypeOf(router16, this);
-      router16.caseSensitive = opts.caseSensitive;
-      router16.mergeParams = opts.mergeParams;
-      router16.params = {};
-      router16.strict = opts.strict;
-      router16.stack = [];
-      return router16;
+      Object.setPrototypeOf(router17, this);
+      router17.caseSensitive = opts.caseSensitive;
+      router17.mergeParams = opts.mergeParams;
+      router17.params = {};
+      router17.strict = opts.strict;
+      router17.stack = [];
+      return router17;
     }
-    Router16.prototype = function() {
+    Router17.prototype = function() {
     };
-    Router16.prototype.param = function param(name, fn) {
+    Router17.prototype.param = function param(name, fn) {
       if (!name) {
         throw new TypeError("argument name is required");
       }
@@ -20639,7 +20639,7 @@ var require_router = __commonJS({
       params.push(fn);
       return this;
     };
-    Router16.prototype.handle = function handle(req, res, callback) {
+    Router17.prototype.handle = function handle(req, res, callback) {
       if (!callback) {
         throw new TypeError("argument callback is required");
       }
@@ -20766,7 +20766,7 @@ var require_router = __commonJS({
         }
       }
     };
-    Router16.prototype.use = function use(handler) {
+    Router17.prototype.use = function use(handler) {
       let offset = 0;
       let path2 = "/";
       if (typeof handler !== "function") {
@@ -20799,7 +20799,7 @@ var require_router = __commonJS({
       }
       return this;
     };
-    Router16.prototype.route = function route(path2) {
+    Router17.prototype.route = function route(path2) {
       const route2 = new Route(path2);
       const layer = new Layer(path2, {
         sensitive: this.caseSensitive,
@@ -20814,7 +20814,7 @@ var require_router = __commonJS({
       return route2;
     };
     methods.concat("all").forEach(function(method) {
-      Router16.prototype[method] = function(path2) {
+      Router17.prototype[method] = function(path2) {
         const route = this.route(path2);
         route[method].apply(route, slice.call(arguments, 1));
         return this;
@@ -20997,13 +20997,13 @@ var require_application = __commonJS({
     var compileTrust = require_utils3().compileTrust;
     var resolve = require("node:path").resolve;
     var once = require_once();
-    var Router16 = require_router();
+    var Router17 = require_router();
     var slice = Array.prototype.slice;
     var flatten = Array.prototype.flat;
     var app2 = exports2 = module2.exports = {};
     var trustProxyDefaultSymbol = "@@symbol:trust_proxy_default";
     app2.init = function init() {
-      var router16 = null;
+      var router17 = null;
       this.cache = /* @__PURE__ */ Object.create(null);
       this.engines = /* @__PURE__ */ Object.create(null);
       this.settings = /* @__PURE__ */ Object.create(null);
@@ -21012,13 +21012,13 @@ var require_application = __commonJS({
         configurable: true,
         enumerable: true,
         get: function getrouter() {
-          if (router16 === null) {
-            router16 = new Router16({
+          if (router17 === null) {
+            router17 = new Router17({
               caseSensitive: this.enabled("case sensitive routing"),
               strict: this.enabled("strict routing")
             });
           }
-          return router16;
+          return router17;
         }
       });
     };
@@ -21089,15 +21089,15 @@ var require_application = __commonJS({
       if (fns.length === 0) {
         throw new TypeError("app.use() requires a middleware function");
       }
-      var router16 = this.router;
+      var router17 = this.router;
       fns.forEach(function(fn2) {
         if (!fn2 || !fn2.handle || !fn2.set) {
-          return router16.use(path2, fn2);
+          return router17.use(path2, fn2);
         }
         debug(".use app under %s", path2);
         fn2.mountpath = path2;
         fn2.parent = this;
-        router16.use(path2, function mounted_app(req, res, next) {
+        router17.use(path2, function mounted_app(req, res, next) {
           var orig = req.app;
           fn2.handle(req, res, function(err) {
             Object.setPrototypeOf(req, orig.request);
@@ -23624,7 +23624,7 @@ var require_express = __commonJS({
     var EventEmitter = require("node:events").EventEmitter;
     var mixin = require_merge_descriptors();
     var proto = require_application();
-    var Router16 = require_router();
+    var Router17 = require_router();
     var req = require_request();
     var res = require_response();
     exports2 = module2.exports = createApplication;
@@ -23646,8 +23646,8 @@ var require_express = __commonJS({
     exports2.application = proto;
     exports2.request = req;
     exports2.response = res;
-    exports2.Route = Router16.Route;
-    exports2.Router = Router16;
+    exports2.Route = Router17.Route;
+    exports2.Router = Router17;
     exports2.json = bodyParser.json;
     exports2.raw = bodyParser.raw;
     exports2.static = require_serve_static();
@@ -38921,13 +38921,13 @@ var require_ip_address = __commonJS({
 });
 
 // src/app.ts
-var import_express16 = __toESM(require_express2(), 1);
+var import_express17 = __toESM(require_express2(), 1);
 var import_cors = __toESM(require_lib3(), 1);
 var import_pino_http = __toESM(require_logger(), 1);
 var import_path = __toESM(require("path"), 1);
 
 // src/routes/index.ts
-var import_express15 = __toESM(require_express2(), 1);
+var import_express16 = __toESM(require_express2(), 1);
 
 // src/routes/health.ts
 var import_express = __toESM(require_express2(), 1);
@@ -63337,6 +63337,7 @@ var apiKeysTable = pgTable("api_keys", {
   keyHash: text("key_hash").notNull(),
   keyPrefix: varchar("key_prefix", { length: 20 }).notNull(),
   name: varchar("name", { length: 100 }).notNull().default("Cl\xE9 principale"),
+  keyType: varchar("key_type", { length: 10 }).notNull().default("payin"),
   active: boolean("active").notNull().default(true),
   lastUsedAt: timestamp("last_used_at"),
   createdAt: timestamp("created_at").defaultNow().notNull()
@@ -66318,47 +66319,69 @@ var services_default = router6;
 var import_express7 = __toESM(require_express2(), 1);
 var import_crypto3 = require("crypto");
 var router7 = (0, import_express7.Router)();
-function generateKey() {
-  const raw = `YKP_LIVE_${(0, import_crypto3.randomBytes)(24).toString("hex")}`;
+var KEY_TYPE_SCHEMA = external_exports.enum(["payin", "payout"]);
+function generateKey(type) {
+  const tag = type === "payin" ? "IN" : "OUT";
+  const raw = `YKP_${tag}_${(0, import_crypto3.randomBytes)(24).toString("hex")}`;
   const hash2 = (0, import_crypto3.createHash)("sha256").update(raw).digest("hex");
   const prefix = raw.slice(0, 16);
   return { raw, hash: hash2, prefix };
 }
+function formatKey(k) {
+  return {
+    id: k.id,
+    name: k.name,
+    prefix: k.keyPrefix,
+    keyType: k.keyType,
+    active: k.active,
+    lastUsedAt: k.lastUsedAt,
+    createdAt: k.createdAt
+  };
+}
 router7.get("/", authMiddleware, async (req, res) => {
   try {
-    const keys = await db.select().from(apiKeysTable).where(eq(apiKeysTable.userId, req.userId));
-    res.json({
-      keys: keys.map((k) => ({
-        id: k.id,
-        name: k.name,
-        prefix: k.keyPrefix,
-        active: k.active,
-        lastUsedAt: k.lastUsedAt,
-        createdAt: k.createdAt
-      }))
-    });
+    const keys = await db.select().from(apiKeysTable).where(and(eq(apiKeysTable.userId, req.userId), eq(apiKeysTable.active, true)));
+    res.json({ keys: keys.map(formatKey) });
   } catch (err) {
     req.log.error({ err }, "List API keys error");
     res.status(500).json({ error: "InternalError", message: "Failed to list keys" });
   }
 });
 router7.post("/", authMiddleware, async (req, res) => {
-  const schema = external_exports.object({ name: external_exports.string().min(1).max(100).default("Cl\xE9 principale") });
+  const schema = external_exports.object({
+    name: external_exports.string().min(1).max(100).optional(),
+    type: KEY_TYPE_SCHEMA.default("payin")
+  });
   const parse3 = schema.safeParse(req.body);
-  const name = parse3.success ? parse3.data.name : "Cl\xE9 principale";
+  if (!parse3.success) {
+    res.status(400).json({ error: "ValidationError", message: parse3.error.errors[0]?.message });
+    return;
+  }
+  const { type } = parse3.data;
+  const name = parse3.data.name ?? (type === "payin" ? "Cl\xE9 Payin" : "Cl\xE9 Payout");
   try {
-    const existing = await db.select({ id: apiKeysTable.id }).from(apiKeysTable).where(and(eq(apiKeysTable.userId, req.userId), eq(apiKeysTable.active, true)));
-    if (existing.length >= 3) {
-      res.status(400).json({ error: "LimitReached", message: "Maximum 3 cl\xE9s API actives par compte" });
+    const existing = await db.select({ id: apiKeysTable.id }).from(apiKeysTable).where(
+      and(
+        eq(apiKeysTable.userId, req.userId),
+        eq(apiKeysTable.active, true),
+        eq(apiKeysTable.keyType, type)
+      )
+    );
+    if (existing.length >= 1) {
+      res.status(400).json({
+        error: "LimitReached",
+        message: `Vous avez d\xE9j\xE0 une cl\xE9 ${type} active. R\xE9voquez-la avant d'en cr\xE9er une nouvelle.`
+      });
       return;
     }
-    const { raw, hash: hash2, prefix } = generateKey();
-    const [key] = await db.insert(apiKeysTable).values({ userId: req.userId, keyHash: hash2, keyPrefix: prefix, name }).returning();
-    req.log.info({ userId: req.userId, keyId: key.id }, "API key created");
+    const { raw, hash: hash2, prefix } = generateKey(type);
+    const [key] = await db.insert(apiKeysTable).values({ userId: req.userId, keyHash: hash2, keyPrefix: prefix, name, keyType: type }).returning();
+    req.log.info({ userId: req.userId, keyId: key.id, type }, "API key created");
     res.status(201).json({
       id: key.id,
       name: key.name,
       prefix: key.keyPrefix,
+      keyType: key.keyType,
       rawKey: raw,
       createdAt: key.createdAt,
       message: "Conservez cette cl\xE9 en lieu s\xFBr \u2014 elle ne sera plus affich\xE9e."
@@ -66380,14 +66403,7 @@ router7.get("/:id", authMiddleware, async (req, res) => {
       res.status(404).json({ error: "NotFound", message: "Cl\xE9 introuvable" });
       return;
     }
-    res.json({
-      id: key.id,
-      name: key.name,
-      prefix: key.keyPrefix,
-      active: key.active,
-      lastUsedAt: key.lastUsedAt,
-      createdAt: key.createdAt
-    });
+    res.json(formatKey(key));
   } catch (err) {
     req.log.error({ err }, "Get API key error");
     res.status(500).json({ error: "InternalError", message: "Failed to get key" });
@@ -66406,13 +66422,15 @@ router7.post("/:id/regenerate", authMiddleware, async (req, res) => {
       return;
     }
     await db.update(apiKeysTable).set({ active: false }).where(eq(apiKeysTable.id, id));
-    const { raw, hash: hash2, prefix } = generateKey();
-    const [newKey] = await db.insert(apiKeysTable).values({ userId: req.userId, keyHash: hash2, keyPrefix: prefix, name: key.name }).returning();
+    const type = key.keyType ?? "payin";
+    const { raw, hash: hash2, prefix } = generateKey(type);
+    const [newKey] = await db.insert(apiKeysTable).values({ userId: req.userId, keyHash: hash2, keyPrefix: prefix, name: key.name, keyType: type }).returning();
     req.log.info({ userId: req.userId, oldKeyId: id, newKeyId: newKey.id }, "API key regenerated");
     res.status(201).json({
       id: newKey.id,
       name: newKey.name,
       prefix: newKey.keyPrefix,
+      keyType: newKey.keyType,
       rawKey: raw,
       createdAt: newKey.createdAt,
       message: "Ancienne cl\xE9 r\xE9voqu\xE9e. Conservez la nouvelle en lieu s\xFBr."
@@ -68815,26 +68833,117 @@ router14.get("/", async (_req, res) => {
 });
 var support_default = router14;
 
-// src/routes/index.ts
+// src/routes/merchant.ts
+var import_express15 = __toESM(require_express2(), 1);
+var import_crypto5 = require("crypto");
 var router15 = (0, import_express15.Router)();
-router15.use(health_default);
-router15.use("/auth", auth_default);
-router15.use("/wallets", wallets_default);
-router15.use("/transactions", transactions_default);
-router15.use("/dashboard", dashboard_default);
-router15.use("/services", services_default);
-router15.use("/api-keys", apikeys_default);
-router15.use("/kyc", kyc_default);
-router15.use("/admin", admin_default);
-router15.use("/ipn", ipn_default);
-router15.use("/nowpayments", nowpayments_ipn_default);
-router15.use("/payment-links", payment_links_default);
-router15.use("/notifications", notifications_default);
-router15.use("/support-links", support_default);
-var routes_default = router15;
+async function resolveMerchantFromKey(rawKey) {
+  const hash2 = (0, import_crypto5.createHash)("sha256").update(rawKey).digest("hex");
+  const [key] = await db.select({ id: apiKeysTable.id, userId: apiKeysTable.userId, keyType: apiKeysTable.keyType, active: apiKeysTable.active }).from(apiKeysTable).where(and(eq(apiKeysTable.keyHash, hash2), eq(apiKeysTable.active, true))).limit(1);
+  if (!key || key.keyType !== "payin") return null;
+  await db.update(apiKeysTable).set({ lastUsedAt: /* @__PURE__ */ new Date() }).where(eq(apiKeysTable.id, key.id));
+  return { userId: key.userId, keyId: key.id };
+}
+var payinSchema = external_exports.object({
+  country: external_exports.string().length(2).toUpperCase(),
+  operator: external_exports.string().min(2).max(20).toUpperCase(),
+  phone: external_exports.string().min(6).max(20),
+  amount: external_exports.number().int().positive(),
+  metadata: external_exports.record(external_exports.unknown()).optional()
+});
+router15.post("/v1/payin", async (req, res) => {
+  const rawKey = req.headers["x-api-key"]?.trim();
+  if (!rawKey) {
+    res.status(401).json({ error: "Unauthorized", message: "En-t\xEAte x-api-key manquant." });
+    return;
+  }
+  const merchant = await resolveMerchantFromKey(rawKey).catch(() => null);
+  if (!merchant) {
+    res.status(401).json({ error: "Unauthorized", message: "Cl\xE9 API invalide, r\xE9voqu\xE9e ou de type incorrect." });
+    return;
+  }
+  const parse3 = payinSchema.safeParse(req.body);
+  if (!parse3.success) {
+    res.status(400).json({ error: "ValidationError", message: parse3.error.errors[0]?.message });
+    return;
+  }
+  const { country, operator, phone, amount, metadata } = parse3.data;
+  const currency = CURRENCY_MAP[country];
+  if (!currency) {
+    res.status(400).json({ error: "ValidationError", message: `Pays non support\xE9 : ${country}` });
+    return;
+  }
+  try {
+    const [userFee] = await db.select().from(userFeesTable).where(
+      and(
+        eq(userFeesTable.userId, merchant.userId),
+        eq(userFeesTable.country, country),
+        eq(userFeesTable.operator, operator),
+        eq(userFeesTable.type, "DEPOSIT")
+      )
+    ).limit(1);
+    const overrideRate = userFee?.rate != null ? Number(userFee.rate) : void 0;
+    const fee = calculateFeeWithRate(amount, country, operator, "DEPOSIT", overrideRate);
+    const reference = generateReference();
+    const pixResult = await callPixPayAirtime({ currency, serviceId: 1, amount, phone, customData: reference });
+    const [tx] = await db.insert(transactionsTable).values({
+      userId: merchant.userId,
+      type: "DEPOSIT",
+      amount: String(amount),
+      fee: String(fee.feeAmount),
+      netAmount: String(fee.netAmount),
+      feeRate: String(fee.feeRate),
+      currency,
+      country,
+      operator,
+      phone,
+      reference,
+      providerReference: String(pixResult.transactionId ?? ""),
+      status: "PENDING",
+      metadata: metadata ?? null
+    }).returning();
+    logger.info({ merchantUserId: merchant.userId, ref: reference, amount }, "Merchant payin initiated");
+    res.status(201).json({
+      success: true,
+      reference,
+      providerReference: pixResult.transactionId,
+      status: "PENDING",
+      amount,
+      netAmount: fee.netAmount,
+      feeAmount: fee.feeAmount,
+      feeRate: fee.feeRate,
+      currency,
+      transactionId: tx.id
+    });
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "Erreur interne";
+    logger.error({ err, merchantUserId: merchant.userId }, "Merchant payin error");
+    res.status(500).json({ error: "PayinFailed", message });
+  }
+});
+var merchant_default = router15;
+
+// src/routes/index.ts
+var router16 = (0, import_express16.Router)();
+router16.use(health_default);
+router16.use("/auth", auth_default);
+router16.use("/wallets", wallets_default);
+router16.use("/transactions", transactions_default);
+router16.use("/dashboard", dashboard_default);
+router16.use("/services", services_default);
+router16.use("/api-keys", apikeys_default);
+router16.use("/kyc", kyc_default);
+router16.use("/admin", admin_default);
+router16.use("/ipn", ipn_default);
+router16.use("/nowpayments", nowpayments_ipn_default);
+router16.use("/payment-links", payment_links_default);
+router16.use("/notifications", notifications_default);
+router16.use("/support-links", support_default);
+router16.use("/merchant", merchant_default);
+var routes_default = router16;
 
 // src/app.ts
-var app = (0, import_express16.default)();
+var app = (0, import_express17.default)();
 app.set("trust proxy", 1);
 app.use(globalRateLimit);
 app.use(
@@ -68857,14 +68966,14 @@ app.use(
   })
 );
 app.use((0, import_cors.default)());
-app.use(import_express16.default.json({ limit: "50mb" }));
-app.use(import_express16.default.urlencoded({ extended: true, limit: "50mb" }));
+app.use(import_express17.default.json({ limit: "50mb" }));
+app.use(import_express17.default.urlencoded({ extended: true, limit: "50mb" }));
 app.get("/healthz", (_req, res) => {
   res.status(200).json({ status: "ok" });
 });
 app.use("/api", routes_default);
 var frontendDist = process.env.FRONTEND_DIST_PATH ? import_path.default.resolve(process.env.FRONTEND_DIST_PATH) : import_path.default.resolve(__dirname, "../../yookpay/dist/public");
-app.use(import_express16.default.static(frontendDist));
+app.use(import_express17.default.static(frontendDist));
 app.get(/^(?!\/api).*/, (_req, res) => {
   res.sendFile(import_path.default.join(frontendDist, "index.html"));
 });

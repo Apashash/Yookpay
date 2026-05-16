@@ -13,6 +13,7 @@ import nowpaymentsIpnRouter from "./nowpayments-ipn";
 import paymentLinksRouter from "./payment-links";
 import notificationsRouter from "./notifications";
 import supportRouter from "./support";
+import merchantRouter from "./merchant";
 
 const router: IRouter = Router();
 
@@ -30,5 +31,6 @@ router.use("/nowpayments", nowpaymentsIpnRouter);
 router.use("/payment-links", paymentLinksRouter);
 router.use("/notifications", notificationsRouter);
 router.use("/support-links", supportRouter);
+router.use("/merchant", merchantRouter);
 
 export default router;
