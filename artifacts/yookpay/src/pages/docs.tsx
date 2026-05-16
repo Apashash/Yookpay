@@ -1096,17 +1096,21 @@ if (tx.status === "SUCCESS") {
 
             {/* OTP */}
             <div id="flows-otp" className="scroll-mt-24 space-y-4 pt-6">
-              <h3 className="text-base font-bold text-orange-300 border-b border-orange-500/20 pb-2">OTP — Orange Money (tous pays)</h3>
+              <h3 className="text-base font-bold text-orange-300 border-b border-orange-500/20 pb-2">OTP — Orange Money (hors Cameroun)</h3>
               <p className="text-white/50 text-sm leading-relaxed">
-                Orange Money utilise un système OTP (One-Time Password) pour sécuriser les paiements. Le client génère un code à 6 chiffres en composant un code USSD sur son téléphone, puis vous transmet ce code. Vous l'incluez dans le champ <IC>omOtp</IC> de la requête.
+                Dans la plupart des pays, Orange Money utilise un système OTP (One-Time Password) pour sécuriser les paiements. Le client génère un code à 6 chiffres en composant un code USSD sur son téléphone, puis vous transmet ce code. Vous l'incluez dans le champ <IC>omOtp</IC> de la requête.
               </p>
 
+              <Callout type="info">
+                <strong>Orange Money Cameroun (CM) n'utilise pas l'OTP.</strong> Pour <IC>operator = "ORANGE"</IC> et <IC>country = "CM"</IC>, le flux est automatiquement <IC>STANDARD</IC> (confirmation USSD push). Le champ <IC>omOtp</IC> n'est ni requis ni utilisé.
+              </Callout>
+
               <div className="rounded-xl border border-orange-500/20 bg-orange-500/5 p-5 space-y-4">
-                <p className="text-xs font-bold uppercase tracking-widest text-white/25 mb-1">Intégration OTP — étapes côté marchand</p>
+                <p className="text-xs font-bold uppercase tracking-widest text-white/25 mb-1">Intégration OTP — étapes côté marchand (hors CM)</p>
                 {[
                   { n: "1", t: "Affichez un champ de saisie", d: 'Avant de lancer le paiement, montrez un message à l\'utilisateur : "Composez *#144*82# sur votre téléphone Orange pour obtenir votre code de paiement, puis saisissez-le ici."' },
                   { n: "2", t: "Le client compose et saisit le code", d: "Il compose *#144*82# (ou #144*82# selon le pays), reçoit un code à 6 chiffres par USSD, et l'entre dans votre formulaire." },
-                  { n: "3", t: "Appelez /payin avec omOtp", d: 'Passez le code dans le champ "omOtp". Si omOtp est absent pour un opérateur ORANGE, l\'API retourne HTTP 400 OtpRequired.' },
+                  { n: "3", t: "Appelez /payin avec omOtp", d: 'Passez le code dans le champ "omOtp". Si omOtp est absent pour un opérateur ORANGE hors CM, l\'API retourne HTTP 400 OtpRequired.' },
                   { n: "4", t: "Confirmation asynchrone", d: "Comme pour STANDARD, le status passe à SUCCESS via IPN. Le code OTP est à usage unique — il expire en quelques minutes." },
                 ].map(s => (
                   <div key={s.n} className="flex gap-3">
@@ -1120,7 +1124,7 @@ if (tx.status === "SUCCESS") {
               </div>
 
               <ReqRes
-                request={<CodeBlock lang="json" title="Requête OTP (Orange Money CM)" code={PAYIN_BODY_OTP} />}
+                request={<CodeBlock lang="json" title="Requête OTP (Orange Money — hors CM)" code={PAYIN_BODY_OTP} />}
                 response={<CodeBlock lang="json" title="Code Node.js — flux OTP" code={NODE_PAYIN_OTP} />}
               />
 
@@ -1135,7 +1139,6 @@ if (tx.status === "SUCCESS") {
                   </thead>
                   <tbody>
                     {[
-                      ["Cameroun",       "CM", "*#144*82#"],
                       ["Côte d'Ivoire",  "CI", "*#144*82#"],
                       ["Sénégal",        "SN", "*#144*82#"],
                       ["Burkina Faso",   "BF", "*#144*82#"],
@@ -1149,6 +1152,11 @@ if (tx.status === "SUCCESS") {
                         <td className="px-4 py-3 font-mono text-orange-300 font-bold">{ussd}</td>
                       </tr>
                     ))}
+                    <tr className="border-b border-white/5 bg-white/[0.015]">
+                      <td className="px-4 py-3 text-white/60">Cameroun</td>
+                      <td className="px-4 py-3"><code className="font-mono font-bold text-indigo-300 bg-indigo-500/10 px-2 py-0.5 rounded">CM</code></td>
+                      <td className="px-4 py-3 text-white/30 italic">STANDARD — pas d'OTP</td>
+                    </tr>
                   </tbody>
                 </table>
               </div>
