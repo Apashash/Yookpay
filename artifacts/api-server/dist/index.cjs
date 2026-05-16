@@ -70698,7 +70698,7 @@ router12.get("/public/tx/:txId", async (req, res) => {
   }
   try {
     const r = await pool.query(
-      `SELECT status, amount, currency FROM transactions WHERE id = $1
+      `SELECT status, amount, currency, metadata FROM transactions WHERE id = $1
        AND metadata->>'paymentLinkId' IS NOT NULL`,
       [txId]
     );
@@ -70707,7 +70707,9 @@ router12.get("/public/tx/:txId", async (req, res) => {
       return;
     }
     const row = r.rows[0];
-    res.json({ status: row.status, amount: parseFloat(row.amount), currency: row.currency });
+    const meta = row.metadata ?? {};
+    const pixMessage = typeof meta.pixMessage === "string" ? meta.pixMessage : null;
+    res.json({ status: row.status, amount: parseFloat(row.amount), currency: row.currency, failureReason: pixMessage });
   } catch (err) {
     res.status(500).json({ error: "InternalError" });
   }

@@ -457,14 +457,16 @@ router.get("/public/tx/:txId", async (req, res) => {
   const txId = parseInt(req.params.txId);
   if (isNaN(txId)) { res.status(400).json({ error: "Invalid ID" }); return; }
   try {
-    const r = await pool.query<{ status: string; amount: string; currency: string }>(
-      `SELECT status, amount, currency FROM transactions WHERE id = $1
+    const r = await pool.query<{ status: string; amount: string; currency: string; metadata: unknown }>(
+      `SELECT status, amount, currency, metadata FROM transactions WHERE id = $1
        AND metadata->>'paymentLinkId' IS NOT NULL`,
       [txId]
     );
     if (!r.rows.length) { res.status(404).json({ error: "NotFound" }); return; }
     const row = r.rows[0];
-    res.json({ status: row.status, amount: parseFloat(row.amount), currency: row.currency });
+    const meta = (row.metadata ?? {}) as Record<string, unknown>;
+    const pixMessage = typeof meta.pixMessage === "string" ? meta.pixMessage : null;
+    res.json({ status: row.status, amount: parseFloat(row.amount), currency: row.currency, failureReason: pixMessage });
   } catch (err) {
     res.status(500).json({ error: "InternalError" });
   }

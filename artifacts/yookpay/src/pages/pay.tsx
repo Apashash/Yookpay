@@ -38,6 +38,12 @@ type MobileResult = {
   pending?: boolean;
 };
 
+function isInsufficientBalance(msg: string): boolean {
+  const lower = msg.toLowerCase();
+  return lower.includes("insufficient") || lower.includes("solde") ||
+         lower.includes("balance") || lower.includes("fonds") || lower.includes("funds");
+}
+
 type CryptoResult = {
   txId:       number;
   payAddress: string;
@@ -82,6 +88,7 @@ export default function Pay() {
   const [mobileResult, setMobileResult] = useState<MobileResult | null>(null);
   const [pollStatus,   setPollStatus]   = useState<PollStatus>("PENDING");
   const [timeLeft,     setTimeLeft]     = useState(COUNTDOWN_SECONDS);
+  const [failureReason, setFailureReason] = useState<string | null>(null);
 
   // ── Crypto form ──
   const [cryptoMinUsdt,  setCryptoMinUsdt]  = useState(20);
@@ -146,9 +153,14 @@ export default function Pay() {
     const poll = setInterval(async () => {
       try {
         const r = await fetch(`/api/payment-links/public/tx/${mobileResult.txId}`);
-        const d = await r.json() as { status: string };
+        const d = await r.json() as { status: string; failureReason?: string | null };
         if (d.status === "SUCCESS") { setPollStatus("SUCCESS"); clearInterval(poll); clearInterval(timer); }
-        else if (d.status === "FAILED") { setPollStatus("FAILED"); clearInterval(poll); clearInterval(timer); }
+        else if (d.status === "FAILED") {
+          setFailureReason(d.failureReason ?? null);
+          setPollStatus("FAILED");
+          clearInterval(poll);
+          clearInterval(timer);
+        }
       } catch { /* silent */ }
     }, 3000);
 
@@ -284,12 +296,25 @@ export default function Pay() {
       );
     }
     if (pollStatus === "FAILED") {
+      const isInsufficient = failureReason ? isInsufficientBalance(failureReason) : false;
       return (
         <div className="min-h-screen bg-background flex flex-col items-center justify-center gap-4 p-6 text-center">
           <XCircle className="w-16 h-16 text-destructive" />
           <h1 className="text-2xl font-bold">Paiement échoué</h1>
-          <p className="text-muted-foreground text-sm max-w-sm">Le paiement n'a pas été validé. Votre téléphone n'a pas été débité.</p>
-          <Button onClick={() => { setMobileResult(null); setPollStatus("PENDING"); setTimeLeft(COUNTDOWN_SECONDS); }}>
+          {isInsufficient ? (
+            <p className="text-muted-foreground text-sm max-w-sm">
+              Solde insuffisant sur votre compte Mobile Money. Rechargez votre compte et réessayez.
+            </p>
+          ) : failureReason ? (
+            <p className="text-muted-foreground text-sm max-w-sm">
+              Transaction refusée par l'opérateur : {failureReason}. Votre téléphone n'a pas été débité.
+            </p>
+          ) : (
+            <p className="text-muted-foreground text-sm max-w-sm">
+              La transaction a été refusée par l'opérateur. Votre téléphone n'a pas été débité.
+            </p>
+          )}
+          <Button onClick={() => { setMobileResult(null); setPollStatus("PENDING"); setTimeLeft(COUNTDOWN_SECONDS); setFailureReason(null); }}>
             Réessayer
           </Button>
         </div>

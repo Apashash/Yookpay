@@ -70,6 +70,12 @@ type DepositResult = {
 
 type PollStatus = "PENDING" | "SUCCESS" | "FAILED";
 
+function isInsufficientBalance(msg: string): boolean {
+  const lower = msg.toLowerCase();
+  return lower.includes("insufficient") || lower.includes("solde") ||
+         lower.includes("balance") || lower.includes("fonds") || lower.includes("funds");
+}
+
 const COUNTDOWN_SECONDS = 8 * 60; // 8 minutes
 const CIRCLE_RADIUS = 52;
 const CIRCLE_CIRCUMFERENCE = 2 * Math.PI * CIRCLE_RADIUS;
@@ -90,6 +96,7 @@ export default function Deposit() {
   const [pendingResult, setPendingResult] = useState<DepositResult | null>(null);
   const [pollStatus, setPollStatus] = useState<PollStatus>("PENDING");
   const [timeLeft, setTimeLeft] = useState(COUNTDOWN_SECONDS);
+  const [failureReason, setFailureReason] = useState<string | null>(null);
 
   // ─── Crypto deposit mode ──────────────────────────────────────────────────
   const [depositMode, setDepositMode] = useState<"mobile" | "crypto">("mobile");
@@ -193,12 +200,14 @@ export default function Deposit() {
     const txId = pendingResult.transaction.id;
     const interval = setInterval(async () => {
       try {
-        const tx = await customFetch<{ status: string }>(`/api/transactions/${txId}`);
+        const tx = await customFetch<{ status: string; metadata?: Record<string, unknown> }>(`/api/transactions/${txId}`);
         if (tx.status === "SUCCESS") {
           setPollStatus("SUCCESS");
           refreshWallet();
           clearInterval(interval);
         } else if (tx.status === "FAILED") {
+          const pixMsg = typeof tx.metadata?.pixMessage === "string" ? tx.metadata.pixMessage : null;
+          setFailureReason(pixMsg);
           setPollStatus("FAILED");
           clearInterval(interval);
         }
@@ -347,7 +356,11 @@ export default function Deposit() {
               {pollStatus === "SUCCESS"
                 ? "Votre wallet a été crédité avec succès."
                 : pollStatus === "FAILED"
-                ? "Le paiement n'a pas été validé dans le délai imparti. Votre wallet n'a pas été débité."
+                ? failureReason && isInsufficientBalance(failureReason)
+                  ? "Solde insuffisant sur votre compte Mobile Money. Rechargez votre compte et réessayez."
+                  : failureReason
+                  ? `Transaction refusée par l'opérateur : ${failureReason}. Votre wallet n'a pas été débité.`
+                  : "La transaction a été refusée par l'opérateur. Votre wallet n'a pas été débité."
                 : "Confirmez le paiement sur votre téléphone. Le statut se met à jour automatiquement."}
             </CardDescription>
           </CardHeader>
