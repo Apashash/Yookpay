@@ -1,53 +1,51 @@
 #!/bin/bash
 # ============================================================
-#  Script de build — YookPay (à exécuter sur Replit)
-#
-#  Ce script compile le frontend et le backend.
-#  Les fichiers dist/ sont committés dans Git.
-#  Sur Plesk : git pull + restart suffit, rien à installer.
+#  deploy.sh — Build complet + push GitHub (Replit)
 #
 #  Usage :
 #    bash deploy.sh
-#    git add -A && git commit -m "build" && git push
+#    bash deploy.sh "message de commit"
+#
+#  Dans Plesk ensuite : git pull → Restart
+#  Aucune installation ni build côté Plesk.
 # ============================================================
 
 set -e
 
+COMMIT_MSG="${1:-deploy: build $(date '+%Y-%m-%d %H:%M')}"
+
 echo ""
 echo "========================================="
-echo "  YookPay — Build (Replit)"
+echo "  YookPay — Build & Push"
 echo "========================================="
 echo ""
 
-# --- Build du frontend (React) ---
-echo "▶ Build du frontend React..."
-pnpm --filter @workspace/yookpay run build
-echo "✓ Frontend compilé → artifacts/yookpay/dist/public/"
-
-# --- Build du backend (Express) ---
-echo ""
-echo "▶ Build du backend Express..."
+# ── 1. Build backend ──────────────────────────────────────
+echo "▶ [1/3] Build backend (esbuild)..."
 pnpm --filter @workspace/api-server run build
-echo "✓ Backend compilé → artifacts/api-server/dist/index.cjs"
+echo "    ✓ artifacts/api-server/dist/index.cjs"
+echo ""
 
-# --- Mise à jour du point d'entrée Plesk (dist/index.cjs à la racine) ---
-mkdir -p dist
-cat > dist/index.cjs << 'EOF'
-'use strict';
-// Point d'entrée Plesk — redirige vers le backend compilé.
-// Ce fichier est régénéré automatiquement par deploy.sh à chaque build.
-require('../artifacts/api-server/dist/index.cjs');
-EOF
-echo "✓ dist/index.cjs (racine) mis à jour → pointe vers artifacts/api-server/dist/"
+# ── 2. Build frontend ─────────────────────────────────────
+echo "▶ [2/3] Build frontend (Vite)..."
+pnpm --filter @workspace/yookpay run build
+echo "    ✓ artifacts/yookpay/dist/public/"
+echo ""
+
+# ── 3. Git commit + push ──────────────────────────────────
+echo "▶ [3/3] Git commit & push → GitHub..."
+git add -A
+git diff --cached --stat
+git commit -m "$COMMIT_MSG" || echo "    (rien de nouveau à committer)"
+git push origin main
+echo "    ✓ Push OK"
 
 echo ""
 echo "========================================="
-echo "  ✅ Build terminé !"
+echo "  ✅ Terminé !"
 echo ""
-echo "  Prochaines étapes :"
-echo "  git add -A && git commit -m 'build' && git push"
-echo ""
-echo "  Sur Plesk : git pull → Restart"
-echo "  (aucune installation nécessaire côté Plesk)"
+echo "  Dans Plesk :"
+echo "    1. git pull"
+echo "    2. Restart"
 echo "========================================="
 echo ""
