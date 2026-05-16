@@ -71311,6 +71311,7 @@ app.get("/healthz", (_req, res) => {
 });
 app.use("/api", routes_default);
 var frontendDist = process.env.FRONTEND_DIST_PATH ? import_path.default.resolve(process.env.FRONTEND_DIST_PATH) : import_path.default.resolve(__dirname, "../../yookpay/dist/public");
+logger.info({ frontendDist }, "Serving frontend from");
 app.use(import_express17.default.static(frontendDist));
 app.get(/^(?!\/api).*/, (_req, res) => {
   res.sendFile(import_path.default.join(frontendDist, "index.html"));
