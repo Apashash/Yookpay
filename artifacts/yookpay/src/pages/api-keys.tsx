@@ -3,11 +3,12 @@ import { KycGate } from "@/components/kyc-gate";
 import { useLocation } from "wouter";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { customFetch } from "@workspace/api-client-react";
+import { useAuth } from "@/lib/auth";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   Dialog,
@@ -18,7 +19,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
-import { Copy, Plus, Key, ShieldCheck, Clock, Check, ChevronRight, ArrowDownToLine, ArrowUpFromLine, BookOpen } from "lucide-react";
+import { Copy, Plus, Key, ShieldCheck, Clock, Check, ChevronRight, ArrowDownToLine, ArrowUpFromLine, BookOpen, Webhook, Save, CheckCircle2 } from "lucide-react";
 
 interface ApiKey {
   id: number;
@@ -73,8 +74,31 @@ export default function ApiKeys() {
   const [, navigate] = useLocation();
   const qc = useQueryClient();
   const { toast } = useToast();
+  const { user } = useAuth();
   const [newKeyName, setNewKeyName] = useState("");
   const [pendingType, setPendingType] = useState<"payin" | "payout" | null>(null);
+  const [webhookUrl, setWebhookUrl] = useState<string>((user as { webhookUrl?: string })?.webhookUrl ?? "");
+  const [isSavingWebhook, setIsSavingWebhook] = useState(false);
+  const [webhookSaved, setWebhookSaved] = useState(false);
+
+  const onSaveWebhook = async () => {
+    setIsSavingWebhook(true);
+    try {
+      await customFetch("/api/auth/profile", {
+        method: "PATCH",
+        body: JSON.stringify({ webhookUrl: webhookUrl.trim() }),
+      });
+      setWebhookSaved(true);
+      toast({ title: "URL webhook enregistrée", description: "Les notifications seront envoyées à cette URL." });
+      setTimeout(() => setWebhookSaved(false), 3000);
+    } catch (err: unknown) {
+      const raw = (err as { message?: string })?.message ?? "Une erreur s'est produite.";
+      const msg = raw.replace(/^HTTP\s+\d+[^:]*:\s*/i, "");
+      toast({ variant: "destructive", title: "Échec", description: msg });
+    } finally {
+      setIsSavingWebhook(false);
+    }
+  };
 
   const { data, isLoading } = useQuery<{ keys: ApiKey[] }>({
     queryKey: ["api-keys"],
@@ -217,6 +241,52 @@ export default function ApiKeys() {
   "amount": 5000
 }`}
           </code>
+        </CardContent>
+      </Card>
+
+      {/* Webhook URL */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base flex items-center gap-2">
+            <Webhook className="h-4 w-4" />
+            URL de notification (Webhook)
+          </CardTitle>
+          <CardDescription>
+            YookPay enverra un POST à cette URL pour chaque mise à jour de statut de transaction. Laissez vide pour désactiver.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="flex gap-2">
+            <Input
+              type="url"
+              placeholder="https://votre-serveur.com/api/webhook/yookpay"
+              value={webhookUrl}
+              onChange={(e) => { setWebhookUrl(e.target.value); setWebhookSaved(false); }}
+              className="flex-1 font-mono text-sm"
+            />
+            <Button onClick={onSaveWebhook} disabled={isSavingWebhook} className="shrink-0 gap-2">
+              {isSavingWebhook ? (
+                <span className="h-4 w-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+              ) : webhookSaved ? (
+                <CheckCircle2 className="h-4 w-4 text-emerald-400" />
+              ) : (
+                <Save className="h-4 w-4" />
+              )}
+              {webhookSaved ? "Enregistré !" : "Enregistrer"}
+            </Button>
+          </div>
+          <div className="rounded-lg border border-amber-500/20 bg-amber-500/5 p-3 text-xs text-amber-700 dark:text-amber-400 leading-relaxed space-y-1">
+            <p className="font-semibold">Format du payload reçu sur votre serveur :</p>
+            <pre className="font-mono text-[10px] opacity-80 overflow-x-auto">{`POST ${webhookUrl || "https://votre-url.com/webhook"}
+Content-Type: application/json
+X-YookPay-Event: transaction.status_update
+
+{
+  "event": "transaction.status_update",
+  "sentAt": "2024-05-16T10:23:47.000Z",
+  "data": { "reference": "YPY-...", "status": "SUCCESS", ... }
+}`}</pre>
+          </div>
         </CardContent>
       </Card>
 
