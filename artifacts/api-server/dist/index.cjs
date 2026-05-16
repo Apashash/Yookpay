@@ -66859,6 +66859,7 @@ function calculateFeeWithRate(amount, country, operator, type, overrideRate) {
     country
   };
 }
+var DEFAULT_MARGIN = 0.025;
 function generateReference() {
   const timestamp2 = Date.now().toString(36).toUpperCase();
   const random = Math.random().toString(36).substring(2, 8).toUpperCase();
@@ -66998,7 +66999,6 @@ async function getPixPayTransactionStatus(pixTransactionId, currency) {
 }
 
 // src/routes/transactions.ts
-var DEFAULT_MARGIN = 0.025;
 var DIAL_CODES = {
   BJ: "229",
   BF: "226",
@@ -68306,7 +68306,6 @@ var dashboard_default = router5;
 var import_express6 = __toESM(require_express2(), 1);
 init_drizzle_orm();
 var router6 = (0, import_express6.Router)();
-var DEFAULT_MARGIN2 = 0.025;
 router6.get("/fees", authMiddleware, async (req, res) => {
   try {
     const overrideRows = await db.execute(sql`
@@ -68333,9 +68332,9 @@ router6.get("/fees", authMiddleware, async (req, res) => {
         const pixpayD = override ? override.pixpayD : config2.DEPOSIT.rate;
         const pixpayW = override ? override.pixpayW : config2.WITHDRAWAL.rate;
         const pixpayT = config2.TRANSFER.rate;
-        const marginD = override ? override.marginD : DEFAULT_MARGIN2;
-        const marginW = override ? override.marginW : DEFAULT_MARGIN2;
-        const marginT = override ? override.marginD : DEFAULT_MARGIN2;
+        const marginD = override ? override.marginD : DEFAULT_MARGIN;
+        const marginW = override ? override.marginW : DEFAULT_MARGIN;
+        const marginT = override ? override.marginD : DEFAULT_MARGIN;
         operators.push({
           name: operator,
           deposit: {
@@ -69143,8 +69142,8 @@ router9.get("/users/:id/operator-fees", async (req, res) => {
         operator: def.operator,
         pixpayDeposit: row ? parseFloat(row.pixpay_deposit) : def.pixpayDeposit,
         pixpayWithdrawal: row ? parseFloat(row.pixpay_withdrawal) : def.pixpayWithdrawal,
-        marginDeposit: row ? parseFloat(row.margin_deposit) : 0.015,
-        marginWithdrawal: row ? parseFloat(row.margin_withdrawal) : 0.015,
+        marginDeposit: row ? parseFloat(row.margin_deposit) : DEFAULT_MARGIN,
+        marginWithdrawal: row ? parseFloat(row.margin_withdrawal) : DEFAULT_MARGIN,
         isCustom: !!row
       };
     });
@@ -70348,7 +70347,7 @@ var nowpayments_ipn_default = router11;
 var import_express12 = __toESM(require_express2(), 1);
 var import_crypto5 = __toESM(require("crypto"), 1);
 var router12 = (0, import_express12.Router)();
-var DEFAULT_MARGIN3 = 0.025;
+var DEFAULT_MARGIN2 = 0.025;
 var DIAL_CODES2 = {
   BJ: "229",
   BF: "226",
@@ -70676,7 +70675,7 @@ router12.post("/public/:token/pay", async (req, res) => {
   const pixPayAmount = feeBearer === "SENDER" ? amount + feeAmt : amount;
   const walletNetAmount = feeBearer === "SENDER" ? amount : Math.max(amount - feeAmt, 0);
   const reference = generateReference();
-  const yookpayMarginAmount = Math.round(amount * (opBreakdown?.margin ?? DEFAULT_MARGIN3));
+  const yookpayMarginAmount = Math.round(amount * (opBreakdown?.margin ?? DEFAULT_MARGIN2));
   try {
     const txRes = await pool.query(
       `INSERT INTO transactions (user_id, type, status, amount, fee, net_amount, currency, country, operator, phone, reference, fee_rate, yookpay_margin, metadata)

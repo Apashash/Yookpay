@@ -14,6 +14,7 @@ import {
   generateReference,
   CURRENCY_MAP,
   FEE_TABLE,
+  DEFAULT_MARGIN,
   type Country,
   type Operator,
   type TransactionType,
@@ -21,8 +22,6 @@ import {
 
 import { callPixPayAirtime, getOperatorFlow, getPixPayTransactionStatus, type PixPayCallParams } from "../lib/pixpay";
 import { z } from "zod";
-
-const DEFAULT_MARGIN = 0.025; // YookPay margin applied on top of PixPay fee
 
 // Country code → dial code digits (no '+')
 const DIAL_CODES: Record<string, string> = {

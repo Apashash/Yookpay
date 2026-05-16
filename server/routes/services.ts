@@ -1,12 +1,10 @@
 import { Router } from "express";
 import { authMiddleware, type AuthRequest } from "../middlewares/authMiddleware";
-import { FEE_TABLE, CURRENCY_MAP } from "../services/feeService";
+import { FEE_TABLE, CURRENCY_MAP, DEFAULT_MARGIN } from "../services/feeService";
 import { db } from "@workspace/db";
 import { sql } from "drizzle-orm";
 
 const router = Router();
-
-const DEFAULT_MARGIN = 0.025;
 
 // GET /services/fees — fee table for the authenticated user
 // Shows total rate = pixpay_base + yookpay_margin (as configured by admin)

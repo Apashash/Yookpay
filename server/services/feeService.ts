@@ -157,6 +157,9 @@ export function calculateFeeWithRate(
   };
 }
 
+/** Default YookPay margin applied on top of PixPay base rate when no custom override exists. */
+export const DEFAULT_MARGIN = 0.025;
+
 export function generateReference(): string {
   const timestamp = Date.now().toString(36).toUpperCase();
   const random = Math.random().toString(36).substring(2, 8).toUpperCase();

@@ -5,7 +5,7 @@ import { eq, desc, sql, and } from "drizzle-orm";
 import { authMiddleware, type AuthRequest } from "../middlewares/authMiddleware";
 import { adminMiddleware } from "../middlewares/adminMiddleware";
 import { z } from "zod";
-import { FEE_TABLE, CURRENCY_MAP } from "../services/feeService";
+import { FEE_TABLE, CURRENCY_MAP, DEFAULT_MARGIN } from "../services/feeService";
 import { getAllUsdtRates, setUsdtRate, USDT_PAIRS, getEffectiveRate, getExchangeFeeRate } from "../lib/adminRates";
 
 const router = Router();
@@ -508,8 +508,8 @@ router.get("/users/:id/operator-fees", async (req: AuthRequest, res) => {
         operator: def.operator,
         pixpayDeposit:    row ? parseFloat(row.pixpay_deposit)    : def.pixpayDeposit,
         pixpayWithdrawal: row ? parseFloat(row.pixpay_withdrawal) : def.pixpayWithdrawal,
-        marginDeposit:    row ? parseFloat(row.margin_deposit)    : 0.015,
-        marginWithdrawal: row ? parseFloat(row.margin_withdrawal) : 0.015,
+        marginDeposit:    row ? parseFloat(row.margin_deposit)    : DEFAULT_MARGIN,
+        marginWithdrawal: row ? parseFloat(row.margin_withdrawal) : DEFAULT_MARGIN,
         isCustom: !!row,
       };
     });

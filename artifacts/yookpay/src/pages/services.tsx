@@ -47,6 +47,9 @@ function FeeCell({ entry }: { entry: FeeEntry; currency: string }) {
   return (
     <div className="text-right">
       <div className="font-semibold text-foreground">{pct(entry.rate)}</div>
+      <div className="text-[10px] text-muted-foreground mt-0.5 leading-tight">
+        {pct(entry.pixpay)} + {pct(entry.margin)}
+      </div>
     </div>
   );
 }
