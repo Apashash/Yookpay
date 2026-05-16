@@ -34,6 +34,7 @@ interface ApiKey {
   id: number;
   name: string;
   prefix: string;
+  keyType: "payin" | "payout";
   active: boolean;
   lastUsedAt: string | null;
   createdAt: string;

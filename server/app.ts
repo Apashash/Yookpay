@@ -6,6 +6,9 @@ import router from "./routes";
 import { logger } from "./lib/logger";
 import { globalRateLimit } from "./middlewares/rateLimitMiddleware";
 
+// __dirname is natively available in CJS (esbuild output format)
+declare var __dirname: string;
+
 const app: Express = express();
 
 app.set("trust proxy", 1);
@@ -40,7 +43,9 @@ app.get("/healthz", (_req, res) => {
 
 app.use("/api", router);
 
-const frontendDist = path.resolve(__dirname, "public");
+const frontendDist = process.env.FRONTEND_DIST_PATH
+  ? path.resolve(process.env.FRONTEND_DIST_PATH)
+  : path.resolve(__dirname, "../../yookpay/dist/public");
 app.use(express.static(frontendDist));
 app.get(/^(?!\/api).*/, (_req, res) => {
   res.sendFile(path.join(frontendDist, "index.html"));

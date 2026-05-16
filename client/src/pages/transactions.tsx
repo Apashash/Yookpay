@@ -4,7 +4,9 @@ import {
   getGetTransactionsQueryKey,
   getGetWalletsQueryKey,
   getGetDashboardSummaryQueryKey,
+  customFetch,
 } from "@workspace/api-client-react";
+import { useToast } from "@/hooks/use-toast";
 import { useQueryClient } from "@tanstack/react-query";
 import { formatCurrency, formatDate } from "@/lib/format";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -34,6 +36,8 @@ import {
   Check,
   RefreshCw,
   Pencil,
+  Send,
+  Loader2,
 } from "lucide-react";
 import { COUNTRIES } from "@/lib/countries";
 import { format, isToday, isYesterday, isThisWeek, isThisMonth } from "date-fns";
@@ -177,6 +181,51 @@ function SectionTitle({ children }: { children: React.ReactNode }) {
     <p className="text-[11px] font-bold uppercase tracking-widest text-muted-foreground/60 mb-1 mt-4 first:mt-0">
       {children}
     </p>
+  );
+}
+
+function SendNotifButton({ txId }: { txId: number }) {
+  const { toast } = useToast();
+  const [loading, setLoading] = useState(false);
+  const [sent, setSent]       = useState(false);
+
+  const handleSend = async () => {
+    setLoading(true);
+    try {
+      const result = await customFetch(`/api/transactions/${txId}/notify`, { method: "POST" }) as { message?: string };
+      setSent(true);
+      toast({ title: "Notification envoyée", description: result?.message ?? "Votre serveur a bien été notifié." });
+      setTimeout(() => setSent(false), 4000);
+    } catch (err: unknown) {
+      const raw = (err as { message?: string })?.message ?? "Erreur inconnue";
+      const msg = raw.replace(/^HTTP\s+\d+[^:]*:\s*/i, "");
+      if (msg.includes("NoWebhookUrl")) {
+        toast({ variant: "destructive", title: "URL webhook manquante", description: "Configurez une URL webhook dans vos paramètres de compte." });
+      } else {
+        toast({ variant: "destructive", title: "Échec de la notification", description: msg });
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <Button
+      size="sm"
+      variant="outline"
+      className="w-full gap-2 mt-1"
+      onClick={handleSend}
+      disabled={loading}
+    >
+      {loading ? (
+        <Loader2 className="h-3.5 w-3.5 animate-spin" />
+      ) : sent ? (
+        <Check className="h-3.5 w-3.5 text-emerald-500" />
+      ) : (
+        <Send className="h-3.5 w-3.5" />
+      )}
+      {sent ? "Notification envoyée !" : "Envoyer notification"}
+    </Button>
   );
 }
 
@@ -330,6 +379,11 @@ function TransactionDetail({ tx, open, onClose }: { tx: Tx | null; open: boolean
             <DetailRow label="Dernière mise à jour" value={
               <span className="text-xs">{formatDate(tx.updatedAt)}</span>
             } />
+          </div>
+
+          <div className="pt-4 border-t border-border/50 mt-4">
+            <p className="text-[11px] font-bold uppercase tracking-widest text-muted-foreground/60 mb-2">Actions</p>
+            <SendNotifButton txId={tx.id} />
           </div>
         </div>
       </SheetContent>

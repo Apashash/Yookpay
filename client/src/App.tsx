@@ -28,6 +28,8 @@ import AdminExchanges from "@/pages/admin/exchanges";
 import AdminFees from "@/pages/admin/fees";
 import AdminSupportLinks from "@/pages/admin/support-links";
 import Landing from "@/pages/landing";
+import Docs from "@/pages/docs";
+import Health from "@/pages/health";
 import YookLink from "@/pages/yooklink";
 import YookLinkDetail from "@/pages/yooklink-detail";
 import Pay from "@/pages/pay";
@@ -74,6 +76,7 @@ function Router() {
   return (
     <Switch>
       <Route path="/" component={Landing} />
+      <Route path="/health" component={Health} />
       <Route path="/login" component={Login} />
       <Route path="/register" component={Register} />
       
@@ -91,7 +94,8 @@ function Router() {
       <Route path="/yooklink"         component={() => <ProtectedRoute component={YookLink} />} />
       <Route path="/yooklink/:id"     component={() => <ProtectedRoute component={YookLinkDetail} />} />
 
-      {/* Public payment page — no auth required */}
+      {/* Public pages — no auth required */}
+      <Route path="/docs" component={Docs} />
       <Route path="/pay/:token" component={Pay} />
       
       {/* Admin Routes */}

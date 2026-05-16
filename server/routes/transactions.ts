@@ -1470,4 +1470,103 @@ router.post("/webhook", async (req, res) => {
   }
 });
 
+// POST /transactions/:id/notify — send webhook notification to merchant's configured URL
+router.post("/:id/notify", authMiddleware, async (req: AuthRequest, res) => {
+  const txId = parseInt(req.params.id);
+  if (isNaN(txId)) {
+    res.status(400).json({ error: "ValidationError", message: "ID de transaction invalide." });
+    return;
+  }
+
+  try {
+    // Fetch transaction (must belong to authenticated user)
+    const [tx] = await db
+      .select()
+      .from(transactionsTable)
+      .where(and(eq(transactionsTable.id, txId), eq(transactionsTable.userId, req.userId!)))
+      .limit(1);
+
+    if (!tx) {
+      res.status(404).json({ error: "NotFound", message: "Transaction introuvable." });
+      return;
+    }
+
+    // Fetch user's webhook URL
+    const { usersTable } = await import("@workspace/db/schema");
+    const [user] = await db
+      .select({ webhookUrl: (usersTable as any).webhookUrl })
+      .from(usersTable)
+      .where(eq((usersTable as any).id, req.userId!))
+      .limit(1);
+
+    const webhookUrl = (user as any)?.webhookUrl as string | null;
+    if (!webhookUrl) {
+      res.status(400).json({ error: "NoWebhookUrl", message: "Aucune URL webhook configurée. Ajoutez-en une dans les paramètres de votre compte." });
+      return;
+    }
+
+    // Build payload
+    const payload = {
+      event: "transaction.status_update",
+      sentAt: new Date().toISOString(),
+      data: {
+        id: tx.id,
+        reference: tx.reference,
+        providerReference: tx.providerReference ?? null,
+        status: tx.status,
+        type: tx.type,
+        amount: Number(tx.amount),
+        netAmount: Number(tx.netAmount),
+        feeAmount: Number(tx.fee),
+        feeRate: Number(tx.feeRate ?? 0),
+        currency: tx.currency,
+        country: tx.country ?? null,
+        operator: tx.operator ?? null,
+        phone: tx.phone ?? null,
+        metadata: tx.metadata ?? null,
+        createdAt: tx.createdAt,
+        updatedAt: tx.updatedAt,
+      },
+    };
+
+    // Send webhook
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 10_000);
+    let webhookStatus: number | null = null;
+    let webhookError: string | null = null;
+
+    try {
+      const webhookRes = await fetch(webhookUrl, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "X-YookPay-Event": "transaction.status_update" },
+        body: JSON.stringify(payload),
+        signal: controller.signal,
+      });
+      webhookStatus = webhookRes.status;
+    } catch (fetchErr: unknown) {
+      webhookError = fetchErr instanceof Error ? fetchErr.message : "Échec de la connexion";
+    } finally {
+      clearTimeout(timeout);
+    }
+
+    if (webhookError || (webhookStatus && webhookStatus >= 400)) {
+      req.log.warn({ txId, webhookUrl, webhookStatus, webhookError }, "Webhook notification failed");
+      res.status(502).json({
+        error: "WebhookFailed",
+        message: webhookError
+          ? `Impossible d'atteindre votre serveur : ${webhookError}`
+          : `Votre serveur a répondu avec le code ${webhookStatus}. Vérifiez votre endpoint.`,
+        webhookStatus,
+      });
+      return;
+    }
+
+    req.log.info({ txId, webhookUrl, webhookStatus }, "Webhook notification sent");
+    res.json({ success: true, message: `Notification envoyée avec succès (HTTP ${webhookStatus}).`, webhookStatus });
+  } catch (err: unknown) {
+    req.log.error({ err, txId }, "Notify webhook error");
+    res.status(500).json({ error: "InternalError", message: "Erreur interne." });
+  }
+});
+
 export default router;

@@ -2,6 +2,7 @@ import { db } from "@workspace/db";
 import { transactionsTable, walletsTable } from "@workspace/db/schema";
 import { and, eq, lt, or, isNull, ne, sql } from "drizzle-orm";
 import { logger } from "./logger";
+import { dispatchWebhook, buildTxPayload, getNotificationUrl } from "./webhookDispatch";
 
 const EXPIRY_MINUTES = 8;
 const WORKER_INTERVAL_MS = 30_000; // check every 30 seconds
@@ -33,18 +34,25 @@ async function expireStaleTransactions(): Promise<void> {
 
     for (const tx of stale) {
       try {
-        await db
+        const expiredAt = new Date();
+        const updateResult = await db
           .update(transactionsTable)
           .set({
             status: "FAILED",
             metadata: {
               ...(tx.metadata as object ?? {}),
-              expiredAt: new Date().toISOString(),
+              expiredAt: expiredAt.toISOString(),
               expireReason: `Aucune confirmation après ${EXPIRY_MINUTES} minutes`,
             },
-            updatedAt: new Date(),
+            updatedAt: expiredAt,
           })
           .where(and(eq(transactionsTable.id, tx.id), eq(transactionsTable.status, "PENDING")));
+
+        // Dispatch webhook only if we actually claimed this row (prevent double-fire)
+        const rowClaimed = (updateResult as unknown as { rowCount?: number }).rowCount ?? 1;
+        if (rowClaimed > 0) {
+          dispatchWebhook(tx.userId, buildTxPayload({ ...tx, status: "FAILED", updatedAt: expiredAt }), getNotificationUrl(tx.metadata));
+        }
 
         // Refund wallet for WITHDRAWAL that timed out
         if (tx.type === "WITHDRAWAL") {

@@ -26,10 +26,15 @@ export async function runStartupMigrations(): Promise<void> {
         key_hash TEXT NOT NULL,
         key_prefix VARCHAR(20) NOT NULL,
         name VARCHAR(100) NOT NULL DEFAULT 'Clé principale',
+        key_type VARCHAR(10) NOT NULL DEFAULT 'payin',
         active BOOLEAN NOT NULL DEFAULT true,
         last_used_at TIMESTAMP,
         created_at TIMESTAMP DEFAULT NOW() NOT NULL
       )
+    `);
+    // Add key_type to existing api_keys tables that were created before this column existed
+    await client.query(`
+      ALTER TABLE api_keys ADD COLUMN IF NOT EXISTS key_type VARCHAR(10) NOT NULL DEFAULT 'payin'
     `);
 
     await client.query(`

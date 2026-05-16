@@ -81,7 +81,6 @@ export default function Settings() {
   const [deletePassword, setDeletePassword] = useState("");
   const [isDeleting, setIsDeleting]         = useState(false);
   const [isChangingPwd, setIsChangingPwd]   = useState(false);
-
   const country = user
     ? COUNTRIES.find((c) => c.code === (user as { country?: string }).country)
     : null;
