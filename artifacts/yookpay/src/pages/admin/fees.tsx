@@ -1,7 +1,11 @@
+import { useState, useEffect } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-
-const DEFAULT_MARGIN = 2.5;
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { useToast } from "@/hooks/use-toast";
+import { Pencil, Check, X, Loader2 } from "lucide-react";
+import { customFetch } from "@workspace/api-client-react";
 
 interface FeeRow {
   country: string;
@@ -58,21 +62,70 @@ function pct(v: number) {
   return `${v.toFixed(1)}%`;
 }
 
-function TotalCell({ pixpay, type }: { pixpay: number; type: "deposit" | "withdrawal" }) {
-  const total = pixpay + DEFAULT_MARGIN;
+function TotalCell({ pixpay, margin, type }: { pixpay: number; margin: number; type: "deposit" | "withdrawal" }) {
+  const total = pixpay + margin;
   return (
     <td className="px-3 py-2.5 text-right">
       <div className={`font-mono font-semibold text-sm ${type === "deposit" ? "text-emerald-700 dark:text-emerald-400" : "text-red-700 dark:text-red-400"}`}>
         {pct(total)}
       </div>
       <div className="text-[10px] text-muted-foreground">
-        {pct(pixpay)} + {pct(DEFAULT_MARGIN)}
+        {pct(pixpay)} + {pct(margin)}
       </div>
     </td>
   );
 }
 
 export default function AdminFees() {
+  const { toast } = useToast();
+  const [margin, setMargin] = useState<number>(2.5);
+  const [editValue, setEditValue] = useState<string>("");
+  const [editing, setEditing] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    customFetch("/api/admin/margin")
+      .then((data: { margin: number }) => {
+        setMargin(data.margin * 100);
+      })
+      .catch(() => setMargin(2.5))
+      .finally(() => setLoading(false));
+  }, []);
+
+  function startEdit() {
+    setEditValue(margin.toFixed(2));
+    setEditing(true);
+  }
+
+  function cancelEdit() {
+    setEditing(false);
+    setEditValue("");
+  }
+
+  async function saveMargin() {
+    const parsed = parseFloat(editValue.replace(",", "."));
+    if (isNaN(parsed) || parsed < 0 || parsed > 50) {
+      toast({ title: "Valeur invalide", description: "La marge doit être entre 0% et 50%.", variant: "destructive" });
+      return;
+    }
+    setSaving(true);
+    try {
+      await customFetch("/api/admin/margin", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ margin: parsed / 100 }),
+      });
+      setMargin(parsed);
+      setEditing(false);
+      toast({ title: "Marge mise à jour", description: `Marge par défaut : ${parsed.toFixed(2)}% — s'applique à tous les utilisateurs sans frais personnalisés.` });
+    } catch {
+      toast({ title: "Erreur", description: "Impossible de mettre à jour la marge.", variant: "destructive" });
+    } finally {
+      setSaving(false);
+    }
+  }
+
   const groups = FEE_DATA.reduce<Record<string, FeeRow[]>>((acc, row) => {
     const key = `${row.currency}-${row.country}`;
     if (!acc[key]) acc[key] = [];
@@ -85,9 +138,59 @@ export default function AdminFees() {
       <div>
         <h1 className="text-2xl font-bold">Grille des frais</h1>
         <p className="text-muted-foreground text-sm mt-1">
-          Frais PixPay Innov + marge YookPay par défaut ({pct(DEFAULT_MARGIN)}) par opérateur.
+          Frais PixPay Innov + marge YookPay par défaut par opérateur.
         </p>
       </div>
+
+      {/* Default margin editor */}
+      <Card className="border-indigo-200 dark:border-indigo-800">
+        <CardHeader className="pb-3">
+          <div className="flex items-center gap-2">
+            <CardTitle className="text-base">Marge YookPay par défaut</CardTitle>
+            <Badge className="bg-indigo-100 text-indigo-800 dark:bg-indigo-900/30 dark:text-indigo-300">Global</Badge>
+          </div>
+          <CardDescription>
+            S'applique à tous les utilisateurs sans frais personnalisés. Les utilisateurs avec des frais personnalisés gardent leur marge dédiée.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="flex items-center gap-3">
+            {loading ? (
+              <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+            ) : editing ? (
+              <>
+                <div className="flex items-center gap-1.5">
+                  <Input
+                    className="w-24 text-right font-mono"
+                    value={editValue}
+                    onChange={e => setEditValue(e.target.value)}
+                    onKeyDown={e => { if (e.key === "Enter") saveMargin(); if (e.key === "Escape") cancelEdit(); }}
+                    autoFocus
+                  />
+                  <span className="text-sm font-medium text-muted-foreground">%</span>
+                </div>
+                <Button size="sm" onClick={saveMargin} disabled={saving}>
+                  {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />}
+                  Enregistrer
+                </Button>
+                <Button size="sm" variant="ghost" onClick={cancelEdit} disabled={saving}>
+                  <X className="h-4 w-4" />
+                </Button>
+              </>
+            ) : (
+              <>
+                <span className="text-3xl font-bold font-mono text-indigo-600 dark:text-indigo-400">
+                  {margin.toFixed(2)}%
+                </span>
+                <Button size="sm" variant="outline" onClick={startEdit}>
+                  <Pencil className="h-3.5 w-3.5 mr-1" />
+                  Modifier
+                </Button>
+              </>
+            )}
+          </div>
+        </CardContent>
+      </Card>
 
       {/* USDT crypto fees */}
       <Card>
@@ -153,8 +256,8 @@ export default function AdminFees() {
                     {rows.map((row, i) => (
                       <tr key={i} className={`border-t ${i % 2 === 1 ? "bg-muted/20" : ""}`}>
                         <td className="px-3 py-2.5 font-medium">{row.operator}</td>
-                        <TotalCell pixpay={row.deposit}    type="deposit"    />
-                        <TotalCell pixpay={row.withdrawal} type="withdrawal" />
+                        <TotalCell pixpay={row.deposit}    margin={margin} type="deposit"    />
+                        <TotalCell pixpay={row.withdrawal} margin={margin} type="withdrawal" />
                       </tr>
                     ))}
                   </tbody>

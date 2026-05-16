@@ -66866,6 +66866,36 @@ function generateReference() {
   return `YPY-${timestamp2}-${random}`;
 }
 
+// src/lib/marginCache.ts
+var cachedMargin = null;
+var cacheExpiry2 = 0;
+var CACHE_TTL_MS2 = 6e4;
+async function getDefaultMargin() {
+  const now = Date.now();
+  if (cachedMargin !== null && now < cacheExpiry2) {
+    return cachedMargin;
+  }
+  try {
+    const result = await pool.query(
+      "SELECT value FROM platform_config WHERE key = 'default_margin' LIMIT 1"
+    );
+    if (result.rows.length && result.rows[0].value) {
+      const val = parseFloat(result.rows[0].value);
+      if (!isNaN(val) && val >= 0) {
+        cachedMargin = val;
+        cacheExpiry2 = now + CACHE_TTL_MS2;
+        return val;
+      }
+    }
+  } catch {
+  }
+  return DEFAULT_MARGIN;
+}
+function invalidateMarginCache() {
+  cachedMargin = null;
+  cacheExpiry2 = 0;
+}
+
 // src/lib/logger.ts
 var import_pino = __toESM(require_pino(), 1);
 var isProduction = process.env.NODE_ENV === "production";
@@ -67052,7 +67082,8 @@ async function getUserOperatorFeeRate(userId, country, operator, type) {
     }
     const defaultPixpay = FEE_TABLE[country]?.[operator]?.[type]?.rate;
     if (defaultPixpay !== void 0) {
-      return { total: defaultPixpay + DEFAULT_MARGIN, pixpay: defaultPixpay, margin: DEFAULT_MARGIN };
+      const defMargin = await getDefaultMargin();
+      return { total: defaultPixpay + defMargin, pixpay: defaultPixpay, margin: defMargin };
     }
     return void 0;
   } catch {
@@ -67319,7 +67350,7 @@ router4.post("/deposit", authMiddleware, transactionRateLimit, async (req, res) 
     const legacyRate = opBreakdown !== void 0 ? void 0 : await getUserFeeRate(req.userId, country, operator, "DEPOSIT");
     const userRate = opBreakdown?.total ?? legacyRate;
     const feeBreakdown = userRate !== void 0 ? calculateFeeWithRate(amount, country, operator, "DEPOSIT", userRate) : calculateFee(amount, country, operator, "DEPOSIT");
-    const yookpayMarginAmount = Math.round(amount * (opBreakdown?.margin ?? DEFAULT_MARGIN));
+    const yookpayMarginAmount = Math.round(amount * (opBreakdown?.margin ?? await getDefaultMargin()));
     const serviceId = await getPixPayServiceId(operator, currency, "DEPOSIT", country);
     if (serviceId === null) {
       res.status(503).json({
@@ -67456,7 +67487,7 @@ router4.post("/withdraw", authMiddleware, transactionRateLimit, async (req, res)
       const legacyRate = opBreakdown !== void 0 ? void 0 : await getUserFeeRate(req.userId, country, operator, "WITHDRAWAL");
       const userRate = opBreakdown?.total ?? legacyRate;
       feeBreakdown = userRate !== void 0 ? calculateFeeWithRate(amount, country, operator, "WITHDRAWAL", userRate) : calculateFee(amount, country, operator, "WITHDRAWAL");
-      yookpayMarginAmount = Math.round(amount * (opBreakdown?.margin ?? DEFAULT_MARGIN));
+      yookpayMarginAmount = Math.round(amount * (opBreakdown?.margin ?? await getDefaultMargin()));
     } catch {
       res.status(400).json({ error: "BadRequest", message: "Impossible de calculer les frais pour cet op\xE9rateur." });
       return;
@@ -68324,6 +68355,7 @@ router6.get("/fees", authMiddleware, async (req, res) => {
     }
     const hasCustomFees = Object.keys(overrideMap).length > 0;
     const result = {};
+    const defMargin = await getDefaultMargin();
     for (const [country, table] of Object.entries(FEE_TABLE)) {
       const operators = [];
       for (const [operator, config2] of Object.entries(table)) {
@@ -68332,9 +68364,9 @@ router6.get("/fees", authMiddleware, async (req, res) => {
         const pixpayD = override ? override.pixpayD : config2.DEPOSIT.rate;
         const pixpayW = override ? override.pixpayW : config2.WITHDRAWAL.rate;
         const pixpayT = config2.TRANSFER.rate;
-        const marginD = override ? override.marginD : DEFAULT_MARGIN;
-        const marginW = override ? override.marginW : DEFAULT_MARGIN;
-        const marginT = override ? override.marginD : DEFAULT_MARGIN;
+        const marginD = override ? override.marginD : defMargin;
+        const marginW = override ? override.marginW : defMargin;
+        const marginT = override ? override.marginD : defMargin;
         operators.push({
           name: operator,
           deposit: {
@@ -69609,6 +69641,39 @@ router9.put("/pixpay/config", async (req, res) => {
     res.status(500).json({ error: "InternalError", message: "Impossible de mettre \xE0 jour la configuration" });
   }
 });
+router9.get("/margin", async (_req, res) => {
+  try {
+    const result = await db.execute(
+      sql`SELECT value FROM platform_config WHERE key = 'default_margin' LIMIT 1`
+    );
+    const value = result.rows.length ? parseFloat(result.rows[0].value) : 0.025;
+    res.json({ margin: isNaN(value) ? 0.025 : value });
+  } catch (err) {
+    res.status(500).json({ error: "InternalError", message: "Impossible de charger la marge" });
+  }
+});
+router9.put("/margin", async (req, res) => {
+  const schema = external_exports.object({ margin: external_exports.number().min(0).max(0.5) });
+  const parse3 = schema.safeParse(req.body);
+  if (!parse3.success) {
+    res.status(400).json({ error: "ValidationError", message: "La marge doit \xEAtre un nombre entre 0 et 50%" });
+    return;
+  }
+  const { margin } = parse3.data;
+  try {
+    await db.execute(sql`
+      INSERT INTO platform_config (key, value, updated_at)
+      VALUES ('default_margin', ${margin.toString()}, NOW())
+      ON CONFLICT (key) DO UPDATE SET value = ${margin.toString()}, updated_at = NOW()
+    `);
+    invalidateMarginCache();
+    req.log.info({ adminId: req.userId, margin }, "Default margin updated");
+    res.json({ success: true, margin, message: `Marge par d\xE9faut mise \xE0 jour \xE0 ${(margin * 100).toFixed(2)}%` });
+  } catch (err) {
+    req.log.error({ err }, "Admin update margin error");
+    res.status(500).json({ error: "InternalError", message: "Impossible de mettre \xE0 jour la marge" });
+  }
+});
 router9.get("/transactions", async (req, res) => {
   const page = Math.max(1, parseInt(req.query.page) || 1);
   const limit = Math.min(100, parseInt(req.query.limit) || 50);
@@ -70347,7 +70412,6 @@ var nowpayments_ipn_default = router11;
 var import_express12 = __toESM(require_express2(), 1);
 var import_crypto5 = __toESM(require("crypto"), 1);
 var router12 = (0, import_express12.Router)();
-var DEFAULT_MARGIN2 = 0.025;
 var DIAL_CODES2 = {
   BJ: "229",
   BF: "226",
@@ -70675,7 +70739,7 @@ router12.post("/public/:token/pay", async (req, res) => {
   const pixPayAmount = feeBearer === "SENDER" ? amount + feeAmt : amount;
   const walletNetAmount = feeBearer === "SENDER" ? amount : Math.max(amount - feeAmt, 0);
   const reference = generateReference();
-  const yookpayMarginAmount = Math.round(amount * (opBreakdown?.margin ?? DEFAULT_MARGIN2));
+  const yookpayMarginAmount = Math.round(amount * (opBreakdown?.margin ?? await getDefaultMargin()));
   try {
     const txRes = await pool.query(
       `INSERT INTO transactions (user_id, type, status, amount, fee, net_amount, currency, country, operator, phone, reference, fee_rate, yookpay_margin, metadata)

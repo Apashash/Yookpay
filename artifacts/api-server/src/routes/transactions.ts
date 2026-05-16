@@ -14,11 +14,11 @@ import {
   generateReference,
   CURRENCY_MAP,
   FEE_TABLE,
-  DEFAULT_MARGIN,
   type Country,
   type Operator,
   type TransactionType,
 } from "../services/feeService";
+import { getDefaultMargin } from "../lib/marginCache";
 
 import { callPixPayAirtime, getOperatorFlow, getPixPayTransactionStatus, type PixPayCallParams } from "../lib/pixpay";
 import { z } from "zod";
@@ -83,10 +83,11 @@ async function getUserOperatorFeeRate(
       const margin = parseFloat(type === "DEPOSIT" ? r.margin_deposit : r.margin_withdrawal);
       return { total: pixpay + margin, pixpay, margin };
     }
-    // No custom config → use FEE_TABLE rate + DEFAULT_MARGIN
+    // No custom config → use FEE_TABLE rate + default margin (from DB or fallback)
     const defaultPixpay = FEE_TABLE[country as Country]?.[operator as Operator]?.[type]?.rate;
     if (defaultPixpay !== undefined) {
-      return { total: defaultPixpay + DEFAULT_MARGIN, pixpay: defaultPixpay, margin: DEFAULT_MARGIN };
+      const defMargin = await getDefaultMargin();
+      return { total: defaultPixpay + defMargin, pixpay: defaultPixpay, margin: defMargin };
     }
     return undefined;
   } catch {
@@ -466,7 +467,7 @@ router.post("/deposit", authMiddleware, transactionRateLimit, async (req: AuthRe
     const feeBreakdown = userRate !== undefined
       ? calculateFeeWithRate(amount, country as Country, operator as Operator, "DEPOSIT", userRate)
       : calculateFee(amount, country as Country, operator as Operator, "DEPOSIT");
-    const yookpayMarginAmount = Math.round(amount * (opBreakdown?.margin ?? DEFAULT_MARGIN));
+    const yookpayMarginAmount = Math.round(amount * (opBreakdown?.margin ?? await getDefaultMargin()));
 
     // Check service availability BEFORE creating the transaction
     const serviceId = await getPixPayServiceId(operator, currency, "DEPOSIT", country);
@@ -645,7 +646,7 @@ router.post("/withdraw", authMiddleware, transactionRateLimit, async (req: AuthR
       feeBreakdown = userRate !== undefined
         ? calculateFeeWithRate(amount, country as Country, operator as Operator, "WITHDRAWAL", userRate)
         : calculateFee(amount, country as Country, operator as Operator, "WITHDRAWAL");
-      yookpayMarginAmount = Math.round(amount * (opBreakdown?.margin ?? DEFAULT_MARGIN));
+      yookpayMarginAmount = Math.round(amount * (opBreakdown?.margin ?? await getDefaultMargin()));
     } catch {
       res.status(400).json({ error: "BadRequest", message: "Impossible de calculer les frais pour cet opérateur." });
       return;

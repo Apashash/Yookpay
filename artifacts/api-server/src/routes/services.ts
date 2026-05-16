@@ -1,6 +1,7 @@
 import { Router } from "express";
 import { authMiddleware, type AuthRequest } from "../middlewares/authMiddleware";
-import { FEE_TABLE, CURRENCY_MAP, DEFAULT_MARGIN } from "../services/feeService";
+import { FEE_TABLE, CURRENCY_MAP } from "../services/feeService";
+import { getDefaultMargin } from "../lib/marginCache";
 import { db } from "@workspace/db";
 import { sql } from "drizzle-orm";
 
@@ -49,6 +50,8 @@ router.get("/fees", authMiddleware, async (req: AuthRequest, res) => {
       }>;
     }> = {};
 
+    const defMargin = await getDefaultMargin();
+
     for (const [country, table] of Object.entries(FEE_TABLE)) {
       const operators = [];
       for (const [operator, config] of Object.entries(table)) {
@@ -57,10 +60,10 @@ router.get("/fees", authMiddleware, async (req: AuthRequest, res) => {
 
         const pixpayD  = override ? override.pixpayD  : config.DEPOSIT.rate;
         const pixpayW  = override ? override.pixpayW  : config.WITHDRAWAL.rate;
-        const pixpayT  = config.TRANSFER.rate; // transfer uses same PixPay rate
-        const marginD  = override ? override.marginD  : DEFAULT_MARGIN;
-        const marginW  = override ? override.marginW  : DEFAULT_MARGIN;
-        const marginT  = override ? override.marginD  : DEFAULT_MARGIN; // transfer uses deposit margin
+        const pixpayT  = config.TRANSFER.rate;
+        const marginD  = override ? override.marginD  : defMargin;
+        const marginW  = override ? override.marginW  : defMargin;
+        const marginT  = override ? override.marginD  : defMargin;
 
         operators.push({
           name: operator,
