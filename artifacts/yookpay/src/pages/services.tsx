@@ -151,17 +151,16 @@ export default function Services() {
                 <AccordionContent className="px-0 pb-0">
                   <div className="border-t">
                     {/* Column headers */}
-                    <div className="grid grid-cols-4 gap-2 px-4 py-2 bg-muted/20 text-xs font-medium text-muted-foreground uppercase tracking-wide">
+                    <div className="grid grid-cols-3 gap-2 px-4 py-2 bg-muted/20 text-xs font-medium text-muted-foreground uppercase tracking-wide">
                       <div>Opérateur</div>
                       <div className="text-right">Dépôt</div>
                       <div className="text-right">Retrait</div>
-                      <div className="text-right">Transfert</div>
                     </div>
 
                     {fees.operators.map((op, idx) => (
                       <div
                         key={op.name}
-                        className={`grid grid-cols-4 gap-2 px-4 py-3 items-center ${idx !== fees.operators.length - 1 ? "border-b" : ""}`}
+                        className={`grid grid-cols-3 gap-2 px-4 py-3 items-center ${idx !== fees.operators.length - 1 ? "border-b" : ""}`}
                       >
                         <div>
                           <div className="font-medium text-sm">{op.name}</div>
@@ -171,7 +170,6 @@ export default function Services() {
                         </div>
                         <FeeCell entry={op.deposit} />
                         <FeeCell entry={op.withdrawal} />
-                        <FeeCell entry={op.transfer} />
                       </div>
                     ))}
                   </div>
