@@ -336,7 +336,7 @@ export default function Transfer() {
                 <button
                   type="button"
                   onClick={() => setExchangeStep(2)}
-                  className="w-full text-xs text-muted-foreground hover:text-foreground text-center underline underline-offset-2"
+                  className="w-full py-2.5 rounded-lg border border-cyan-500/40 bg-cyan-500/10 text-cyan-600 dark:text-cyan-400 hover:bg-cyan-500/20 hover:border-cyan-500/60 transition-all text-sm font-medium text-center"
                 >
                   J'ai déjà des USDT → aller directement à l'étape 2
                 </button>
