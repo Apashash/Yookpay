@@ -550,12 +550,104 @@ const COUNTRIES = [
 ];
 
 /* ═══════════════════════════════════════════════════════════
+   OPERATOR EXAMPLES DATA
+═══════════════════════════════════════════════════════════ */
+
+type OpExample = {
+  operator: string;
+  flow: "STANDARD" | "OTP" | "WAVE" | "QMONEY";
+  phone: string;
+  amount: number;
+  omOtp?: string;
+  note?: string;
+};
+type CountryOpExample = { flag: string; country: string; name: string; zone: string; examples: OpExample[] };
+
+const COUNTRY_OP_EXAMPLES: CountryOpExample[] = [
+  { flag: "🇨🇲", country: "CM", name: "Cameroun",          zone: "XAF", examples: [
+    { operator: "MTN",    flow: "STANDARD", phone: "237671234567", amount: 5000 },
+    { operator: "ORANGE", flow: "STANDARD", phone: "237698765432", amount: 5000, note: "Orange CM n'utilise pas l'OTP — flux STANDARD automatique." },
+  ]},
+  { flag: "🇨🇬", country: "CG", name: "Congo-Brazzaville", zone: "XAF", examples: [
+    { operator: "MTN",    flow: "STANDARD", phone: "242061234567", amount: 5000 },
+    { operator: "AIRTEL", flow: "STANDARD", phone: "242055678901", amount: 5000 },
+  ]},
+  { flag: "🇬🇦", country: "GA", name: "Gabon",             zone: "XAF", examples: [
+    { operator: "AIRTEL", flow: "STANDARD", phone: "241074123456", amount: 5000 },
+    { operator: "MTN",    flow: "STANDARD", phone: "241065987654", amount: 5000 },
+  ]},
+  { flag: "🇨🇮", country: "CI", name: "Côte d'Ivoire",     zone: "XOF", examples: [
+    { operator: "MTN",    flow: "STANDARD", phone: "2250701234567", amount: 1000 },
+    { operator: "ORANGE", flow: "OTP",      phone: "2250701234568", amount: 1000, omOtp: "391847", note: "Code OTP requis — client compose *#144*82#." },
+    { operator: "MOOV",   flow: "STANDARD", phone: "2250101234567", amount: 1000 },
+    { operator: "WAVE",   flow: "WAVE",     phone: "2250701234569", amount: 1000, note: "smsLink retourné dans la réponse → rediriger l'utilisateur vers ce lien." },
+  ]},
+  { flag: "🇸🇳", country: "SN", name: "Sénégal",           zone: "XOF", examples: [
+    { operator: "ORANGE", flow: "OTP",      phone: "221771234567", amount: 2000, omOtp: "582913", note: "Code OTP requis — client compose *#144*82#." },
+    { operator: "FREE",   flow: "STANDARD", phone: "221761234567", amount: 2000 },
+    { operator: "WAVE",   flow: "WAVE",     phone: "221781234567", amount: 2000, note: "smsLink retourné dans la réponse → rediriger l'utilisateur vers ce lien." },
+  ]},
+  { flag: "🇧🇫", country: "BF", name: "Burkina Faso",      zone: "XOF", examples: [
+    { operator: "ORANGE", flow: "OTP",      phone: "22670123456", amount: 2000, omOtp: "471829", note: "Code OTP requis — client compose *#144*82#." },
+    { operator: "MOOV",   flow: "STANDARD", phone: "22675123456", amount: 2000 },
+  ]},
+  { flag: "🇧🇯", country: "BJ", name: "Bénin",             zone: "XOF", examples: [
+    { operator: "MTN",  flow: "STANDARD", phone: "22997123456", amount: 1000 },
+    { operator: "MOOV", flow: "STANDARD", phone: "22995123456", amount: 1000 },
+  ]},
+  { flag: "🇬🇲", country: "GM", name: "Gambie",            zone: "XOF", examples: [
+    { operator: "AFRICELL", flow: "STANDARD", phone: "2207012345", amount: 500 },
+    { operator: "QMONEY",   flow: "QMONEY",   phone: "2206012345", amount: 500, note: "Flux QMONEY — un OTP QMoney est envoyé au client pour confirmer." },
+  ]},
+  { flag: "🇬🇳", country: "GN", name: "Guinée-Conakry",   zone: "XOF", examples: [
+    { operator: "MTN",     flow: "STANDARD", phone: "224621234567", amount: 10000 },
+    { operator: "ORANGE",  flow: "OTP",      phone: "224622345678", amount: 10000, omOtp: "738291", note: "Code OTP requis — client compose *#144*82#." },
+    { operator: "CELLCOM", flow: "STANDARD", phone: "224631234567", amount: 10000 },
+  ]},
+  { flag: "🇲🇱", country: "ML", name: "Mali",              zone: "XOF", examples: [
+    { operator: "ORANGE", flow: "OTP",      phone: "22376123456", amount: 2000, omOtp: "192847", note: "Code OTP requis — client compose *#144*82#." },
+    { operator: "MOOV",   flow: "STANDARD", phone: "22366123456", amount: 2000 },
+  ]},
+  { flag: "🇹🇬", country: "TG", name: "Togo",              zone: "XOF", examples: [
+    { operator: "TOGOCEL", flow: "STANDARD", phone: "22890123456", amount: 1000 },
+    { operator: "MOOV",    flow: "STANDARD", phone: "22891123456", amount: 1000 },
+  ]},
+  { flag: "🇨🇩", country: "CD", name: "Congo RDC",         zone: "CDF", examples: [
+    { operator: "VODACOM",  flow: "STANDARD", phone: "243812345678", amount: 5000 },
+    { operator: "AIRTEL",   flow: "STANDARD", phone: "243991234567", amount: 5000 },
+    { operator: "ORANGE",   flow: "OTP",       phone: "243843456789", amount: 5000, omOtp: "629183", note: "Code OTP requis — client compose *#144*82#." },
+    { operator: "AFRICELL", flow: "STANDARD", phone: "243851234567", amount: 5000 },
+  ]},
+];
+
+function buildPayinJson(country: string, ex: OpExample): string {
+  const lines = [
+    `{`,
+    `  "country":  "${country}",`,
+    `  "operator": "${ex.operator}",`,
+    `  "phone":    "${ex.phone}",`,
+    `  "amount":   ${ex.amount}${ex.omOtp ? "," : ""}`,
+    ...(ex.omOtp ? [`  "omOtp":   "${ex.omOtp}"  // code OTP à 6 chiffres`] : []),
+    `}`,
+  ];
+  return lines.join("\n");
+}
+
+const FLOW_STYLE: Record<string, { label: string; cls: string }> = {
+  STANDARD: { label: "STANDARD", cls: "bg-indigo-500/15 text-indigo-300 border-indigo-500/30" },
+  OTP:      { label: "OTP",      cls: "bg-orange-500/15 text-orange-300 border-orange-500/30" },
+  WAVE:     { label: "WAVE",     cls: "bg-blue-500/15 text-blue-300 border-blue-500/30" },
+  QMONEY:   { label: "QMONEY",   cls: "bg-purple-500/15 text-purple-300 border-purple-500/30" },
+};
+
+/* ═══════════════════════════════════════════════════════════
    PAGE
 ═══════════════════════════════════════════════════════════ */
 
 export default function Docs() {
   const [payinLang, setPayinLang]   = useState("curl");
   const [payoutLang, setPayoutLang] = useState("curl");
+  const [exampleCountry, setExampleCountry] = useState("CM");
 
   const payinCode: Record<string, string>  = { curl: CURL_PAYIN, node: NODE_PAYIN, python: PYTHON_PAYIN, php: PHP_PAYIN };
   const payoutCode: Record<string, string> = { curl: CURL_PAYOUT, node: NODE_PAYOUT };
@@ -1510,6 +1602,77 @@ async function pollStatus(txId, onSuccess, onFailed) {
                   </tbody>
                 </table>
               </div>
+            </div>
+
+            {/* ── Interactive per-operator examples ── */}
+            <div className="space-y-5 pt-4">
+              <div>
+                <h3 className="text-sm font-bold text-white/80 mb-1">Exemples de requêtes par pays & opérateur</h3>
+                <p className="text-white/45 text-xs leading-relaxed">Sélectionnez un pays pour voir les corps de requête <IC>/payin</IC> prêts à l'emploi pour chaque opérateur.</p>
+              </div>
+
+              {/* Country selector — grouped by zone */}
+              {(["XAF", "XOF", "CDF"] as const).map(zone => {
+                const zoneColors: Record<string, string> = {
+                  XAF: "text-amber-400 border-amber-500/30 bg-amber-500/10",
+                  XOF: "text-emerald-400 border-emerald-500/30 bg-emerald-500/10",
+                  CDF: "text-orange-400 border-orange-500/30 bg-orange-500/10",
+                };
+                const countriesInZone = COUNTRY_OP_EXAMPLES.filter(c => c.zone === zone);
+                return (
+                  <div key={zone} className="space-y-2">
+                    <span className={`text-[10px] font-bold uppercase tracking-widest px-2 py-0.5 rounded border ${zoneColors[zone]}`}>{zone}</span>
+                    <div className="flex flex-wrap gap-2">
+                      {countriesInZone.map(c => (
+                        <button
+                          key={c.country}
+                          onClick={() => setExampleCountry(c.country)}
+                          className={`text-xs px-3 py-1.5 rounded-lg border font-medium transition-all ${
+                            exampleCountry === c.country
+                              ? "bg-indigo-600 border-indigo-500 text-white shadow-lg shadow-indigo-500/20"
+                              : "bg-white/[0.03] border-white/10 text-white/60 hover:bg-white/[0.07] hover:text-white/80"
+                          }`}
+                        >
+                          {c.flag} {c.name}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                );
+              })}
+
+              {/* Operator cards for selected country */}
+              {(() => {
+                const sel = COUNTRY_OP_EXAMPLES.find(c => c.country === exampleCountry);
+                if (!sel) return null;
+                return (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    {sel.examples.map(ex => {
+                      const fs = FLOW_STYLE[ex.flow];
+                      return (
+                        <div key={ex.operator} className="space-y-2">
+                          <div className="flex items-center gap-2">
+                            <span className="font-mono font-bold text-white/80 text-sm">{ex.operator}</span>
+                            <span className={`text-[10px] font-bold px-2 py-0.5 rounded border ${fs.cls}`}>{fs.label}</span>
+                          </div>
+                          {ex.note && (
+                            <div className={`flex gap-2 rounded-md border p-2.5 text-xs leading-relaxed ${
+                              ex.flow === "OTP"    ? "border-orange-500/30 bg-orange-500/5 text-orange-300" :
+                              ex.flow === "WAVE"   ? "border-blue-500/30 bg-blue-500/5 text-blue-300" :
+                              ex.flow === "QMONEY" ? "border-purple-500/30 bg-purple-500/5 text-purple-300" :
+                                                     "border-indigo-500/30 bg-indigo-500/5 text-indigo-300"
+                            }`}>
+                              <Info className="h-3.5 w-3.5 shrink-0 mt-0.5" />
+                              {ex.note}
+                            </div>
+                          )}
+                          <CodeBlock lang="json" title={`POST /payin — ${sel.country} · ${ex.operator}`} code={buildPayinJson(sel.country, ex)} />
+                        </div>
+                      );
+                    })}
+                  </div>
+                );
+              })()}
             </div>
           </Section>
 
