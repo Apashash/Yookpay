@@ -68921,6 +68921,110 @@ router15.post("/v1/payin", async (req, res) => {
     res.status(500).json({ error: "PayinFailed", message });
   }
 });
+var payoutSchema = external_exports.object({
+  country: external_exports.string().length(2).toUpperCase(),
+  operator: external_exports.string().min(2).max(20).toUpperCase(),
+  phone: external_exports.string().min(6).max(20),
+  amount: external_exports.number().int().positive(),
+  feeBearer: external_exports.enum(["SENDER", "RECIPIENT"]).default("SENDER"),
+  metadata: external_exports.record(external_exports.unknown()).optional()
+});
+router15.post("/v1/payout", async (req, res) => {
+  const rawKey = req.headers["x-api-key"]?.trim();
+  if (!rawKey) {
+    res.status(401).json({ error: "Unauthorized", message: "En-t\xEAte x-api-key manquant." });
+    return;
+  }
+  const hash2 = (0, import_crypto5.createHash)("sha256").update(rawKey).digest("hex");
+  const [keyRow] = await db.select({ id: apiKeysTable.id, userId: apiKeysTable.userId, keyType: apiKeysTable.keyType, active: apiKeysTable.active }).from(apiKeysTable).where(and(eq(apiKeysTable.keyHash, hash2), eq(apiKeysTable.active, true))).limit(1);
+  if (!keyRow || keyRow.keyType !== "payout") {
+    res.status(401).json({ error: "Unauthorized", message: "Cl\xE9 API invalide, r\xE9voqu\xE9e ou de type incorrect (payout requis)." });
+    return;
+  }
+  await db.update(apiKeysTable).set({ lastUsedAt: /* @__PURE__ */ new Date() }).where(eq(apiKeysTable.id, keyRow.id));
+  const merchantUserId = keyRow.userId;
+  const parse3 = payoutSchema.safeParse(req.body);
+  if (!parse3.success) {
+    res.status(400).json({ error: "ValidationError", message: parse3.error.errors[0]?.message });
+    return;
+  }
+  const { country, operator, phone, amount, feeBearer, metadata } = parse3.data;
+  const currency = CURRENCY_MAP[country];
+  if (!currency) {
+    res.status(400).json({ error: "ValidationError", message: `Pays non support\xE9 : ${country}` });
+    return;
+  }
+  try {
+    const [wallet] = await db.select().from(walletsTable).where(and(eq(walletsTable.userId, merchantUserId), eq(walletsTable.currency, currency))).limit(1);
+    if (!wallet) {
+      res.status(400).json({ error: "WalletNotFound", message: `Wallet ${currency} introuvable.` });
+      return;
+    }
+    const balance = parseFloat(wallet.balance);
+    const [userFee] = await db.select().from(userFeesTable).where(
+      and(
+        eq(userFeesTable.userId, merchantUserId),
+        eq(userFeesTable.country, country),
+        eq(userFeesTable.operator, operator),
+        eq(userFeesTable.type, "WITHDRAWAL")
+      )
+    ).limit(1);
+    const overrideRate = userFee?.rate != null ? Number(userFee.rate) : void 0;
+    const fee = calculateFeeWithRate(amount, country, operator, "WITHDRAWAL", overrideRate);
+    const feeAmt = fee.feeAmount;
+    const walletDebit = feeBearer === "SENDER" ? amount + feeAmt : amount;
+    const phoneAmount = feeBearer === "SENDER" ? amount : Math.max(amount - feeAmt, 0);
+    if (balance < walletDebit) {
+      res.status(400).json({
+        error: "InsufficientFunds",
+        message: `Solde insuffisant (disponible : ${balance.toLocaleString("fr-FR")} ${currency}, requis : ${walletDebit.toLocaleString("fr-FR")} ${currency})`
+      });
+      return;
+    }
+    await db.update(walletsTable).set({ balance: Math.max(balance - walletDebit, 0).toFixed(2), updatedAt: /* @__PURE__ */ new Date() }).where(eq(walletsTable.id, wallet.id));
+    const reference = generateReference();
+    const [tx] = await db.insert(transactionsTable).values({
+      userId: merchantUserId,
+      type: "WITHDRAWAL",
+      status: "PENDING",
+      amount: String(walletDebit),
+      fee: String(feeAmt),
+      netAmount: String(phoneAmount),
+      feeRate: String(fee.feeRate),
+      currency,
+      country,
+      operator,
+      phone,
+      reference,
+      metadata: metadata ?? null
+    }).returning();
+    const pixResult = await callPixPayAirtime({
+      currency,
+      serviceId: 1,
+      amount: phoneAmount,
+      phone,
+      customData: reference
+    });
+    await db.update(transactionsTable).set({ providerReference: String(pixResult.pixTransactionId ?? "") }).where(eq(transactionsTable.id, tx.id));
+    logger.info({ merchantUserId, ref: reference, walletDebit, phoneAmount }, "Merchant payout initiated");
+    res.status(201).json({
+      success: true,
+      reference,
+      providerReference: pixResult.pixTransactionId,
+      status: "PENDING",
+      amount: walletDebit,
+      phoneReceives: phoneAmount,
+      feeAmount: feeAmt,
+      feeRate: fee.feeRate,
+      currency,
+      transactionId: tx.id
+    });
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "Erreur interne";
+    logger.error({ err, merchantUserId }, "Merchant payout error");
+    res.status(500).json({ error: "PayoutFailed", message });
+  }
+});
 var merchant_default = router15;
 
 // src/routes/index.ts

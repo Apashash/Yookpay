@@ -18,7 +18,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
-import { Copy, Plus, Key, ShieldCheck, Clock, Check, ChevronRight, ArrowDownToLine, ArrowUpFromLine } from "lucide-react";
+import { Copy, Plus, Key, ShieldCheck, Clock, Check, ChevronRight, ArrowDownToLine, ArrowUpFromLine, BookOpen } from "lucide-react";
 
 interface ApiKey {
   id: number;
@@ -118,6 +118,17 @@ export default function ApiKeys() {
           Intégrez YookPay dans vos applications avec vos clés Payin et Payout.
         </p>
       </div>
+
+      {/* Docs banner */}
+      <a href="/docs" target="_blank" rel="noopener noreferrer"
+        className="flex items-center justify-between gap-3 rounded-lg border border-indigo-200 bg-indigo-50/60 dark:border-indigo-800 dark:bg-indigo-950/20 px-4 py-3 hover:bg-indigo-100/60 dark:hover:bg-indigo-950/40 transition-colors group">
+        <div className="flex items-center gap-3 text-sm">
+          <BookOpen className="h-4 w-4 text-indigo-500 shrink-0" />
+          <span className="text-indigo-800 dark:text-indigo-300 font-medium">Documentation API</span>
+          <span className="text-indigo-600/70 dark:text-indigo-400/70 hidden sm:inline">— guides d'intégration Payin & Payout</span>
+        </div>
+        <ChevronRight className="h-4 w-4 text-indigo-400 group-hover:translate-x-0.5 transition-transform" />
+      </a>
 
       {/* Info card */}
       <Card className="border-blue-200 bg-blue-50/50 dark:border-blue-800 dark:bg-blue-950/20">

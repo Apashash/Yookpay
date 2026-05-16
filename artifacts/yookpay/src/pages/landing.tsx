@@ -138,6 +138,7 @@ export default function Landing() {
             <a href="#fonctionnalites" className="hover:text-foreground transition-colors">Fonctionnalités</a>
             <a href="#pays"           className="hover:text-foreground transition-colors">Pays</a>
             <a href="#operateurs"     className="hover:text-foreground transition-colors">Opérateurs</a>
+            <Link href="/docs" className="hover:text-foreground transition-colors">API</Link>
           </nav>
           <div className="flex items-center gap-3">
             <Link href="/login">
@@ -328,6 +329,7 @@ export default function Landing() {
             © {new Date().getFullYear()} YookPay. Tous droits réservés.
           </p>
           <div className="flex gap-6 text-sm text-muted-foreground">
+            <Link href="/docs"     className="hover:text-foreground transition-colors">Documentation API</Link>
             <Link href="/login"    className="hover:text-foreground transition-colors">Connexion</Link>
             <Link href="/register" className="hover:text-foreground transition-colors">Inscription</Link>
           </div>
