@@ -8,7 +8,7 @@ import {
   Key, Shield, Zap, Globe, AlertTriangle, CheckCircle2,
   Clock, Info, ChevronRight, Terminal, HelpCircle,
   BookOpen, Lock, CircleDot, ArrowRight,
-  Smartphone, Link2, Bell, ExternalLink, RefreshCw,
+  Smartphone, Link2, Bell, ExternalLink, RefreshCw, Search,
 } from "lucide-react";
 
 /* ═══════════════════════════════════════════════════════════
@@ -260,6 +260,33 @@ const PAYOUT_RESP = `// HTTP 201 Created  (feeBearer: "SENDER")
   "feeRate":           0.015,
   "currency":          "XAF",
   "transactionId":     413
+}`;
+
+const TX_GET_RESP = `// HTTP 200 OK
+{
+  "success":           true,
+  "id":                412,
+  "reference":         "YPY-M9X1A2-K7TQ",
+  "providerReference": "TXN-20240516-001",
+  "status":            "SUCCESS",           // PENDING | SUCCESS | FAILED | EXPIRED
+  "type":              "DEPOSIT",           // DEPOSIT | WITHDRAWAL
+  "amount":            5000,
+  "netAmount":         4925,
+  "feeAmount":         75,
+  "feeRate":           0.015,
+  "currency":          "XAF",
+  "country":           "CM",
+  "operator":          "MTN",
+  "phone":             "237687194830",
+  "metadata":          { "orderId": "CMD-42" },
+  "createdAt":         "2024-05-16T10:23:00.000Z",
+  "updatedAt":         "2024-05-16T10:23:47.000Z"
+}`;
+
+const TX_GET_404 = `// HTTP 404 — référence inconnue ou appartenant à un autre compte
+{
+  "error":   "NotFound",
+  "message": "Transaction YPY-XXXXXX-XXXX introuvable ou n'appartient pas à ce compte."
 }`;
 
 const ERROR_BODY = `// Toutes les erreurs ont ce format
@@ -585,6 +612,8 @@ export default function Docs() {
             <NavItem href="#payout-params" label="Paramètres" indent />
             <NavItem href="#payout-response" label="Réponse" indent />
             <NavItem href="#payout-code" label="Exemples" indent />
+            <NavItem href="#tx-get" label="GET /transaction/{ref}" />
+            <NavItem href="#tx-get-resp" label="Réponse" indent />
           </div>
           <div>
             <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-white/20 mb-2">Flows & Liens</p>
@@ -928,6 +957,84 @@ export default function Docs() {
               active={payoutLang} onChange={setPayoutLang}
             />
             <CodeBlock lang={payoutLang} title={payoutLang === "curl" ? "cURL" : "Node.js / JS"} code={payoutCode[payoutLang]!} />
+          </Section>
+
+          {/* ═══ GET TRANSACTION ═══ */}
+          <Section id="tx-get">
+            <SectionHeading icon={Search} label="Vérifier une transaction" color="text-violet-400" />
+            <p className="text-white/55 text-sm leading-relaxed">
+              Consultez le statut et les détails de n'importe quelle transaction par sa référence YPY-…, directement depuis votre serveur. Fonctionne avec une clé payin <strong className="text-white/70">ou</strong> payout.
+            </p>
+
+            <EndpointHeader method="GET" path="transaction/{reference}" title="Récupérer les détails et le statut d'une transaction par sa référence YPY-…" color="purple" />
+
+            <div className="rounded-xl border border-violet-500/20 bg-violet-500/5 p-4 flex flex-wrap gap-6 text-sm">
+              {[
+                { label: "Authentification", value: "x-api-key (payin ou payout)", mono: false },
+                { label: "Méthode",          value: "GET",                         mono: true  },
+                { label: "Paramètre URL",    value: "{reference} = YPY-XXXXXX-XXXX", mono: true },
+              ].map(i => (
+                <div key={i.label}>
+                  <p className="text-[11px] uppercase tracking-widest text-white/25 mb-1">{i.label}</p>
+                  {i.mono
+                    ? <code className="font-mono text-violet-300 text-xs">{i.value}</code>
+                    : <p className="text-white/60 text-xs">{i.value}</p>
+                  }
+                </div>
+              ))}
+            </div>
+
+            <SubHeading id="tx-get-resp" label="Réponse" />
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+              <CodeBlock lang="json" title="200 OK — transaction trouvée" code={TX_GET_RESP} />
+              <CodeBlock lang="json" title="404 Not Found — inconnue ou autre compte" code={TX_GET_404} />
+            </div>
+
+            <RespTable rows={[
+              { name: "reference",         type: "string",   desc: "Référence YookPay (YPY-…)." },
+              { name: "providerReference", type: "string?",  desc: "Référence opérateur (null si pas encore transmise)." },
+              { name: "status",            type: "string",   desc: "PENDING · SUCCESS · FAILED · EXPIRED" },
+              { name: "type",              type: "string",   desc: "DEPOSIT (payin) ou WITHDRAWAL (payout)." },
+              { name: "amount",            type: "number",   desc: "Montant brut de la transaction." },
+              { name: "netAmount",         type: "number",   desc: "Montant net après frais." },
+              { name: "feeAmount",         type: "number",   desc: "Frais prélevés." },
+              { name: "feeRate",           type: "number",   desc: "Taux de frais appliqué." },
+              { name: "currency",          type: "string",   desc: "Devise : XAF, XOF ou CDF." },
+              { name: "country",           type: "string",   desc: "Code pays (CM, SN, CI…)." },
+              { name: "operator",          type: "string",   desc: "Opérateur Mobile Money." },
+              { name: "phone",             type: "string",   desc: "Numéro de téléphone du client." },
+              { name: "metadata",          type: "object?",  desc: "Données personnalisées passées à la création (orderId, userId…)." },
+              { name: "createdAt",         type: "datetime", desc: "Horodatage de création (ISO 8601 UTC)." },
+              { name: "updatedAt",         type: "datetime", desc: "Horodatage de dernière mise à jour (passe à SUCCESS/FAILED via IPN)." },
+            ]} />
+
+            <SubHeading id="tx-get-code" label="Exemples de code" />
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+              <CodeBlock lang="bash" title="cURL" code={`curl -X GET ${BASE}/api/merchant/v1/transaction/YPY-M9X1A2-K7TQ \\
+  -H "x-api-key: YKP_IN_votre_cle"`} />
+              <CodeBlock lang="js" title="Node.js / Browser" code={`const ref = "YPY-M9X1A2-K7TQ";
+const res = await fetch(
+  \`${BASE}/api/merchant/v1/transaction/\${ref}\`,
+  { headers: { "x-api-key": process.env.YOOKPAY_API_KEY } }
+);
+const tx = await res.json();
+
+if (tx.status === "SUCCESS") {
+  console.log("Paiement confirmé — net reçu :", tx.netAmount, tx.currency);
+} else if (tx.status === "PENDING") {
+  console.log("En attente de confirmation opérateur…");
+} else {
+  console.log("Transaction échouée ou expirée :", tx.status);
+}`} />
+            </div>
+
+            <Callout type="info">
+              <strong>Cas d'usage principal :</strong> après avoir initié un payin ou payout et stocké la référence YPY-… en base de données, interrogez cet endpoint depuis votre backend pour vérifier le statut sans avoir à ouvrir le tableau de bord.
+            </Callout>
+
+            <Callout type="warn">
+              <strong>Isolation par compte :</strong> une clé API ne peut accéder qu'aux transactions de son propre compte. Toute tentative d'accès à une référence appartenant à un autre marchand retourne HTTP 404 (jamais 403) pour ne pas révéler l'existence de la transaction.
+            </Callout>
           </Section>
 
           {/* ═══ FLOWS ═══ */}

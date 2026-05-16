@@ -68844,6 +68844,13 @@ async function resolveMerchantFromKey(rawKey) {
   await db.update(apiKeysTable).set({ lastUsedAt: /* @__PURE__ */ new Date() }).where(eq(apiKeysTable.id, key.id));
   return { userId: key.userId, keyId: key.id };
 }
+async function resolveMerchantFromAnyKey(rawKey) {
+  const hash2 = (0, import_crypto5.createHash)("sha256").update(rawKey).digest("hex");
+  const [key] = await db.select({ id: apiKeysTable.id, userId: apiKeysTable.userId, keyType: apiKeysTable.keyType, active: apiKeysTable.active }).from(apiKeysTable).where(and(eq(apiKeysTable.keyHash, hash2), eq(apiKeysTable.active, true))).limit(1);
+  if (!key) return null;
+  await db.update(apiKeysTable).set({ lastUsedAt: /* @__PURE__ */ new Date() }).where(eq(apiKeysTable.id, key.id));
+  return { userId: key.userId, keyId: key.id, keyType: key.keyType };
+}
 var payinSchema = external_exports.object({
   country: external_exports.string().length(2).toUpperCase(),
   operator: external_exports.string().min(2).max(20).toUpperCase(),
@@ -69035,6 +69042,75 @@ router15.post("/v1/payout", async (req, res) => {
     const message = err instanceof Error ? err.message : "Erreur interne";
     logger.error({ err, merchantUserId }, "Merchant payout error");
     res.status(500).json({ error: "PayoutFailed", message });
+  }
+});
+router15.get("/v1/transaction/:reference", async (req, res) => {
+  const rawKey = req.headers["x-api-key"]?.trim();
+  if (!rawKey) {
+    res.status(401).json({ error: "Unauthorized", message: "En-t\xEAte x-api-key manquant." });
+    return;
+  }
+  const merchant = await resolveMerchantFromAnyKey(rawKey).catch(() => null);
+  if (!merchant) {
+    res.status(401).json({ error: "Unauthorized", message: "Cl\xE9 API invalide ou r\xE9voqu\xE9e." });
+    return;
+  }
+  const { reference } = req.params;
+  if (!reference || !reference.startsWith("YPY-")) {
+    res.status(400).json({ error: "ValidationError", message: "R\xE9f\xE9rence invalide. Format attendu : YPY-XXXXXX-XXXX." });
+    return;
+  }
+  try {
+    const [tx] = await db.select({
+      id: transactionsTable.id,
+      reference: transactionsTable.reference,
+      providerReference: transactionsTable.providerReference,
+      status: transactionsTable.status,
+      type: transactionsTable.type,
+      amount: transactionsTable.amount,
+      netAmount: transactionsTable.netAmount,
+      fee: transactionsTable.fee,
+      feeRate: transactionsTable.feeRate,
+      currency: transactionsTable.currency,
+      country: transactionsTable.country,
+      operator: transactionsTable.operator,
+      phone: transactionsTable.phone,
+      metadata: transactionsTable.metadata,
+      createdAt: transactionsTable.createdAt,
+      updatedAt: transactionsTable.updatedAt
+    }).from(transactionsTable).where(
+      and(
+        eq(transactionsTable.reference, reference),
+        eq(transactionsTable.userId, merchant.userId)
+      )
+    ).limit(1);
+    if (!tx) {
+      res.status(404).json({ error: "NotFound", message: `Transaction ${reference} introuvable ou n'appartient pas \xE0 ce compte.` });
+      return;
+    }
+    res.json({
+      success: true,
+      id: tx.id,
+      reference: tx.reference,
+      providerReference: tx.providerReference,
+      status: tx.status,
+      type: tx.type,
+      amount: Number(tx.amount),
+      netAmount: Number(tx.netAmount),
+      feeAmount: Number(tx.fee),
+      feeRate: Number(tx.feeRate ?? 0),
+      currency: tx.currency,
+      country: tx.country,
+      operator: tx.operator,
+      phone: tx.phone,
+      metadata: tx.metadata ?? null,
+      createdAt: tx.createdAt,
+      updatedAt: tx.updatedAt
+    });
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "Erreur interne";
+    logger.error({ err, merchantUserId: merchant.userId, reference }, "Merchant get transaction error");
+    res.status(500).json({ error: "InternalError", message });
   }
 });
 var merchant_default = router15;

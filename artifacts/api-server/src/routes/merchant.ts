@@ -29,6 +29,18 @@ async function resolveMerchantFromKey(rawKey: string): Promise<{ userId: number;
   return { userId: key.userId, keyId: key.id };
 }
 
+async function resolveMerchantFromAnyKey(rawKey: string): Promise<{ userId: number; keyId: number; keyType: string } | null> {
+  const hash = createHash("sha256").update(rawKey).digest("hex");
+  const [key] = await db
+    .select({ id: apiKeysTable.id, userId: apiKeysTable.userId, keyType: apiKeysTable.keyType, active: apiKeysTable.active })
+    .from(apiKeysTable)
+    .where(and(eq(apiKeysTable.keyHash, hash), eq(apiKeysTable.active, true)))
+    .limit(1);
+  if (!key) return null;
+  await db.update(apiKeysTable).set({ lastUsedAt: new Date() }).where(eq(apiKeysTable.id, key.id));
+  return { userId: key.userId, keyId: key.id, keyType: key.keyType };
+}
+
 const payinSchema = z.object({
   country:  z.string().length(2).toUpperCase(),
   operator: z.string().min(2).max(20).toUpperCase(),
@@ -285,6 +297,86 @@ router.post("/v1/payout", async (req, res) => {
     const message = err instanceof Error ? err.message : "Erreur interne";
     logger.error({ err, merchantUserId }, "Merchant payout error");
     res.status(500).json({ error: "PayoutFailed", message });
+  }
+});
+
+// GET /api/merchant/v1/transaction/:reference
+router.get("/v1/transaction/:reference", async (req, res) => {
+  const rawKey = (req.headers["x-api-key"] as string | undefined)?.trim();
+  if (!rawKey) {
+    res.status(401).json({ error: "Unauthorized", message: "En-tête x-api-key manquant." });
+    return;
+  }
+
+  const merchant = await resolveMerchantFromAnyKey(rawKey).catch(() => null);
+  if (!merchant) {
+    res.status(401).json({ error: "Unauthorized", message: "Clé API invalide ou révoquée." });
+    return;
+  }
+
+  const { reference } = req.params;
+  if (!reference || !reference.startsWith("YPY-")) {
+    res.status(400).json({ error: "ValidationError", message: "Référence invalide. Format attendu : YPY-XXXXXX-XXXX." });
+    return;
+  }
+
+  try {
+    const [tx] = await db
+      .select({
+        id:                transactionsTable.id,
+        reference:         transactionsTable.reference,
+        providerReference: transactionsTable.providerReference,
+        status:            transactionsTable.status,
+        type:              transactionsTable.type,
+        amount:            transactionsTable.amount,
+        netAmount:         transactionsTable.netAmount,
+        fee:               transactionsTable.fee,
+        feeRate:           transactionsTable.feeRate,
+        currency:          transactionsTable.currency,
+        country:           transactionsTable.country,
+        operator:          transactionsTable.operator,
+        phone:             transactionsTable.phone,
+        metadata:          transactionsTable.metadata,
+        createdAt:         transactionsTable.createdAt,
+        updatedAt:         transactionsTable.updatedAt,
+      })
+      .from(transactionsTable)
+      .where(
+        and(
+          eq(transactionsTable.reference, reference),
+          eq(transactionsTable.userId, merchant.userId),
+        )
+      )
+      .limit(1);
+
+    if (!tx) {
+      res.status(404).json({ error: "NotFound", message: `Transaction ${reference} introuvable ou n'appartient pas à ce compte.` });
+      return;
+    }
+
+    res.json({
+      success:           true,
+      id:                tx.id,
+      reference:         tx.reference,
+      providerReference: tx.providerReference,
+      status:            tx.status,
+      type:              tx.type,
+      amount:            Number(tx.amount),
+      netAmount:         Number(tx.netAmount),
+      feeAmount:         Number(tx.fee),
+      feeRate:           Number(tx.feeRate ?? 0),
+      currency:          tx.currency,
+      country:           tx.country,
+      operator:          tx.operator,
+      phone:             tx.phone,
+      metadata:          tx.metadata ?? null,
+      createdAt:         tx.createdAt,
+      updatedAt:         tx.updatedAt,
+    });
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : "Erreur interne";
+    logger.error({ err, merchantUserId: merchant.userId, reference }, "Merchant get transaction error");
+    res.status(500).json({ error: "InternalError", message });
   }
 });
 
