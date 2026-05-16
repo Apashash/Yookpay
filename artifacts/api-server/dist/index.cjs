@@ -69105,10 +69105,14 @@ async function runStartupMigrations() {
         key_hash TEXT NOT NULL,
         key_prefix VARCHAR(20) NOT NULL,
         name VARCHAR(100) NOT NULL DEFAULT 'Cl\xE9 principale',
+        key_type VARCHAR(10) NOT NULL DEFAULT 'payin',
         active BOOLEAN NOT NULL DEFAULT true,
         last_used_at TIMESTAMP,
         created_at TIMESTAMP DEFAULT NOW() NOT NULL
       )
+    `);
+    await client.query(`
+      ALTER TABLE api_keys ADD COLUMN IF NOT EXISTS key_type VARCHAR(10) NOT NULL DEFAULT 'payin'
     `);
     await client.query(`
       CREATE TABLE IF NOT EXISTS kyc_documents (

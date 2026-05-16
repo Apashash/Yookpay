@@ -1,4 +1,4 @@
-modules = ["nodejs-20", "web", "bash"]
+modules = ["nodejs-20", "web", "bash", "postgresql-16"]
 
 [[artifacts]]
 id = "artifacts/api-server"
@@ -56,6 +56,9 @@ PIXPAY_ENV = "production"
 
 [userenv.shared]
 APP_URL = "https://yookpay.replit.app"
+SUPABASE_DATABASE_URL = "postgresql://postgres.tcgvodxxtbipghukgifv:AVpedcqfvJkhiAba@aws-1-eu-west-2.pooler.supabase.com:6543/postgres"
+SUPABASE_SERVICE_ROLE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRjZ3ZvZHh4dGJpcGdodWtnaWZ2Iiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3Nzc1MjA3MiwiZXhwIjoyMDkzMzI4MDcyfQ.KQWgMnYDnP94LDzwzDky5O1VVPlOm3qKpUF0jKzFA-Q"
+SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRjZ3ZvZHh4dGJpcGdodWtnaWZ2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzc3NTIwNzIsImV4cCI6MjA5MzMyODA3Mn0.WPDwHpmMeFio0LIMCmfZiUGPPvITqq2fa6Jczq_z01I"
 
 [userenv.development]
 PIXPAY_ENV = "production"
