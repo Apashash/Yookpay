@@ -68898,7 +68898,7 @@ router15.post("/v1/payin", async (req, res) => {
       operator,
       phone,
       reference,
-      providerReference: String(pixResult.transactionId ?? ""),
+      providerReference: String(pixResult.pixTransactionId ?? ""),
       status: "PENDING",
       metadata: metadata ?? null
     }).returning();
@@ -68906,7 +68906,7 @@ router15.post("/v1/payin", async (req, res) => {
     res.status(201).json({
       success: true,
       reference,
-      providerReference: pixResult.transactionId,
+      providerReference: pixResult.pixTransactionId,
       status: "PENDING",
       amount,
       netAmount: fee.netAmount,
