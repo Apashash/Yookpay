@@ -68849,6 +68849,7 @@ var payinSchema = external_exports.object({
   operator: external_exports.string().min(2).max(20).toUpperCase(),
   phone: external_exports.string().min(6).max(20),
   amount: external_exports.number().int().positive(),
+  omOtp: external_exports.string().optional(),
   metadata: external_exports.record(external_exports.unknown()).optional()
 });
 router15.post("/v1/payin", async (req, res) => {
@@ -68867,10 +68868,18 @@ router15.post("/v1/payin", async (req, res) => {
     res.status(400).json({ error: "ValidationError", message: parse3.error.errors[0]?.message });
     return;
   }
-  const { country, operator, phone, amount, metadata } = parse3.data;
+  const { country, operator, phone, amount, omOtp, metadata } = parse3.data;
   const currency = CURRENCY_MAP[country];
   if (!currency) {
     res.status(400).json({ error: "ValidationError", message: `Pays non support\xE9 : ${country}` });
+    return;
+  }
+  const flow = getOperatorFlow(operator);
+  if (flow === "OTP" && !omOtp) {
+    res.status(400).json({
+      error: "OtpRequired",
+      message: "Un code OTP Orange Money est requis. Le client doit composer #144*82# pour l'obtenir, puis vous le transmettre."
+    });
     return;
   }
   try {
@@ -68885,7 +68894,7 @@ router15.post("/v1/payin", async (req, res) => {
     const overrideRate = userFee?.rate != null ? Number(userFee.rate) : void 0;
     const fee = calculateFeeWithRate(amount, country, operator, "DEPOSIT", overrideRate);
     const reference = generateReference();
-    const pixResult = await callPixPayAirtime({ currency, serviceId: 1, amount, phone, customData: reference });
+    const pixResult = await callPixPayAirtime({ currency, serviceId: 1, amount, phone, customData: reference, omOtp });
     const [tx] = await db.insert(transactionsTable).values({
       userId: merchant.userId,
       type: "DEPOSIT",
@@ -68902,19 +68911,22 @@ router15.post("/v1/payin", async (req, res) => {
       status: "PENDING",
       metadata: metadata ?? null
     }).returning();
-    logger.info({ merchantUserId: merchant.userId, ref: reference, amount }, "Merchant payin initiated");
-    res.status(201).json({
+    logger.info({ merchantUserId: merchant.userId, ref: reference, amount, flow }, "Merchant payin initiated");
+    const resp = {
       success: true,
       reference,
       providerReference: pixResult.pixTransactionId,
       status: "PENDING",
+      flow,
       amount,
       netAmount: fee.netAmount,
       feeAmount: fee.feeAmount,
       feeRate: fee.feeRate,
       currency,
       transactionId: tx.id
-    });
+    };
+    if (pixResult.smsLink) resp["smsLink"] = pixResult.smsLink;
+    res.status(201).json(resp);
   } catch (err) {
     const message = err instanceof Error ? err.message : "Erreur interne";
     logger.error({ err, merchantUserId: merchant.userId }, "Merchant payin error");

@@ -13,7 +13,7 @@ import {
   type Operator,
   type TransactionType,
 } from "../services/feeService";
-import { callPixPayAirtime } from "../lib/pixpay";
+import { callPixPayAirtime, getOperatorFlow } from "../lib/pixpay";
 
 const router = Router();
 
@@ -30,10 +30,11 @@ async function resolveMerchantFromKey(rawKey: string): Promise<{ userId: number;
 }
 
 const payinSchema = z.object({
-  country: z.string().length(2).toUpperCase(),
+  country:  z.string().length(2).toUpperCase(),
   operator: z.string().min(2).max(20).toUpperCase(),
-  phone: z.string().min(6).max(20),
-  amount: z.number().int().positive(),
+  phone:    z.string().min(6).max(20),
+  amount:   z.number().int().positive(),
+  omOtp:    z.string().optional(),
   metadata: z.record(z.unknown()).optional(),
 });
 
@@ -57,10 +58,20 @@ router.post("/v1/payin", async (req, res) => {
     return;
   }
 
-  const { country, operator, phone, amount, metadata } = parse.data;
+  const { country, operator, phone, amount, omOtp, metadata } = parse.data;
   const currency = CURRENCY_MAP[country as Country];
   if (!currency) {
     res.status(400).json({ error: "ValidationError", message: `Pays non supporté : ${country}` });
+    return;
+  }
+
+  const flow = getOperatorFlow(operator);
+
+  if (flow === "OTP" && !omOtp) {
+    res.status(400).json({
+      error: "OtpRequired",
+      message: "Un code OTP Orange Money est requis. Le client doit composer #144*82# pour l'obtenir, puis vous le transmettre.",
+    });
     return;
   }
 
@@ -84,7 +95,7 @@ router.post("/v1/payin", async (req, res) => {
     const reference = generateReference();
 
     // Call PixPay
-    const pixResult = await callPixPayAirtime({ currency, serviceId: 1, amount, phone, customData: reference });
+    const pixResult = await callPixPayAirtime({ currency, serviceId: 1, amount, phone, customData: reference, omOtp });
 
     // Record transaction
     const [tx] = await db.insert(transactionsTable).values({
@@ -104,20 +115,24 @@ router.post("/v1/payin", async (req, res) => {
       metadata: metadata ?? null,
     }).returning();
 
-    logger.info({ merchantUserId: merchant.userId, ref: reference, amount }, "Merchant payin initiated");
+    logger.info({ merchantUserId: merchant.userId, ref: reference, amount, flow }, "Merchant payin initiated");
 
-    res.status(201).json({
+    const resp: Record<string, unknown> = {
       success: true,
       reference,
       providerReference: pixResult.pixTransactionId,
       status: "PENDING",
+      flow,
       amount,
       netAmount: fee.netAmount,
       feeAmount: fee.feeAmount,
       feeRate: fee.feeRate,
       currency,
       transactionId: tx!.id,
-    });
+    };
+    if (pixResult.smsLink) resp["smsLink"] = pixResult.smsLink;
+
+    res.status(201).json(resp);
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : "Erreur interne";
     logger.error({ err, merchantUserId: merchant.userId }, "Merchant payin error");

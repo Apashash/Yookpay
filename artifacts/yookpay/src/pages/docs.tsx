@@ -8,6 +8,7 @@ import {
   Key, Shield, Zap, Globe, AlertTriangle, CheckCircle2,
   Clock, Info, ChevronRight, Terminal, HelpCircle,
   BookOpen, Lock, CircleDot, ArrowRight,
+  Smartphone, Link2, Bell, ExternalLink, RefreshCw,
 } from "lucide-react";
 
 /* ═══════════════════════════════════════════════════════════
@@ -209,7 +210,7 @@ function Divider({ label, icon: Icon, color }: { label: string; icon: React.Comp
 }
 
 /* ═══════════════════════════════════════════════════════════
-   CODE SAMPLES (exact data from feeService.ts)
+   CODE SAMPLES
 ═══════════════════════════════════════════════════════════ */
 
 const BASE = "https://yookpay.partner.ashtechpay.top";
@@ -228,8 +229,10 @@ const PAYIN_RESP = `// HTTP 201 Created
   "reference":         "YPY-M9X1A2-K7TQ",  // ← à stocker
   "providerReference": "TXN-20240516-001",
   "status":            "PENDING",
+  "flow":              "STANDARD",           // STANDARD | OTP | WAVE | QMONEY
+  "smsLink":           null,                 // URL Wave si flow="WAVE", sinon null
   "amount":            5000,
-  "netAmount":         4925,   // amount − feeAmount
+  "netAmount":         4925,
   "feeAmount":         75,
   "feeRate":           0.015,
   "currency":          "XAF",
@@ -330,6 +333,140 @@ curl_setopt_array($ch, [
 $body = json_decode(curl_exec($ch), true);
 curl_close($ch);
 echo $body["reference"] . " — " . $body["status"];`;
+
+const PAYIN_BODY_OTP = `// Orange Money (CM, CI, SN, BF, BJ, ML, TG…)
+// Le client compose *#144*82# sur son téléphone, puis vous transmet le code
+{
+  "country":  "CM",
+  "operator": "ORANGE",
+  "phone":    "237699123456",
+  "amount":   5000,
+  "omOtp":    "123456",
+  "metadata": { "orderId": "CMD-42" }
+}`;
+
+const PAYIN_BODY_WAVE = `// Wave (Côte d'Ivoire ou Sénégal)
+// Pas de omOtp — l'API retourne un smsLink à ouvrir dans l'app Wave
+{
+  "country":  "CI",
+  "operator": "WAVE",
+  "phone":    "2250701234567",
+  "amount":   5000,
+  "metadata": { "orderId": "CMD-42" }
+}`;
+
+const PAYIN_RESP_WAVE = `// HTTP 201 Created — présence de flow + smsLink
+{
+  "success":           true,
+  "reference":         "YPY-W4A2B1-K9PQ",
+  "providerReference": "PIX-00123456",
+  "status":            "PENDING",
+  "flow":              "WAVE",
+  "smsLink":           "https://wave.com/pay/xxxxxxxxxxxxxxxx",
+  "amount":            5000,
+  "netAmount":         4925,
+  "feeAmount":         75,
+  "currency":          "XOF",
+  "transactionId":     415
+}`;
+
+const PAYIN_RESP_STANDARD = `// HTTP 201 Created — MTN, AIRTEL, MOOV… (USSD push)
+{
+  "success":           true,
+  "reference":         "YPY-M9X1A2-K7TQ",
+  "providerReference": "PIX-00109876",
+  "status":            "PENDING",
+  "flow":              "STANDARD",
+  "smsLink":           null,
+  "amount":            5000,
+  "netAmount":         4925,
+  "feeAmount":         75,
+  "currency":          "XAF",
+  "transactionId":     412
+}`;
+
+const NODE_PAYIN_OTP = `// Étape 1 : demandez le code OTP à votre client
+// (ex: dans un formulaire ou par saisie dans votre app)
+const userOtp = "123456"; // saisi par l'utilisateur
+
+// Étape 2 : appelez l'API avec omOtp
+const res = await fetch("${BASE}/api/merchant/v1/payin", {
+  method: "POST",
+  headers: {
+    "x-api-key":    process.env.YOOKPAY_PAYIN_KEY,
+    "Content-Type": "application/json",
+  },
+  body: JSON.stringify({
+    country: "CM", operator: "ORANGE",
+    phone: "237699123456", amount: 5000,
+    omOtp: userOtp,                // ← obligatoire pour Orange
+    metadata: { orderId: "CMD-42" },
+  }),
+});
+const { reference, flow } = await res.json();
+console.log(reference, flow); // "YPY-…", "OTP"`;
+
+const NODE_PAYIN_WAVE = `const res = await fetch("${BASE}/api/merchant/v1/payin", {
+  method: "POST",
+  headers: {
+    "x-api-key":    process.env.YOOKPAY_PAYIN_KEY,
+    "Content-Type": "application/json",
+  },
+  body: JSON.stringify({
+    country: "CI", operator: "WAVE",
+    phone: "2250701234567", amount: 5000,
+  }),
+});
+const { reference, flow, smsLink } = await res.json();
+
+if (flow === "WAVE" && smsLink) {
+  // Redirigez l'utilisateur ou affichez le lien
+  // Ex. React Native: Linking.openURL(smsLink)
+  // Ex. Web: window.location.href = smsLink
+  console.log("Redirect to:", smsLink);
+}`;
+
+const PL_PAY_BODY = `// POST /api/payment-links/public/{token}/pay
+// Appelé depuis la page de paiement par le client final
+{
+  "amount":    5000,
+  "country":   "CM",
+  "operator":  "MTN",
+  "phone":     "237687194830",
+  "feeBearer": "RECIPIENT"
+}
+
+// Pour Orange Money, ajoutez le code OTP :
+{
+  "amount":    5000,
+  "country":   "CM",
+  "operator":  "ORANGE",
+  "phone":     "237699123456",
+  "omOtp":     "123456",
+  "feeBearer": "RECIPIENT"
+}`;
+
+const PL_PAY_RESP = `// HTTP 201 Created
+{
+  "transaction": {
+    "id":       412,
+    "amount":   5000,
+    "currency": "XAF",
+    "status":   "PENDING"
+  },
+  "flow":    "STANDARD",   // STANDARD | OTP | WAVE | QMONEY
+  "smsLink": null,         // URL Wave si flow = "WAVE", sinon null
+  "pending": true,
+  "message": "Votre paiement est en cours de traitement."
+}`;
+
+const PL_POLL_RESP = `// GET /api/payment-links/public/tx/{transactionId}
+// Appelez toutes les 5 secondes jusqu'à status ≠ PENDING
+{
+  "status":   "SUCCESS",   // PENDING | SUCCESS | FAILED | EXPIRED
+  "amount":   5000,
+  "currency": "XAF"
+}`;
 
 const CURL_PAYOUT = `curl -X POST ${BASE}/api/merchant/v1/payout \\
   -H "x-api-key: YKP_OUT_votre_cle" \\
@@ -450,7 +587,18 @@ export default function Docs() {
             <NavItem href="#payout-code" label="Exemples" indent />
           </div>
           <div>
+            <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-white/20 mb-2">Flows & Liens</p>
+            <NavItem href="#flows" label="Flows de paiement" />
+            <NavItem href="#flows-standard" label="USSD Standard" indent />
+            <NavItem href="#flows-otp" label="OTP Orange Money" indent />
+            <NavItem href="#flows-wave" label="Wave Redirect" indent />
+            <NavItem href="#payment-links" label="Liens de paiement" />
+            <NavItem href="#pl-pay" label="Endpoint public" indent />
+            <NavItem href="#pl-poll" label="Polling statut" indent />
+          </div>
+          <div>
             <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-white/20 mb-2">Référence</p>
+            <NavItem href="#notifications" label="Notifications IPN" />
             <NavItem href="#statuses" label="Statuts" />
             <NavItem href="#errors" label="Codes d'erreur" />
             <NavItem href="#countries" label="Pays & Opérateurs" />
@@ -646,11 +794,12 @@ export default function Docs() {
 
             <SubHeading id="payin-params" label="Paramètres de la requête (Body JSON)" />
             <ParamTable rows={[
-              { name: "country",  type: "string",  req: true,  desc: "Code pays ISO-3166 en 2 lettres MAJUSCULES.",                                        ex: "CM" },
-              { name: "operator", type: "string",  req: true,  desc: "Opérateur Mobile Money en MAJUSCULES. Voir tableau Pays & Opérateurs.",               ex: "MTN" },
-              { name: "phone",    type: "string",  req: true,  desc: "Numéro du payeur avec indicatif pays, sans le +. Min 6 chiffres, max 20.",             ex: "237687194830" },
-              { name: "amount",   type: "integer", req: true,  desc: "Montant entier en devise locale. Pas de décimales.",                                   ex: "5000" },
-              { name: "metadata", type: "object",  req: false, desc: "Objet JSON libre pour vos références internes. Renvoyé dans les réponses.",            ex: '{"orderId":"CMD-42"}' },
+              { name: "country",  type: "string",  req: true,  desc: "Code pays ISO-3166 en 2 lettres MAJUSCULES.",                                                                                                  ex: "CM" },
+              { name: "operator", type: "string",  req: true,  desc: "Opérateur Mobile Money en MAJUSCULES. Voir tableau Pays & Opérateurs.",                                                                        ex: "MTN" },
+              { name: "phone",    type: "string",  req: true,  desc: "Numéro du payeur avec indicatif pays, sans le +. Min 6 chiffres, max 20.",                                                                     ex: "237687194830" },
+              { name: "amount",   type: "integer", req: true,  desc: "Montant entier en devise locale. Pas de décimales.",                                                                                            ex: "5000" },
+              { name: "omOtp",   type: "string",  req: false, desc: "Code OTP Orange Money à 6 chiffres. Requis uniquement si operator = \"ORANGE\". Le client le génère en composant *#144*82# sur son téléphone.", ex: "123456" },
+              { name: "metadata", type: "object",  req: false, desc: "Objet JSON libre pour vos références internes. Renvoyé dans les réponses.",                                                                     ex: '{"orderId":"CMD-42"}' },
             ]} />
 
             <SubHeading id="payin-response" label="Réponse de succès" />
@@ -662,6 +811,8 @@ export default function Docs() {
               { name: "reference",         type: "string",  desc: "Référence unique YookPay (ex: YPY-M9X1A2-K7TQ). Stockez-la en base de données pour le suivi." },
               { name: "providerReference", type: "string",  desc: "Référence opérateur. Transmettez-la au support en cas de litige." },
               { name: "status",            type: "string",  desc: 'Toujours "PENDING" à la réponse initiale. Évolue en SUCCESS ou FAILED de manière asynchrone.' },
+              { name: "flow",              type: "string",  desc: 'Type d\'interaction déclenchée : "STANDARD" (USSD push), "OTP" (Orange Money), "WAVE" (redirection app), "QMONEY" (Gambie).' },
+              { name: "smsLink",          type: "string?", desc: 'URL de paiement Wave. Présent uniquement si flow = "WAVE". Redirigez le client vers cette URL pour qu\'il approuve dans l\'app Wave.' },
               { name: "amount",            type: "integer", desc: "Montant brut envoyé (= votre champ amount)." },
               { name: "netAmount",         type: "integer", desc: "Montant crédité dans votre wallet après frais. netAmount = amount − feeAmount." },
               { name: "feeAmount",         type: "integer", desc: "Frais prélevés sur cette transaction (selon votre configuration)." },
@@ -777,6 +928,316 @@ export default function Docs() {
               active={payoutLang} onChange={setPayoutLang}
             />
             <CodeBlock lang={payoutLang} title={payoutLang === "curl" ? "cURL" : "Node.js / JS"} code={payoutCode[payoutLang]!} />
+          </Section>
+
+          {/* ═══ FLOWS ═══ */}
+          <Divider label="Flows de paiement" icon={Smartphone} color="text-cyan-400" />
+
+          <Section id="flows">
+            <SectionHeading icon={Smartphone} label="Flows de paiement — Comment le client valide" color="text-cyan-400" />
+            <p className="text-white/55 text-sm leading-relaxed">
+              Chaque opérateur utilise un mécanisme différent pour que le client confirme le paiement. Le champ <IC>flow</IC> dans la réponse API indique lequel a été déclenché. Votre intégration doit gérer les 3 cas ci-dessous.
+            </p>
+
+            {/* Résumé flows */}
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              {[
+                { id: "STANDARD", ops: "MTN · AIRTEL · MOOV · TOGOCEL · AFRICELL · FREE…", color: "border-emerald-500/30 bg-emerald-500/5 text-emerald-300", icon: "📳", desc: "Push USSD automatique sur le téléphone. Aucune action de votre côté." },
+                { id: "OTP",      ops: "ORANGE (tous pays)",                                color: "border-orange-500/30 bg-orange-500/5 text-orange-300",  icon: "🔢", desc: "Le client génère un code OTP et vous le transmet. Vous le passez dans omOtp." },
+                { id: "WAVE",     ops: "WAVE (CI · SN)",                                   color: "border-blue-500/30 bg-blue-500/5 text-blue-300",          icon: "🌊", desc: "L'API retourne un smsLink. Redirigez le client vers cette URL." },
+              ].map(f => (
+                <div key={f.id} className={`rounded-xl border p-4 space-y-2 ${f.color}`}>
+                  <div className="flex items-center gap-2">
+                    <span className="text-xl">{f.icon}</span>
+                    <code className="font-mono font-bold text-sm">{f.id}</code>
+                  </div>
+                  <p className="text-[11px] opacity-70 font-medium">{f.ops}</p>
+                  <p className="text-xs opacity-60 leading-relaxed">{f.desc}</p>
+                </div>
+              ))}
+            </div>
+
+            {/* STANDARD */}
+            <div id="flows-standard" className="scroll-mt-24 space-y-4 pt-4">
+              <h3 className="text-base font-bold text-emerald-300 border-b border-emerald-500/20 pb-2">STANDARD — Push USSD (MTN, AIRTEL, MOOV…)</h3>
+              <p className="text-white/50 text-sm leading-relaxed">
+                C'est le flow le plus simple. L'opérateur envoie automatiquement une notification USSD sur le téléphone du client dès que vous appelez <IC>/payin</IC>. Le client voit un menu sur son écran et appuie sur <strong className="text-white/70">OK</strong> (ou tape son PIN) pour confirmer. Aucune étape supplémentaire de votre côté.
+              </p>
+              <div className="rounded-xl border border-white/10 bg-white/[0.02] p-5 space-y-3">
+                <p className="text-xs font-bold uppercase tracking-widest text-white/25 mb-3">Séquence STANDARD</p>
+                {[
+                  { n: "1", actor: "Votre serveur", to: "POST /payin (MTN, AIRTEL, MOOV…)", color: "bg-emerald-500/20 border-emerald-500/30 text-emerald-300" },
+                  { n: "2", actor: "YookPay → Opérateur", to: "Requête d'encaissement transmise", color: "bg-emerald-500/20 border-emerald-500/30 text-emerald-300" },
+                  { n: "3", actor: "Opérateur → Téléphone", to: "Notification USSD push (*# menu) envoyée au client", color: "bg-emerald-500/20 border-emerald-500/30 text-emerald-300" },
+                  { n: "4", actor: "Client", to: "Appuie OK / entre son PIN → paiement confirmé", color: "bg-emerald-500/20 border-emerald-500/30 text-emerald-300" },
+                  { n: "5", actor: "Opérateur → YookPay (IPN)", to: "status → SUCCESS · wallet crédité", color: "bg-green-500/20 border-green-500/30 text-green-300" },
+                ].map(s => (
+                  <div key={s.n} className="flex items-start gap-3 text-xs">
+                    <div className={`h-5 w-5 rounded border flex items-center justify-center font-bold shrink-0 mt-0.5 ${s.color}`}>{s.n}</div>
+                    <div><span className="font-semibold text-white/70">{s.actor}</span> <span className="text-white/35">— {s.to}</span></div>
+                  </div>
+                ))}
+              </div>
+              <ReqRes
+                request={<CodeBlock lang="json" title="Requête STANDARD (MTN)" code={PAYIN_BODY} />}
+                response={<CodeBlock lang="json" title="Réponse — flow: STANDARD" code={PAYIN_RESP_STANDARD} />}
+              />
+              <Callout type="ok">
+                <strong>Aucune action requise</strong> après l'appel API. Le client reçoit la notification automatiquement. Votre wallet est crédité dès réception de la confirmation IPN (30 s à 2 min).
+              </Callout>
+            </div>
+
+            {/* OTP */}
+            <div id="flows-otp" className="scroll-mt-24 space-y-4 pt-6">
+              <h3 className="text-base font-bold text-orange-300 border-b border-orange-500/20 pb-2">OTP — Orange Money (tous pays)</h3>
+              <p className="text-white/50 text-sm leading-relaxed">
+                Orange Money utilise un système OTP (One-Time Password) pour sécuriser les paiements. Le client génère un code à 6 chiffres en composant un code USSD sur son téléphone, puis vous transmet ce code. Vous l'incluez dans le champ <IC>omOtp</IC> de la requête.
+              </p>
+
+              <div className="rounded-xl border border-orange-500/20 bg-orange-500/5 p-5 space-y-4">
+                <p className="text-xs font-bold uppercase tracking-widest text-white/25 mb-1">Intégration OTP — étapes côté marchand</p>
+                {[
+                  { n: "1", t: "Affichez un champ de saisie", d: 'Avant de lancer le paiement, montrez un message à l\'utilisateur : "Composez *#144*82# sur votre téléphone Orange pour obtenir votre code de paiement, puis saisissez-le ici."' },
+                  { n: "2", t: "Le client compose et saisit le code", d: "Il compose *#144*82# (ou #144*82# selon le pays), reçoit un code à 6 chiffres par USSD, et l'entre dans votre formulaire." },
+                  { n: "3", t: "Appelez /payin avec omOtp", d: 'Passez le code dans le champ "omOtp". Si omOtp est absent pour un opérateur ORANGE, l\'API retourne HTTP 400 OtpRequired.' },
+                  { n: "4", t: "Confirmation asynchrone", d: "Comme pour STANDARD, le status passe à SUCCESS via IPN. Le code OTP est à usage unique — il expire en quelques minutes." },
+                ].map(s => (
+                  <div key={s.n} className="flex gap-3">
+                    <div className="h-6 w-6 rounded-full bg-orange-500/20 border border-orange-500/40 flex items-center justify-center text-orange-300 font-bold text-[11px] shrink-0 mt-0.5">{s.n}</div>
+                    <div>
+                      <p className="text-sm font-semibold text-white/80">{s.t}</p>
+                      <p className="text-xs text-white/45 mt-0.5 leading-relaxed">{s.d}</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              <ReqRes
+                request={<CodeBlock lang="json" title="Requête OTP (Orange Money CM)" code={PAYIN_BODY_OTP} />}
+                response={<CodeBlock lang="json" title="Code Node.js — flux OTP" code={NODE_PAYIN_OTP} />}
+              />
+
+              <Callout type="warn">
+                <strong>Le code OTP expire rapidement</strong> (1 à 5 minutes selon l'opérateur). Votre formulaire doit permettre la saisie et l'envoi rapides. Ne stockez jamais le code OTP — il est à usage unique.
+              </Callout>
+
+              <div className="rounded-lg border border-white/10 overflow-hidden overflow-x-auto">
+                <table className="w-full text-xs min-w-[400px]">
+                  <thead className="bg-white/[0.04] border-b border-white/10">
+                    <tr>{["Pays", "country", "Code USSD OTP"].map(h => <th key={h} className="text-left px-4 py-2.5 text-white/40 font-semibold">{h}</th>)}</tr>
+                  </thead>
+                  <tbody>
+                    {[
+                      ["Cameroun",       "CM", "*#144*82#"],
+                      ["Côte d'Ivoire",  "CI", "*#144*82#"],
+                      ["Sénégal",        "SN", "*#144*82#"],
+                      ["Burkina Faso",   "BF", "*#144*82#"],
+                      ["Bénin",          "BJ", "*#144*82#"],
+                      ["Mali",           "ML", "*#144*82#"],
+                      ["Togo",           "TG", "*#144*82#"],
+                    ].map(([name, code, ussd]) => (
+                      <tr key={code} className="border-b border-white/5 hover:bg-white/[0.015]">
+                        <td className="px-4 py-3 text-white/60">{name}</td>
+                        <td className="px-4 py-3"><code className="font-mono font-bold text-indigo-300 bg-indigo-500/10 px-2 py-0.5 rounded">{code}</code></td>
+                        <td className="px-4 py-3 font-mono text-orange-300 font-bold">{ussd}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            {/* WAVE */}
+            <div id="flows-wave" className="scroll-mt-24 space-y-4 pt-6">
+              <h3 className="text-base font-bold text-blue-300 border-b border-blue-500/20 pb-2">WAVE — Redirection app (CI · SN)</h3>
+              <p className="text-white/50 text-sm leading-relaxed">
+                Wave ne supporte pas le push USSD. À la place, l'API retourne un <IC>smsLink</IC> : une URL vers l'app Wave. Vous devez rediriger le client vers cette URL (web) ou l'ouvrir via deep link (mobile). Le client approuve dans son app Wave, et la confirmation revient via IPN.
+              </p>
+
+              <div className="rounded-xl border border-blue-500/20 bg-blue-500/5 p-5 space-y-4">
+                <p className="text-xs font-bold uppercase tracking-widest text-white/25 mb-1">Intégration Wave — étapes côté marchand</p>
+                {[
+                  { n: "1", t: "Appelez /payin normalement", d: 'Passez country="CI" (ou "SN") et operator="WAVE". Pas de omOtp requis.' },
+                  { n: "2", t: "Récupérez le smsLink", d: 'La réponse contient flow: "WAVE" et smsLink: "https://wave.com/pay/…". Ce lien est unique à cette transaction.' },
+                  { n: "3", t: "Redirigez le client", d: "Web : window.location.href = smsLink. Mobile React Native : Linking.openURL(smsLink). Mobile Flutter : url_launcher. Le client voit la page de confirmation Wave." },
+                  { n: "4", t: "Client approuve dans Wave", d: "Il confirme le paiement dans son app. Wave renvoie la confirmation à YookPay via IPN → status → SUCCESS." },
+                ].map(s => (
+                  <div key={s.n} className="flex gap-3">
+                    <div className="h-6 w-6 rounded-full bg-blue-500/20 border border-blue-500/40 flex items-center justify-center text-blue-300 font-bold text-[11px] shrink-0 mt-0.5">{s.n}</div>
+                    <div>
+                      <p className="text-sm font-semibold text-white/80">{s.t}</p>
+                      <p className="text-xs text-white/45 mt-0.5 leading-relaxed">{s.d}</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              <ReqRes
+                request={<CodeBlock lang="json" title="Requête Wave (CI)" code={PAYIN_BODY_WAVE} />}
+                response={<CodeBlock lang="json" title="Réponse — flow: WAVE + smsLink" code={PAYIN_RESP_WAVE} />}
+              />
+              <CodeBlock lang="js" title="Node.js — gestion du smsLink" code={NODE_PAYIN_WAVE} />
+
+              <Callout type="info">
+                <strong>Le smsLink expire</strong> si le client ne clique pas dans les 15 minutes. En cas d'expiration, la transaction passe à EXPIRED et votre wallet n'est pas débité (payin). Pour une nouvelle tentative, relancez un appel <IC>/payin</IC> complet.
+              </Callout>
+            </div>
+          </Section>
+
+          {/* ═══ PAYMENT LINKS ═══ */}
+          <Divider label="Liens de paiement — YookLink" icon={Link2} color="text-pink-400" />
+
+          <Section id="payment-links">
+            <SectionHeading icon={Link2} label="Liens de paiement (YookLink)" color="text-pink-400" />
+            <p className="text-white/55 text-sm leading-relaxed">
+              Un <strong className="text-white/80">YookLink</strong> est une page de paiement hébergée par YookPay. Partagez le lien à vos clients — ils choisissent leur opérateur, saisissent leur numéro, et paient directement. Aucune intégration API requise pour collecter des paiements.
+            </p>
+
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              {[
+                { icon: "🔗", title: "Zéro intégration",    desc: "Créez le lien depuis le tableau de bord. Partagez-le par SMS, WhatsApp, email, QR code." },
+                { icon: "🌍", title: "Multi-pays",          desc: "Un seul lien accepte tous vos pays cibles : CI, CM, SN, CD… Le client choisit son pays." },
+                { icon: "💰", title: "Prix fixe ou libre",  desc: "Prix fixe pour une commande précise, ou laissez le client saisir le montant (don, abonnement)." },
+              ].map(f => (
+                <div key={f.title} className="rounded-xl border border-pink-500/20 bg-pink-500/5 p-4 space-y-2">
+                  <span className="text-2xl">{f.icon}</span>
+                  <p className="font-bold text-sm text-pink-200">{f.title}</p>
+                  <p className="text-xs text-white/45 leading-relaxed">{f.desc}</p>
+                </div>
+              ))}
+            </div>
+
+            <SubHeading id="pl-create" label="Créer un lien — depuis le tableau de bord" />
+            <div className="rounded-xl border border-white/10 bg-white/[0.02] p-5 space-y-3">
+              {[
+                { n: "1", t: "Tableau de bord → Liens de paiement → Nouveau lien" },
+                { n: "2", t: 'Donnez un titre, une description, une photo (optionnel), sélectionnez les pays acceptés' },
+                { n: "3", t: 'Choisissez "Prix fixe" (avec montant et devise) ou "Libre" (le client saisit le montant)' },
+                { n: "4", t: "Copiez l'URL générée : https://yookpay.partner.ashtechpay.top/pay/{token}" },
+                { n: "5", t: "Partagez-le à vos clients — le lien est actif immédiatement" },
+              ].map(s => (
+                <div key={s.n} className="flex items-start gap-3 text-sm">
+                  <div className="h-5 w-5 rounded bg-pink-500/20 border border-pink-500/30 flex items-center justify-center text-pink-300 text-[11px] font-bold shrink-0 mt-0.5">{s.n}</div>
+                  <p className="text-white/55 leading-relaxed">{s.t}</p>
+                </div>
+              ))}
+            </div>
+
+            <SubHeading id="pl-pay" label="Endpoint de paiement public (appelé par la page)" />
+            <p className="text-white/50 text-sm leading-relaxed">
+              La page de paiement YookLink appelle cet endpoint automatiquement. Si vous construisez votre propre interface de paiement par-dessus un lien, vous pouvez l'appeler directement — aucune clé API n'est requise.
+            </p>
+            <EndpointHeader method="POST" path={`payment-links/public/{token}/pay`} title="Initier un paiement via un lien YookLink (public, sans authentification)" color="blue" />
+
+            <ParamTable rows={[
+              { name: "amount",    type: "number",  req: true,  desc: 'Montant à payer. Si le lien est en "Prix fixe", doit correspondre exactement.', ex: "5000" },
+              { name: "country",   type: "string",  req: true,  desc: "Code pays du client (doit faire partie des pays autorisés sur le lien).",        ex: "CM" },
+              { name: "operator",  type: "string",  req: true,  desc: "Opérateur Mobile Money du client.",                                               ex: "MTN" },
+              { name: "phone",     type: "string",  req: true,  desc: "Numéro Mobile Money du client, avec indicatif pays.",                             ex: "237687194830" },
+              { name: "feeBearer", type: "string",  req: false, desc: '"SENDER" ou "RECIPIENT" (défaut : RECIPIENT). Le client supporte généralement les frais.', ex: "RECIPIENT" },
+              { name: "omOtp",    type: "string",  req: false, desc: "Code OTP Orange Money si operator = ORANGE. Obligatoire pour ce cas.",             ex: "123456" },
+            ]} />
+
+            <ReqRes
+              request={<CodeBlock lang="json" title="Corps envoyé" code={PL_PAY_BODY} />}
+              response={<CodeBlock lang="json" title="Réponse 201" code={PL_PAY_RESP} />}
+            />
+
+            <RespTable rows={[
+              { name: "transaction.id",      type: "integer", desc: "ID de la transaction. Utilisez-le pour le polling de statut." },
+              { name: "transaction.status",  type: "string",  desc: 'Toujours "PENDING" à la réponse initiale.' },
+              { name: "flow",                type: "string",  desc: '"STANDARD", "OTP", "WAVE" ou "QMONEY" — indique le mécanisme déclenché.' },
+              { name: "smsLink",             type: "string?", desc: 'URL Wave si flow = "WAVE". Redirigez le client vers cette URL.' },
+              { name: "pending",             type: "boolean", desc: 'true tant que le paiement n\'est pas finalisé.' },
+              { name: "message",             type: "string",  desc: "Message lisible à afficher au client." },
+            ]} />
+
+            <SubHeading id="pl-poll" label="Polling de statut (transaction payment link)" />
+            <p className="text-white/50 text-sm leading-relaxed">
+              Interrogez cet endpoint toutes les 5 secondes pour savoir si le paiement est confirmé. Aucune clé API requise.
+            </p>
+            <EndpointHeader method="GET" path={`payment-links/public/tx/{transactionId}`} title="Vérifier le statut d'une transaction payment link (public)" color="blue" />
+            <CodeBlock lang="js" title="Polling Node.js / Browser" code={`// Polling toutes les 5 secondes
+async function pollStatus(txId, onSuccess, onFailed) {
+  const interval = setInterval(async () => {
+    const r = await fetch(\`${BASE}/api/payment-links/public/tx/\${txId}\`);
+    const { status } = await r.json();
+    if (status === "SUCCESS") { clearInterval(interval); onSuccess(); }
+    if (status === "FAILED" || status === "EXPIRED") { clearInterval(interval); onFailed(status); }
+  }, 5000);
+  // Timeout sécurité : arrêt après 10 min
+  setTimeout(() => clearInterval(interval), 600_000);
+}`} />
+            <CodeBlock lang="json" title="Réponse du polling" code={PL_POLL_RESP} />
+          </Section>
+
+          {/* ═══ NOTIFICATIONS ═══ */}
+          <Section id="notifications">
+            <SectionHeading icon={Bell} label="Notifications & IPN" color="text-amber-400" />
+            <p className="text-white/55 text-sm leading-relaxed">
+              YookPay reçoit les confirmations de paiement directement de l'opérateur via IPN (Instant Payment Notification). Voici comment le cycle complet fonctionne et comment rester informé du statut de vos transactions.
+            </p>
+
+            {/* Flux IPN */}
+            <div className="rounded-xl border border-amber-500/20 bg-amber-500/5 p-5 space-y-3">
+              <p className="text-xs font-bold uppercase tracking-widest text-white/25 mb-3">Cycle de notification complet</p>
+              {[
+                { n: "1", from: "Votre serveur",          to: "POST /payin ou /payout",        color: "bg-amber-500/20 border-amber-500/30 text-amber-300",  detail: "Requête initiée — status PENDING retourné immédiatement" },
+                { n: "2", from: "Opérateur Mobile Money", to: "Téléphone client",               color: "bg-amber-500/20 border-amber-500/30 text-amber-300",  detail: "USSD push / OTP / Wave redirect selon l'opérateur" },
+                { n: "3", from: "Client",                 to: "Confirme sur son téléphone",     color: "bg-amber-500/20 border-amber-500/30 text-amber-300",  detail: "Validation du paiement (PIN / OK / app Wave)" },
+                { n: "4", from: "Opérateur → YookPay",   to: "IPN reçu à /api/ipn/pixpay",    color: "bg-green-500/20 border-green-500/30 text-green-300",   detail: "Corps : { transaction_id, state, custom_data, amount, hash }" },
+                { n: "5", from: "YookPay",                to: "Mise à jour automatique",        color: "bg-green-500/20 border-green-500/30 text-green-300",   detail: "status → SUCCESS ou FAILED · wallet crédité (DEPOSIT) ou remboursé (WITHDRAWAL FAILED)" },
+                { n: "6", from: "YookPay",                to: "Notification in-app",            color: "bg-indigo-500/20 border-indigo-500/30 text-indigo-300",detail: "Alerte push dans le tableau de bord YookPay (dépôt confirmé / retrait effectué)" },
+              ].map(s => (
+                <div key={s.n} className="flex items-start gap-3 text-xs">
+                  <div className={`h-5 w-5 rounded border flex items-center justify-center font-bold shrink-0 mt-0.5 ${s.color}`}>{s.n}</div>
+                  <div className="flex flex-wrap items-baseline gap-1.5">
+                    <span className="font-semibold text-white/70">{s.from}</span>
+                    <span className="text-white/30">→</span>
+                    <span className="font-semibold text-white/70">{s.to}</span>
+                    <span className="text-white/35">— {s.detail}</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {/* Payload IPN */}
+            <SubHeading id="notif-ipn-payload" label="Format du payload IPN reçu par YookPay" />
+            <p className="text-white/50 text-sm">Ce payload est envoyé par l'opérateur à YookPay. La correspondance avec votre transaction se fait via <IC>custom_data</IC> = votre référence YPY-…</p>
+            <CodeBlock lang="json" title="Corps IPN reçu de l'opérateur" code={`{
+  "transaction_id": "PIX-00123456",   // référence opérateur
+  "state":          "SUCCESSFUL",      // SUCCESSFUL | FAILED | REJECTED | CANCELLED
+  "custom_data":    "YPY-M9X1A2-K7TQ",// ← votre référence, pour retrouver la transaction
+  "amount":         5000,
+  "hash":           "sha256_signature",// signature optionnelle
+  "response":       "Approved",
+  "error":          null
+}`} />
+
+            {/* Comment surveiller */}
+            <SubHeading id="notif-how" label="Comment surveiller vos transactions" />
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="rounded-xl border border-indigo-500/25 bg-indigo-500/5 p-5 space-y-3">
+                <div className="flex items-center gap-2">
+                  <RefreshCw className="h-4 w-4 text-indigo-400" />
+                  <span className="font-bold text-indigo-200 text-sm">Polling (Payment Links)</span>
+                </div>
+                <p className="text-xs text-white/50 leading-relaxed">Pour les paiements via lien YookLink, interrogez <IC>GET /api/payment-links/public/tx/{"{txId}"}</IC> toutes les 5 secondes jusqu'à obtenir <IC>status: "SUCCESS"</IC> ou <IC>"FAILED"</IC>.</p>
+                <Callout type="info">Timeout recommandé : 10 minutes. Au-delà, la transaction sera expirée.</Callout>
+              </div>
+              <div className="rounded-xl border border-emerald-500/25 bg-emerald-500/5 p-5 space-y-3">
+                <div className="flex items-center gap-2">
+                  <CheckCircle2 className="h-4 w-4 text-emerald-400" />
+                  <span className="font-bold text-emerald-200 text-sm">Tableau de bord</span>
+                </div>
+                <p className="text-xs text-white/50 leading-relaxed">Consultez <strong className="text-white/70">Tableau de bord → Transactions</strong> et filtrez par référence YPY-… pour voir le statut en temps réel. Chaque changement de statut (SUCCESS, FAILED) déclenche aussi une notification in-app.</p>
+                <Callout type="ok">Les notifications push apparaissent dans la cloche en haut à droite du tableau de bord.</Callout>
+              </div>
+            </div>
+
+            <Callout type="warn">
+              <strong>Pas de webhook sortant actuellement.</strong> YookPay reçoit les IPN des opérateurs et met à jour les transactions automatiquement. Pour vos propres serveurs, utilisez le polling sur les transactions Payment Link ou consultez le tableau de bord. Un système de webhook configurable (avec URL de callback vers votre serveur) sera disponible dans une prochaine version.
+            </Callout>
           </Section>
 
           {/* ═══ STATUSES ═══ */}
@@ -971,7 +1432,7 @@ export default function Docs() {
                 },
                 {
                   q: "Comment savoir si un paiement a finalement réussi ou échoué ?",
-                  a: "Consultez Tableau de bord → Transactions et filtrez par référence (YPY-…). Un système de webhooks en temps réel est en cours de développement pour notifier votre serveur automatiquement.",
+                  a: "Pour les paiements via API merchant : consultez Tableau de bord → Transactions et filtrez par référence (YPY-…). Pour les paiements via YookLink : utilisez le polling GET /api/payment-links/public/tx/{id} toutes les 5 secondes. Dans les deux cas, une notification in-app apparaît dans le tableau de bord dès confirmation.",
                 },
                 {
                   q: "Que se passe-t-il si une transaction PAYOUT échoue après que le wallet a été débité ?",
