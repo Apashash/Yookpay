@@ -149,6 +149,7 @@ router.get("/me", authMiddleware, async (req: AuthRequest, res) => {
       country: user.country ?? null,
       role: user.role,
       status: (user as any).status ?? "ACTIVE",
+      webhookUrl: (user as any).webhookUrl ?? null,
       createdAt: user.createdAt,
     });
   } catch (err) {
@@ -193,6 +194,28 @@ router.put("/password", authMiddleware, async (req: AuthRequest, res) => {
   } catch (err) {
     req.log.error({ err }, "Password change error");
     res.status(500).json({ error: "InternalError", message: "Échec de la mise à jour du mot de passe" });
+  }
+});
+
+// PATCH /auth/profile — update webhook URL
+router.patch("/profile", authMiddleware, async (req: AuthRequest, res) => {
+  const schema = z.object({
+    webhookUrl: z.string().url("URL invalide").or(z.literal("")).optional(),
+  });
+  const parse = schema.safeParse(req.body);
+  if (!parse.success) {
+    res.status(400).json({ error: "ValidationError", message: parse.error.errors[0]?.message });
+    return;
+  }
+  const { webhookUrl } = parse.data;
+  try {
+    await db.update(usersTable)
+      .set({ webhookUrl: webhookUrl === "" ? null : (webhookUrl ?? null), updatedAt: new Date() })
+      .where(eq(usersTable.id, req.userId!));
+    res.json({ success: true, message: "Profil mis à jour." });
+  } catch (err) {
+    req.log.error({ err }, "Profile update error");
+    res.status(500).json({ error: "InternalError", message: "Échec de la mise à jour." });
   }
 });
 

@@ -11,6 +11,7 @@ export const usersTable = pgTable("users", {
   country: varchar("country", { length: 2 }),
   role: varchar("role", { length: 20 }).notNull().default("USER"),
   status: varchar("status", { length: 20 }).notNull().default("ACTIVE"),
+  webhookUrl: text("webhook_url"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
