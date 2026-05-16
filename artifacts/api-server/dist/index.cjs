@@ -68406,6 +68406,24 @@ router6.get("/fees", authMiddleware, async (req, res) => {
     res.status(500).json({ error: "InternalError", message: "Failed to fetch fees" });
   }
 });
+router6.get("/available-operators", async (_req, res) => {
+  try {
+    const result = await db.execute(sql`SELECT operator, country, type FROM pixpay_services WHERE active = true`);
+    const map2 = {};
+    for (const row of result.rows) {
+      const country = row.country?.toUpperCase();
+      const operator = row.operator?.toUpperCase();
+      const type = row.type?.toUpperCase();
+      if (!country || !operator || !type) continue;
+      if (!map2[country]) map2[country] = { deposit: [], withdrawal: [] };
+      if (type === "DEPOSIT" && !map2[country].deposit.includes(operator)) map2[country].deposit.push(operator);
+      if (type === "WITHDRAWAL" && !map2[country].withdrawal.includes(operator)) map2[country].withdrawal.push(operator);
+    }
+    res.json({ available: map2 });
+  } catch {
+    res.json({ available: {} });
+  }
+});
 var services_default = router6;
 
 // src/routes/apikeys.ts

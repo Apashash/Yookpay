@@ -106,4 +106,27 @@ router.get("/fees", authMiddleware, async (req: AuthRequest, res) => {
   }
 });
 
+// GET /services/available-operators — active operators per country (no auth, used by public pay page)
+router.get("/available-operators", async (_req, res) => {
+  try {
+    const result = await db.execute<{
+      operator: string; country: string; type: string;
+    }>(sql`SELECT operator, country, type FROM pixpay_services WHERE active = true`);
+
+    const map: Record<string, { deposit: string[]; withdrawal: string[] }> = {};
+    for (const row of result.rows as Array<{ operator: string; country: string | null; type: string }>) {
+      const country  = row.country?.toUpperCase();
+      const operator = row.operator?.toUpperCase();
+      const type     = row.type?.toUpperCase();
+      if (!country || !operator || !type) continue;
+      if (!map[country]) map[country] = { deposit: [], withdrawal: [] };
+      if (type === "DEPOSIT"    && !map[country].deposit.includes(operator))    map[country].deposit.push(operator);
+      if (type === "WITHDRAWAL" && !map[country].withdrawal.includes(operator)) map[country].withdrawal.push(operator);
+    }
+    res.json({ available: map });
+  } catch {
+    res.json({ available: {} });
+  }
+});
+
 export default router;
