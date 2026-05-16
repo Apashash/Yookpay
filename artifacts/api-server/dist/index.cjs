@@ -18886,14 +18886,14 @@ var require_etag = __commonJS({
   "../../node_modules/.pnpm/etag@1.8.1/node_modules/etag/index.js"(exports2, module2) {
     "use strict";
     module2.exports = etag;
-    var crypto4 = require("crypto");
+    var crypto5 = require("crypto");
     var Stats = require("fs").Stats;
     var toString = Object.prototype.toString;
     function entitytag(entity) {
       if (entity.length === 0) {
         return '"0-2jmj7l5rSw0yVb/vlWAYkK/YBwk"';
       }
-      var hash2 = crypto4.createHash("sha1").update(entity, "utf8").digest("base64").substring(0, 27);
+      var hash2 = crypto5.createHash("sha1").update(entity, "utf8").digest("base64").substring(0, 27);
       var len = typeof entity === "string" ? Buffer.byteLength(entity, "utf8") : entity.length;
       return '"' + len.toString(16) + "-" + hash2 + '"';
     }
@@ -22308,17 +22308,17 @@ var require_content_disposition = __commonJS({
 // ../../node_modules/.pnpm/cookie-signature@1.2.2/node_modules/cookie-signature/index.js
 var require_cookie_signature = __commonJS({
   "../../node_modules/.pnpm/cookie-signature@1.2.2/node_modules/cookie-signature/index.js"(exports2) {
-    var crypto4 = require("crypto");
+    var crypto5 = require("crypto");
     exports2.sign = function(val, secret) {
       if ("string" != typeof val) throw new TypeError("Cookie value must be provided as a string.");
       if (null == secret) throw new TypeError("Secret key must be provided.");
-      return val + "." + crypto4.createHmac("sha256", secret).update(val).digest("base64").replace(/\=+$/, "");
+      return val + "." + crypto5.createHmac("sha256", secret).update(val).digest("base64").replace(/\=+$/, "");
     };
     exports2.unsign = function(input, secret) {
       if ("string" != typeof input) throw new TypeError("Signed cookie string must be provided.");
       if (null == secret) throw new TypeError("Secret key must be provided.");
       var tentativeValue = input.slice(0, input.lastIndexOf(".")), expectedInput = exports2.sign(tentativeValue, secret), expectedBuffer = Buffer.from(expectedInput), inputBuffer = Buffer.from(input);
-      return expectedBuffer.length === inputBuffer.length && crypto4.timingSafeEqual(expectedBuffer, inputBuffer) ? tentativeValue : false;
+      return expectedBuffer.length === inputBuffer.length && crypto5.timingSafeEqual(expectedBuffer, inputBuffer) ? tentativeValue : false;
     };
   }
 });
@@ -29884,7 +29884,7 @@ var require_cert_signatures = __commonJS({
 var require_sasl = __commonJS({
   "../../node_modules/.pnpm/pg@8.20.0/node_modules/pg/lib/crypto/sasl.js"(exports2, module2) {
     "use strict";
-    var crypto4 = require_utils5();
+    var crypto5 = require_utils5();
     var { signatureAlgorithmHashFromCertificate } = require_cert_signatures();
     function startSession(mechanisms, stream) {
       const candidates = ["SCRAM-SHA-256"];
@@ -29896,7 +29896,7 @@ var require_sasl = __commonJS({
       if (mechanism === "SCRAM-SHA-256-PLUS" && typeof stream.getPeerCertificate !== "function") {
         throw new Error("SASL: Mechanism SCRAM-SHA-256-PLUS requires a certificate");
       }
-      const clientNonce = crypto4.randomBytes(18).toString("base64");
+      const clientNonce = crypto5.randomBytes(18).toString("base64");
       const gs2Header = mechanism === "SCRAM-SHA-256-PLUS" ? "p=tls-server-end-point" : stream ? "y" : "n";
       return {
         mechanism,
@@ -29931,20 +29931,20 @@ var require_sasl = __commonJS({
         const peerCert = stream.getPeerCertificate().raw;
         let hashName = signatureAlgorithmHashFromCertificate(peerCert);
         if (hashName === "MD5" || hashName === "SHA-1") hashName = "SHA-256";
-        const certHash = await crypto4.hashByName(hashName, peerCert);
+        const certHash = await crypto5.hashByName(hashName, peerCert);
         const bindingData = Buffer.concat([Buffer.from("p=tls-server-end-point,,"), Buffer.from(certHash)]);
         channelBinding = bindingData.toString("base64");
       }
       const clientFinalMessageWithoutProof = "c=" + channelBinding + ",r=" + sv.nonce;
       const authMessage = clientFirstMessageBare + "," + serverFirstMessage + "," + clientFinalMessageWithoutProof;
       const saltBytes = Buffer.from(sv.salt, "base64");
-      const saltedPassword = await crypto4.deriveKey(password, saltBytes, sv.iteration);
-      const clientKey = await crypto4.hmacSha256(saltedPassword, "Client Key");
-      const storedKey = await crypto4.sha256(clientKey);
-      const clientSignature = await crypto4.hmacSha256(storedKey, authMessage);
+      const saltedPassword = await crypto5.deriveKey(password, saltBytes, sv.iteration);
+      const clientKey = await crypto5.hmacSha256(saltedPassword, "Client Key");
+      const storedKey = await crypto5.sha256(clientKey);
+      const clientSignature = await crypto5.hmacSha256(storedKey, authMessage);
       const clientProof = xorBuffers(Buffer.from(clientKey), Buffer.from(clientSignature)).toString("base64");
-      const serverKey = await crypto4.hmacSha256(saltedPassword, "Server Key");
-      const serverSignatureBytes = await crypto4.hmacSha256(serverKey, authMessage);
+      const serverKey = await crypto5.hmacSha256(saltedPassword, "Server Key");
+      const serverSignatureBytes = await crypto5.hmacSha256(serverKey, authMessage);
       session.message = "SASLResponse";
       session.serverSignature = Buffer.from(serverSignatureBytes).toString("base64");
       session.response = clientFinalMessageWithoutProof + ",p=" + clientProof;
@@ -32112,7 +32112,7 @@ var require_client = __commonJS({
     var Query2 = require_query();
     var defaults2 = require_defaults();
     var Connection2 = require_connection();
-    var crypto4 = require_utils5();
+    var crypto5 = require_utils5();
     var activeQueryDeprecationNotice = nodeUtils.deprecate(
       () => {
       },
@@ -32347,7 +32347,7 @@ var require_client = __commonJS({
       _handleAuthMD5Password(msg) {
         this._getPassword(async () => {
           try {
-            const hashedPassword = await crypto4.postgresMd5PasswordHash(this.user, this.password, msg.salt);
+            const hashedPassword = await crypto5.postgresMd5PasswordHash(this.user, this.password, msg.salt);
             this.connection.password(hashedPassword);
           } catch (e) {
             this.emit("error", e);
@@ -54032,14 +54032,14 @@ var require_buffer_equal_constant_time = __commonJS({
 var require_jwa = __commonJS({
   "../../node_modules/.pnpm/jwa@2.0.1/node_modules/jwa/index.js"(exports2, module2) {
     var Buffer3 = require_safe_buffer().Buffer;
-    var crypto4 = require("crypto");
+    var crypto5 = require("crypto");
     var formatEcdsa = require_ecdsa_sig_formatter();
     var util2 = require("util");
     var MSG_INVALID_ALGORITHM = '"%s" is not a valid algorithm.\n  Supported algorithms are:\n  "HS256", "HS384", "HS512", "RS256", "RS384", "RS512", "PS256", "PS384", "PS512", "ES256", "ES384", "ES512" and "none".';
     var MSG_INVALID_SECRET = "secret must be a string or buffer";
     var MSG_INVALID_VERIFIER_KEY = "key must be a string or a buffer";
     var MSG_INVALID_SIGNER_KEY = "key must be a string, a buffer or an object";
-    var supportsKeyObjects = typeof crypto4.createPublicKey === "function";
+    var supportsKeyObjects = typeof crypto5.createPublicKey === "function";
     if (supportsKeyObjects) {
       MSG_INVALID_VERIFIER_KEY += " or a KeyObject";
       MSG_INVALID_SECRET += "or a KeyObject";
@@ -54129,17 +54129,17 @@ var require_jwa = __commonJS({
       return function sign(thing, secret) {
         checkIsSecretKey(secret);
         thing = normalizeInput(thing);
-        var hmac = crypto4.createHmac("sha" + bits, secret);
+        var hmac = crypto5.createHmac("sha" + bits, secret);
         var sig = (hmac.update(thing), hmac.digest("base64"));
         return fromBase64(sig);
       };
     }
     var bufferEqual;
-    var timingSafeEqual = "timingSafeEqual" in crypto4 ? function timingSafeEqual2(a, b) {
+    var timingSafeEqual = "timingSafeEqual" in crypto5 ? function timingSafeEqual2(a, b) {
       if (a.byteLength !== b.byteLength) {
         return false;
       }
-      return crypto4.timingSafeEqual(a, b);
+      return crypto5.timingSafeEqual(a, b);
     } : function timingSafeEqual2(a, b) {
       if (!bufferEqual) {
         bufferEqual = require_buffer_equal_constant_time();
@@ -54156,7 +54156,7 @@ var require_jwa = __commonJS({
       return function sign(thing, privateKey) {
         checkIsPrivateKey(privateKey);
         thing = normalizeInput(thing);
-        var signer = crypto4.createSign("RSA-SHA" + bits);
+        var signer = crypto5.createSign("RSA-SHA" + bits);
         var sig = (signer.update(thing), signer.sign(privateKey, "base64"));
         return fromBase64(sig);
       };
@@ -54166,7 +54166,7 @@ var require_jwa = __commonJS({
         checkIsPublicKey(publicKey);
         thing = normalizeInput(thing);
         signature = toBase64(signature);
-        var verifier = crypto4.createVerify("RSA-SHA" + bits);
+        var verifier = crypto5.createVerify("RSA-SHA" + bits);
         verifier.update(thing);
         return verifier.verify(publicKey, signature, "base64");
       };
@@ -54175,11 +54175,11 @@ var require_jwa = __commonJS({
       return function sign(thing, privateKey) {
         checkIsPrivateKey(privateKey);
         thing = normalizeInput(thing);
-        var signer = crypto4.createSign("RSA-SHA" + bits);
+        var signer = crypto5.createSign("RSA-SHA" + bits);
         var sig = (signer.update(thing), signer.sign({
           key: privateKey,
-          padding: crypto4.constants.RSA_PKCS1_PSS_PADDING,
-          saltLength: crypto4.constants.RSA_PSS_SALTLEN_DIGEST
+          padding: crypto5.constants.RSA_PKCS1_PSS_PADDING,
+          saltLength: crypto5.constants.RSA_PSS_SALTLEN_DIGEST
         }, "base64"));
         return fromBase64(sig);
       };
@@ -54189,12 +54189,12 @@ var require_jwa = __commonJS({
         checkIsPublicKey(publicKey);
         thing = normalizeInput(thing);
         signature = toBase64(signature);
-        var verifier = crypto4.createVerify("RSA-SHA" + bits);
+        var verifier = crypto5.createVerify("RSA-SHA" + bits);
         verifier.update(thing);
         return verifier.verify({
           key: publicKey,
-          padding: crypto4.constants.RSA_PKCS1_PSS_PADDING,
-          saltLength: crypto4.constants.RSA_PSS_SALTLEN_DIGEST
+          padding: crypto5.constants.RSA_PKCS1_PSS_PADDING,
+          saltLength: crypto5.constants.RSA_PSS_SALTLEN_DIGEST
         }, signature, "base64");
       };
     }
@@ -70102,6 +70102,58 @@ async function createNotification(userId, type, title, body, transactionId) {
   }
 }
 
+// src/lib/webhookDispatch.ts
+var import_crypto4 = __toESM(require("crypto"), 1);
+init_schema2();
+init_drizzle_orm();
+function dispatchWebhook(userId, payload) {
+  void (async () => {
+    try {
+      const [user] = await db.select({ webhookUrl: usersTable.webhookUrl }).from(usersTable).where(eq(usersTable.id, userId)).limit(1);
+      if (!user?.webhookUrl) return;
+      const body = JSON.stringify(payload);
+      const secret = process.env.SESSION_SECRET ?? "yookpay-secret-key";
+      const sig = import_crypto4.default.createHmac("sha256", secret).update(body).digest("hex");
+      const resp = await fetch(user.webhookUrl, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "X-YookPay-Event": payload.event,
+          "X-YookPay-Signature": `sha256=${sig}`
+        },
+        body,
+        signal: AbortSignal.timeout(1e4)
+      });
+      logger.info(
+        { userId, url: user.webhookUrl, httpStatus: resp.status, event: payload.event },
+        "Webhook dispatched"
+      );
+    } catch (err) {
+      logger.warn({ err, userId }, "Webhook dispatch failed (non-fatal)");
+    }
+  })();
+}
+function buildTxPayload(tx) {
+  return {
+    event: "transaction.status_update",
+    sentAt: (/* @__PURE__ */ new Date()).toISOString(),
+    data: {
+      reference: tx.reference,
+      status: tx.status,
+      type: tx.type,
+      amount: tx.amount,
+      netAmount: tx.netAmount,
+      fee: tx.fee,
+      currency: tx.currency,
+      country: tx.country ?? null,
+      operator: tx.operator ?? null,
+      phone: tx.phone ?? null,
+      createdAt: tx.createdAt.toISOString(),
+      updatedAt: tx.updatedAt.toISOString()
+    }
+  };
+}
+
 // src/routes/ipn.ts
 var router10 = (0, import_express10.Router)();
 router10.post("/pixpay", async (req, res) => {
@@ -70131,6 +70183,7 @@ router10.post("/pixpay", async (req, res) => {
       return;
     }
     const newStatus = isSuccess ? "SUCCESS" : "FAILED";
+    const updatedAt = /* @__PURE__ */ new Date();
     await db.update(transactionsTable).set({
       status: newStatus,
       providerReference: body.transaction_id ?? tx.providerReference,
@@ -70141,8 +70194,9 @@ router10.post("/pixpay", async (req, res) => {
         pixError: body.error,
         ipnReceivedAt: (/* @__PURE__ */ new Date()).toISOString()
       },
-      updatedAt: /* @__PURE__ */ new Date()
+      updatedAt
     }).where(eq(transactionsTable.id, tx.id));
+    dispatchWebhook(tx.userId, buildTxPayload({ ...tx, status: newStatus, updatedAt }));
     if (isSuccess) {
       if (tx.type === "DEPOSIT") {
         const [wallet] = await db.select().from(walletsTable).where(and(eq(walletsTable.userId, tx.userId), eq(walletsTable.currency, tx.currency))).limit(1);
@@ -70247,20 +70301,24 @@ router11.post("/ipn", async (req, res) => {
           updatedAt: /* @__PURE__ */ new Date()
         }).where(eq(walletsTable.id, wallet.id));
       }
+      const successUpdatedAt = /* @__PURE__ */ new Date();
       await db.update(transactionsTable).set({
         status: "SUCCESS",
         providerReference: paymentId,
-        metadata: { ...tx.metadata, nowpaymentsStatus: status, actuallyPaid, completedAt: (/* @__PURE__ */ new Date()).toISOString() },
-        updatedAt: /* @__PURE__ */ new Date()
+        metadata: { ...tx.metadata, nowpaymentsStatus: status, actuallyPaid, completedAt: successUpdatedAt.toISOString() },
+        updatedAt: successUpdatedAt
       }).where(eq(transactionsTable.id, tx.id));
+      dispatchWebhook(tx.userId, buildTxPayload({ ...tx, status: "SUCCESS", updatedAt: successUpdatedAt }));
       logger2.info({ txId: tx.id, paymentId, actuallyPaid }, "NowPayments IPN: USDT credited");
     } else if (isFailed) {
+      const failedUpdatedAt = /* @__PURE__ */ new Date();
       await db.update(transactionsTable).set({
         status: "FAILED",
         providerReference: paymentId,
-        metadata: { ...tx.metadata, nowpaymentsStatus: status, failedAt: (/* @__PURE__ */ new Date()).toISOString() },
-        updatedAt: /* @__PURE__ */ new Date()
+        metadata: { ...tx.metadata, nowpaymentsStatus: status, failedAt: failedUpdatedAt.toISOString() },
+        updatedAt: failedUpdatedAt
       }).where(eq(transactionsTable.id, tx.id));
+      dispatchWebhook(tx.userId, buildTxPayload({ ...tx, status: "FAILED", updatedAt: failedUpdatedAt }));
       logger2.info({ txId: tx.id, paymentId }, "NowPayments IPN: payment failed");
     } else {
       await db.update(transactionsTable).set({
@@ -70279,7 +70337,7 @@ var nowpayments_ipn_default = router11;
 
 // src/routes/payment-links.ts
 var import_express12 = __toESM(require_express2(), 1);
-var import_crypto4 = __toESM(require("crypto"), 1);
+var import_crypto5 = __toESM(require("crypto"), 1);
 var router12 = (0, import_express12.Router)();
 var DEFAULT_MARGIN3 = 0.025;
 var DIAL_CODES2 = {
@@ -70365,7 +70423,7 @@ router12.post("/", authMiddleware, async (req, res) => {
     res.status(400).json({ error: "ValidationError", message: "Montant et devise requis pour un prix fixe" });
     return;
   }
-  const token = import_crypto4.default.randomBytes(5).toString("hex");
+  const token = import_crypto5.default.randomBytes(5).toString("hex");
   try {
     const r = await pool.query(
       `INSERT INTO payment_links (user_id, token, title, description, photo_data, price_type, price_amount, currency, countries)
@@ -70913,17 +70971,17 @@ var support_default = router14;
 var import_express15 = __toESM(require_express2(), 1);
 init_schema2();
 init_drizzle_orm();
-var import_crypto5 = require("crypto");
+var import_crypto6 = require("crypto");
 var router15 = (0, import_express15.Router)();
 async function resolveMerchantFromKey(rawKey) {
-  const hash2 = (0, import_crypto5.createHash)("sha256").update(rawKey).digest("hex");
+  const hash2 = (0, import_crypto6.createHash)("sha256").update(rawKey).digest("hex");
   const [key] = await db.select({ id: apiKeysTable.id, userId: apiKeysTable.userId, keyType: apiKeysTable.keyType, active: apiKeysTable.active }).from(apiKeysTable).where(and(eq(apiKeysTable.keyHash, hash2), eq(apiKeysTable.active, true))).limit(1);
   if (!key || key.keyType !== "payin") return null;
   await db.update(apiKeysTable).set({ lastUsedAt: /* @__PURE__ */ new Date() }).where(eq(apiKeysTable.id, key.id));
   return { userId: key.userId, keyId: key.id };
 }
 async function resolveMerchantFromAnyKey(rawKey) {
-  const hash2 = (0, import_crypto5.createHash)("sha256").update(rawKey).digest("hex");
+  const hash2 = (0, import_crypto6.createHash)("sha256").update(rawKey).digest("hex");
   const [key] = await db.select({ id: apiKeysTable.id, userId: apiKeysTable.userId, keyType: apiKeysTable.keyType, active: apiKeysTable.active }).from(apiKeysTable).where(and(eq(apiKeysTable.keyHash, hash2), eq(apiKeysTable.active, true))).limit(1);
   if (!key) return null;
   await db.update(apiKeysTable).set({ lastUsedAt: /* @__PURE__ */ new Date() }).where(eq(apiKeysTable.id, key.id));
@@ -71032,7 +71090,7 @@ router15.post("/v1/payout", async (req, res) => {
     res.status(401).json({ error: "Unauthorized", message: "En-t\xEAte x-api-key manquant." });
     return;
   }
-  const hash2 = (0, import_crypto5.createHash)("sha256").update(rawKey).digest("hex");
+  const hash2 = (0, import_crypto6.createHash)("sha256").update(rawKey).digest("hex");
   const [keyRow] = await db.select({ id: apiKeysTable.id, userId: apiKeysTable.userId, keyType: apiKeysTable.keyType, active: apiKeysTable.active }).from(apiKeysTable).where(and(eq(apiKeysTable.keyHash, hash2), eq(apiKeysTable.active, true))).limit(1);
   if (!keyRow || keyRow.keyType !== "payout") {
     res.status(401).json({ error: "Unauthorized", message: "Cl\xE9 API invalide, r\xE9voqu\xE9e ou de type incorrect (payout requis)." });
@@ -71605,15 +71663,20 @@ async function expireStaleTransactions() {
     logger.info({ count: stale.length }, "Expiry worker: found stale PENDING transactions");
     for (const tx of stale) {
       try {
-        await db.update(transactionsTable).set({
+        const expiredAt = /* @__PURE__ */ new Date();
+        const updateResult = await db.update(transactionsTable).set({
           status: "FAILED",
           metadata: {
             ...tx.metadata ?? {},
-            expiredAt: (/* @__PURE__ */ new Date()).toISOString(),
+            expiredAt: expiredAt.toISOString(),
             expireReason: `Aucune confirmation apr\xE8s ${EXPIRY_MINUTES} minutes`
           },
-          updatedAt: /* @__PURE__ */ new Date()
+          updatedAt: expiredAt
         }).where(and(eq(transactionsTable.id, tx.id), eq(transactionsTable.status, "PENDING")));
+        const rowClaimed = updateResult.rowCount ?? 1;
+        if (rowClaimed > 0) {
+          dispatchWebhook(tx.userId, buildTxPayload({ ...tx, status: "FAILED", updatedAt: expiredAt }));
+        }
         if (tx.type === "WITHDRAWAL") {
           const [wallet] = await db.select().from(walletsTable).where(and(eq(walletsTable.userId, tx.userId), eq(walletsTable.currency, tx.currency))).limit(1);
           if (wallet) {
