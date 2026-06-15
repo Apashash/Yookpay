@@ -14,7 +14,7 @@
     "build": "npm run build:frontend && npm run build:backend",
     "dev:frontend": "vite",
     "dev:backend": "tsx watch server/index.ts",
-    "dev": "concurrently \"npm run dev:frontend\" \"npm run dev:backend\""
+    "dev": "npm run dev:frontend & npm run dev:backend"
   },
   "dependencies": {
     "bcryptjs": "^3.0.3",
@@ -74,7 +74,6 @@
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "cmdk": "^1.1.1",
-    "concurrently": "^9.2.1",
     "date-fns": "^3.6.0",
     "drizzle-kit": "^0.31.9",
     "drizzle-zod": "^0.8.3",
