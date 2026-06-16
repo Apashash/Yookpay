@@ -2,6 +2,9 @@
 
 # compiled output
 # dist folders are committed for Plesk deployment (pre-built)
+# Only root dist/ is committed — artifacts/*/dist are local only
+artifacts/api-server/dist/
+artifacts/yookpay/dist/
 tmp
 out-tsc
 *.tsbuildinfo

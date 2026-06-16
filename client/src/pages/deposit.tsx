@@ -225,8 +225,19 @@ export default function Deposit() {
   const country  = form.watch("country");
   const operator = form.watch("operator");
 
+  const [activeOps, setActiveOps] = useState<Record<string, { deposit: string[]; withdrawal: string[] }> | null>(null);
+  useEffect(() => {
+    fetch("/api/services/available-operators")
+      .then((r) => r.json())
+      .then((d: { available: Record<string, { deposit: string[]; withdrawal: string[] }> }) => setActiveOps(d.available))
+      .catch(() => {});
+  }, []);
+
   const selectedCountry = COUNTRIES.find((c) => c.code === country);
-  const operators = selectedCountry?.operators ?? [];
+  const allOperators = selectedCountry?.operators ?? [];
+  const operators = activeOps && country && activeOps[country]
+    ? allOperators.filter((op) => activeOps[country].deposit.includes(op))
+    : allOperators;
   const flow = operator ? getOperatorFlow(operator) : null;
 
   useEffect(() => {

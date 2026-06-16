@@ -43,13 +43,10 @@ function pct(rate: number) {
   return `${(rate * 100).toFixed(1)} %`;
 }
 
-function FeeCell({ entry }: { entry: FeeEntry; currency: string }) {
+function FeeCell({ entry }: { entry: FeeEntry }) {
   return (
     <div className="text-right">
       <div className="font-semibold text-foreground">{pct(entry.rate)}</div>
-      <div className="text-[10px] text-muted-foreground mt-0.5 leading-tight">
-        {pct(entry.pixpay)} + {pct(entry.margin)}
-      </div>
     </div>
   );
 }
@@ -138,9 +135,6 @@ export default function Services() {
                     <div className="text-left">
                       <div className="flex items-center gap-2">
                         <span className="font-semibold text-base">{country.name}</span>
-                        {data.hasCustomFees && fees.operators.some(o => o.deposit.isCustom) && (
-                          <Badge variant="secondary" className="text-[10px]">Personnalisé</Badge>
-                        )}
                       </div>
                       <div className="flex items-center gap-2 mt-0.5">
                         <Badge variant="outline" className="text-xs font-mono">
@@ -157,17 +151,16 @@ export default function Services() {
                 <AccordionContent className="px-0 pb-0">
                   <div className="border-t">
                     {/* Column headers */}
-                    <div className="grid grid-cols-4 gap-2 px-4 py-2 bg-muted/20 text-xs font-medium text-muted-foreground uppercase tracking-wide">
+                    <div className="grid grid-cols-3 gap-2 px-4 py-2 bg-muted/20 text-xs font-medium text-muted-foreground uppercase tracking-wide">
                       <div>Opérateur</div>
                       <div className="text-right">Dépôt</div>
                       <div className="text-right">Retrait</div>
-                      <div className="text-right">Transfert</div>
                     </div>
 
                     {fees.operators.map((op, idx) => (
                       <div
                         key={op.name}
-                        className={`grid grid-cols-4 gap-2 px-4 py-3 items-center ${idx !== fees.operators.length - 1 ? "border-b" : ""}`}
+                        className={`grid grid-cols-3 gap-2 px-4 py-3 items-center ${idx !== fees.operators.length - 1 ? "border-b" : ""}`}
                       >
                         <div>
                           <div className="font-medium text-sm">{op.name}</div>
@@ -175,9 +168,8 @@ export default function Services() {
                             {OPERATOR_LABELS[op.name] ?? op.name}
                           </div>
                         </div>
-                        <FeeCell entry={op.deposit}    currency={fees.currency} />
-                        <FeeCell entry={op.withdrawal} currency={fees.currency} />
-                        <FeeCell entry={op.transfer}   currency={fees.currency} />
+                        <FeeCell entry={op.deposit} />
+                        <FeeCell entry={op.withdrawal} />
                       </div>
                     ))}
                   </div>

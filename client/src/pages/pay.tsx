@@ -98,12 +98,24 @@ export default function Pay() {
   const [cryptoPoll,     setCryptoPoll]     = useState<"waiting" | "success" | "failed">("waiting");
   const [copied,         setCopied]         = useState(false);
 
+  // ── Active operators from admin config ──
+  const [activeOps, setActiveOps] = useState<Record<string, { deposit: string[]; withdrawal: string[] }> | null>(null);
+  useEffect(() => {
+    fetch("/api/services/available-operators")
+      .then((r) => r.json())
+      .then((d: { available: Record<string, { deposit: string[]; withdrawal: string[] }> }) => setActiveOps(d.available))
+      .catch(() => {});
+  }, []);
+
   // ── Derived ──
   const availableCountries = COUNTRIES.filter(
     (c) => !linkData?.countries?.length || linkData.countries.includes(c.code)
   );
   const selectedCountry   = COUNTRIES.find((c) => c.code === country);
-  const availableOperators = selectedCountry?.operators ?? [];
+  const allOperators = selectedCountry?.operators ?? [];
+  const availableOperators = activeOps && country && activeOps[country]
+    ? allOperators.filter((op) => activeOps[country].deposit.includes(op))
+    : allOperators;
   const flow = operator ? getOperatorFlow(operator) : null;
 
   // ── Load link ──

@@ -24,6 +24,7 @@ import {
   BadgeDollarSign,
   Link2,
   Headphones,
+  ServerCog,
 } from "lucide-react";
 import { YookPayLogo } from "@/components/yookpay-logo";
 import { Button } from "@/components/ui/button";
@@ -95,6 +96,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
     { href: "/admin/exchanges",     label: "Échanges",       icon: Coins },
     { href: "/admin/fees",          label: "Grille des frais", icon: BadgeDollarSign },
     { href: "/admin/support-links", label: "Liens support",    icon: Headphones },
+    { href: "/admin/env-check",     label: "Diagnostic ENV",   icon: ServerCog },
   ];
 
   const pageTitle = location.split("/")[1] || "Dashboard";

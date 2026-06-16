@@ -31,7 +31,6 @@ import {
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { Settings2, Plus, Save, AlertTriangle } from "lucide-react";
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 
 type PixPayService = {
   id: number;
@@ -174,7 +173,6 @@ export default function PixPayConfig() {
     return acc;
   }, {});
 
-  const suspiciousServices = services.filter((s) => s.service_id < 50);
 
   return (
     <div className="space-y-8 max-w-5xl mx-auto">
@@ -185,23 +183,6 @@ export default function PixPayConfig() {
         </p>
       </div>
 
-      {suspiciousServices.length > 0 && (
-        <Alert variant="destructive">
-          <AlertTriangle className="h-4 w-4" />
-          <AlertTitle>Service IDs incorrects détectés</AlertTitle>
-          <AlertDescription className="mt-1 space-y-1">
-            <p>
-              {suspiciousServices.length} service(s) ont des IDs très bas (moins de 50) qui sont probablement des
-              placeholders incorrects : {suspiciousServices.map((s) => `${s.country ?? ""} ${s.operator} ${s.type} → ID ${s.service_id}`).join(", ")}.
-            </p>
-            <p className="font-medium mt-2">
-              Consultez votre <strong>dossier d'intégration PixPay</strong> (envoyé lors de la création de votre compte)
-              pour obtenir les vrais service_ids de production, puis mettez-les à jour ci-dessous.
-              Des IDs incorrects entraînent des transactions immédiatement échouées (état FAILED).
-            </p>
-          </AlertDescription>
-        </Alert>
-      )}
 
       {/* Add / Edit Service Card */}
       <Card>

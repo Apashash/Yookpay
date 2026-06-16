@@ -8,18 +8,16 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
+  Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle,
 } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
-import { Copy, Plus, Key, ShieldCheck, Clock, Check, ChevronRight, ArrowDownToLine, ArrowUpFromLine, BookOpen, Webhook, Save, CheckCircle2 } from "lucide-react";
+import {
+  Copy, Plus, Key, ShieldCheck, Clock, Check, ChevronRight,
+  ArrowDownToLine, ArrowUpFromLine, BookOpen, Webhook,
+  Save, CheckCircle2, Terminal, Zap, Lock,
+} from "lucide-react";
 
 interface ApiKey {
   id: number;
@@ -42,32 +40,22 @@ function CopyButton({ text, label, className }: { text: string; label?: string; 
     });
   };
   return (
-    <Button variant="outline" size="sm" className={`gap-2 ${className ?? ""}`} onClick={copy}>
-      {copied ? <Check className="h-4 w-4 text-green-500" /> : <Copy className="h-4 w-4" />}
-      {label && <span>{copied ? "Copié !" : label}</span>}
-    </Button>
+    <button
+      onClick={copy}
+      className={`inline-flex items-center gap-1.5 text-xs px-2.5 py-1.5 rounded-md border transition-all
+        ${copied
+          ? "border-emerald-500/40 bg-emerald-500/10 text-emerald-400"
+          : "border-white/10 bg-white/5 text-slate-400 hover:text-white hover:bg-white/10"
+        } ${className ?? ""}`}
+    >
+      {copied ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
+      {label && <span>{copied ? "Copié" : label}</span>}
+    </button>
   );
 }
 
 function fmtDate(d: string) {
   return new Date(d).toLocaleDateString("fr-FR", { day: "2-digit", month: "short", year: "numeric" });
-}
-
-function KeyTypeBadge({ type }: { type: "payin" | "payout" }) {
-  if (type === "payin") {
-    return (
-      <Badge variant="outline" className="text-blue-600 border-blue-200 bg-blue-50 dark:bg-blue-950/20 dark:border-blue-800 text-xs shrink-0 gap-1">
-        <ArrowDownToLine className="h-3 w-3" />
-        Payin
-      </Badge>
-    );
-  }
-  return (
-    <Badge variant="outline" className="text-purple-600 border-purple-200 bg-purple-50 dark:bg-purple-950/20 dark:border-purple-800 text-xs shrink-0 gap-1">
-      <ArrowUpFromLine className="h-3 w-3" />
-      Payout
-    </Badge>
-  );
 }
 
 export default function ApiKeys() {
@@ -89,12 +77,11 @@ export default function ApiKeys() {
         body: JSON.stringify({ webhookUrl: webhookUrl.trim() }),
       });
       setWebhookSaved(true);
-      toast({ title: "URL webhook enregistrée", description: "Les notifications seront envoyées à cette URL." });
+      toast({ title: "Webhook enregistré", description: "Les notifications seront envoyées à cette URL." });
       setTimeout(() => setWebhookSaved(false), 3000);
     } catch (err: unknown) {
       const raw = (err as { message?: string })?.message ?? "Une erreur s'est produite.";
-      const msg = raw.replace(/^HTTP\s+\d+[^:]*:\s*/i, "");
-      toast({ variant: "destructive", title: "Échec", description: msg });
+      toast({ variant: "destructive", title: "Échec", description: raw.replace(/^HTTP\s+\d+[^:]*:\s*/i, "") });
     } finally {
       setIsSavingWebhook(false);
     }
@@ -124,177 +111,173 @@ export default function ApiKeys() {
   });
 
   const activeKeys = data?.keys.filter((k) => k.active) ?? [];
-  const payinKey = activeKeys.find((k) => k.keyType === "payin");
+  const payinKey  = activeKeys.find((k) => k.keyType === "payin");
   const payoutKey = activeKeys.find((k) => k.keyType === "payout");
 
   const handleGenerate = () => {
     if (!pendingType) return;
-    createMutation.mutate({ name: newKeyName.trim() || (pendingType === "payin" ? "Clé Payin" : "Clé Payout"), type: pendingType });
+    createMutation.mutate({
+      name: newKeyName.trim() || (pendingType === "payin" ? "Clé Payin" : "Clé Payout"),
+      type: pendingType,
+    });
   };
 
   return (
     <KycGate level="kyb">
     <div className="max-w-3xl mx-auto space-y-6">
-      {/* Header */}
-      <div>
-        <h1 className="text-2xl font-bold tracking-tight">Clés API</h1>
-        <p className="text-muted-foreground mt-1">
-          Intégrez YookPay dans vos applications avec vos clés Payin et Payout.
+
+      {/* ── Header ── */}
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight">Clés API</h1>
+          <p className="text-muted-foreground mt-1 text-sm">
+            Intégrez YookPay dans vos applications avec vos clés Payin et Payout.
+          </p>
+        </div>
+        <a
+          href="/docs"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="flex items-center gap-2 text-xs font-medium text-indigo-500 hover:text-indigo-400 transition-colors shrink-0 mt-1"
+        >
+          <BookOpen className="h-3.5 w-3.5" />
+          Documentation
+        </a>
+      </div>
+
+      {/* ── Security notice ── */}
+      <div className="flex items-start gap-3 rounded-xl border border-amber-500/20 bg-amber-500/5 px-4 py-3">
+        <Lock className="h-4 w-4 text-amber-500 mt-0.5 flex-shrink-0" />
+        <p className="text-xs text-amber-700 dark:text-amber-400 leading-relaxed">
+          Ne partagez jamais vos clés dans votre code source public ou côté client. Stockez-les en variables d'environnement serveur uniquement.
         </p>
       </div>
 
-      {/* Docs banner */}
-      <a href="/docs" target="_blank" rel="noopener noreferrer"
-        className="flex items-center justify-between gap-3 rounded-lg border border-indigo-200 bg-indigo-50/60 dark:border-indigo-800 dark:bg-indigo-950/20 px-4 py-3 hover:bg-indigo-100/60 dark:hover:bg-indigo-950/40 transition-colors group">
-        <div className="flex items-center gap-3 text-sm">
-          <BookOpen className="h-4 w-4 text-indigo-500 shrink-0" />
-          <span className="text-indigo-800 dark:text-indigo-300 font-medium">Documentation API</span>
-          <span className="text-indigo-600/70 dark:text-indigo-400/70 hidden sm:inline">— guides d'intégration Payin & Payout</span>
-        </div>
-        <ChevronRight className="h-4 w-4 text-indigo-400 group-hover:translate-x-0.5 transition-transform" />
-      </a>
+      {/* ── Keys grid ── */}
+      <div className="grid gap-4 sm:grid-cols-2">
+        {/* Payin */}
+        <KeySection
+          type="payin"
+          keyData={payinKey ?? null}
+          isLoading={isLoading}
+          onGenerate={() => { setPendingType("payin"); setNewKeyName(""); }}
+          onClick={() => payinKey && navigate(`/api-keys/${payinKey.id}`)}
+        />
+        {/* Payout */}
+        <KeySection
+          type="payout"
+          keyData={payoutKey ?? null}
+          isLoading={isLoading}
+          onGenerate={() => { setPendingType("payout"); setNewKeyName(""); }}
+          onClick={() => payoutKey && navigate(`/api-keys/${payoutKey.id}`)}
+        />
+      </div>
 
-      {/* Info card */}
-      <Card className="border-blue-200 bg-blue-50/50 dark:border-blue-800 dark:bg-blue-950/20">
-        <CardContent className="pt-4 pb-4">
-          <div className="flex items-start gap-3">
-            <ShieldCheck className="h-5 w-5 text-blue-600 dark:text-blue-400 flex-shrink-0 mt-0.5" />
-            <div className="text-sm text-blue-800 dark:text-blue-300 space-y-1">
-              <p className="font-medium">Deux types de clés disponibles</p>
-              <ul className="text-xs space-y-0.5 text-blue-700 dark:text-blue-400 list-disc list-inside">
-                <li><strong>Payin</strong> — permet d'encaisser des paiements via <code>POST /api/merchant/v1/payin</code>.</li>
-                <li><strong>Payout</strong> — permet d'initier des transferts sortants (à venir).</li>
-                <li>Ne partagez jamais vos clés dans votre code source public.</li>
-              </ul>
+      {/* ── Endpoint reference ── */}
+      <div className="rounded-xl border border-border overflow-hidden">
+        {/* Terminal bar */}
+        <div className="flex items-center gap-2 px-4 py-2.5 bg-muted/60 border-b border-border">
+          <Terminal className="h-3.5 w-3.5 text-muted-foreground" />
+          <span className="text-xs font-mono text-muted-foreground">POST /api/merchant/v1/payin</span>
+          <div className="ml-auto">
+            <CopyButton text="POST /api/merchant/v1/payin" />
+          </div>
+        </div>
+
+        {/* Code body */}
+        <div className="bg-[#0d1117] dark:bg-[#0d1117] p-4 space-y-3 font-mono text-xs">
+          {/* Header example */}
+          <div className="space-y-1">
+            <p className="text-slate-500 uppercase tracking-widest text-[10px]">Headers</p>
+            <div className="flex items-center justify-between gap-2 bg-white/5 rounded-md px-3 py-2">
+              <span>
+                <span className="text-slate-400">x-api-key: </span>
+                <span className="text-emerald-400">yk_live_••••••••••••••••••••</span>
+              </span>
+              <CopyButton text="x-api-key" />
             </div>
           </div>
-        </CardContent>
-      </Card>
 
-      {/* Payin section */}
-      <div className="space-y-3">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <ArrowDownToLine className="h-4 w-4 text-blue-600" />
-            <h2 className="font-semibold">Clé Payin</h2>
-            <span className="text-xs text-muted-foreground">— encaissement</span>
+          {/* Body */}
+          <div className="space-y-1">
+            <p className="text-slate-500 uppercase tracking-widest text-[10px]">Body (JSON)</p>
+            <div className="bg-white/5 rounded-md px-3 py-3 space-y-0.5">
+              <div><span className="text-slate-400">{"{"}</span></div>
+              <div className="pl-4"><span className="text-blue-400">"country"</span><span className="text-slate-400">: </span><span className="text-amber-300">"CM"</span><span className="text-slate-500">,</span></div>
+              <div className="pl-4"><span className="text-blue-400">"operator"</span><span className="text-slate-400">: </span><span className="text-amber-300">"MTN"</span><span className="text-slate-500">,</span></div>
+              <div className="pl-4"><span className="text-blue-400">"phone"</span><span className="text-slate-400">: </span><span className="text-amber-300">"237XXXXXXXXX"</span><span className="text-slate-500">,</span></div>
+              <div className="pl-4"><span className="text-blue-400">"amount"</span><span className="text-slate-400">: </span><span className="text-purple-400">5000</span></div>
+              <div><span className="text-slate-400">{"}"}</span></div>
+            </div>
           </div>
-          {!payinKey && (
-            <Button size="sm" className="gap-2" onClick={() => { setPendingType("payin"); setNewKeyName(""); }}>
-              <Plus className="h-4 w-4" />
-              Générer
-            </Button>
-          )}
         </div>
 
-        {isLoading ? (
-          <Skeleton className="h-20 w-full rounded-lg" />
-        ) : payinKey ? (
-          <KeyCard keyData={payinKey} onClick={() => navigate(`/api-keys/${payinKey.id}`)} />
-        ) : (
-          <EmptyKeyCard type="payin" onGenerate={() => { setPendingType("payin"); setNewKeyName(""); }} />
-        )}
-      </div>
-
-      {/* Payout section */}
-      <div className="space-y-3">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <ArrowUpFromLine className="h-4 w-4 text-purple-600" />
-            <h2 className="font-semibold">Clé Payout</h2>
-            <span className="text-xs text-muted-foreground">— versement</span>
-          </div>
-          {!payoutKey && (
-            <Button size="sm" variant="outline" className="gap-2" onClick={() => { setPendingType("payout"); setNewKeyName(""); }}>
-              <Plus className="h-4 w-4" />
-              Générer
-            </Button>
-          )}
-        </div>
-
-        {isLoading ? (
-          <Skeleton className="h-20 w-full rounded-lg" />
-        ) : payoutKey ? (
-          <KeyCard keyData={payoutKey} onClick={() => navigate(`/api-keys/${payoutKey.id}`)} />
-        ) : (
-          <EmptyKeyCard type="payout" onGenerate={() => { setPendingType("payout"); setNewKeyName(""); }} />
-        )}
-      </div>
-
-      {/* Endpoint reference */}
-      <Card className="border-dashed">
-        <CardHeader className="pb-2 pt-4">
-          <CardTitle className="text-sm text-muted-foreground font-medium">Endpoint Payin</CardTitle>
-        </CardHeader>
-        <CardContent className="pb-4 space-y-2">
-          <code className="block text-xs font-mono bg-muted rounded px-3 py-2">
-            POST /api/merchant/v1/payin
-          </code>
+        {/* Footer note */}
+        <div className="flex items-center gap-2 px-4 py-2.5 bg-muted/30 border-t border-border">
+          <Zap className="h-3.5 w-3.5 text-indigo-500" />
           <p className="text-xs text-muted-foreground">
-            Envoyez votre clé payin dans l'en-tête <code>x-api-key</code>. Les frais configurés par l'admin pour votre compte sont appliqués automatiquement.
+            Les frais configurés par l'admin pour votre compte sont appliqués automatiquement.
           </p>
-          <code className="block text-xs font-mono bg-muted rounded px-3 py-2 whitespace-pre">
-{`{
-  "country": "CM",
-  "operator": "MTN",
-  "phone": "237XXXXXXXXX",
-  "amount": 5000
-}`}
-          </code>
-        </CardContent>
-      </Card>
+        </div>
+      </div>
 
-      {/* Webhook URL */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base flex items-center gap-2">
-            <Webhook className="h-4 w-4" />
-            URL de notification (Webhook)
-          </CardTitle>
-          <CardDescription>
-            YookPay enverra un POST à cette URL pour chaque mise à jour de statut de transaction. Laissez vide pour désactiver.
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
+      {/* ── Webhook ── */}
+      <div className="rounded-xl border border-border overflow-hidden">
+        <div className="flex items-center gap-3 px-5 py-4 border-b border-border">
+          <div className="h-8 w-8 rounded-lg bg-indigo-500/10 flex items-center justify-center">
+            <Webhook className="h-4 w-4 text-indigo-500" />
+          </div>
+          <div>
+            <p className="text-sm font-semibold">Webhook URL</p>
+            <p className="text-xs text-muted-foreground">Reçoit un POST à chaque mise à jour de statut de transaction</p>
+          </div>
+        </div>
+
+        <div className="p-5 space-y-4">
           <div className="flex gap-2">
             <Input
               type="url"
-              placeholder="https://votre-serveur.com/api/webhook/yookpay"
+              placeholder="https://votre-serveur.com/webhook/yookpay"
               value={webhookUrl}
               onChange={(e) => { setWebhookUrl(e.target.value); setWebhookSaved(false); }}
               className="flex-1 font-mono text-sm"
             />
             <Button onClick={onSaveWebhook} disabled={isSavingWebhook} className="shrink-0 gap-2">
-              {isSavingWebhook ? (
-                <span className="h-4 w-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-              ) : webhookSaved ? (
-                <CheckCircle2 className="h-4 w-4 text-emerald-400" />
-              ) : (
-                <Save className="h-4 w-4" />
-              )}
-              {webhookSaved ? "Enregistré !" : "Enregistrer"}
+              {isSavingWebhook
+                ? <span className="h-4 w-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                : webhookSaved
+                  ? <CheckCircle2 className="h-4 w-4 text-emerald-400" />
+                  : <Save className="h-4 w-4" />}
+              {webhookSaved ? "Enregistré" : "Enregistrer"}
             </Button>
           </div>
-          <div className="rounded-lg border border-amber-500/20 bg-amber-500/5 p-3 text-xs text-amber-700 dark:text-amber-400 leading-relaxed space-y-1">
-            <p className="font-semibold">Format du payload reçu sur votre serveur :</p>
-            <pre className="font-mono text-[10px] opacity-80 overflow-x-auto">{`POST ${webhookUrl || "https://votre-url.com/webhook"}
-Content-Type: application/json
-X-YookPay-Event: transaction.status_update
 
-{
-  "event": "transaction.status_update",
-  "sentAt": "2024-05-16T10:23:47.000Z",
-  "data": { "reference": "YPY-...", "status": "SUCCESS", ... }
-}`}</pre>
+          {/* Payload preview */}
+          <div className="rounded-lg border border-border overflow-hidden">
+            <div className="flex items-center gap-2 px-3 py-2 bg-muted/60 border-b border-border">
+              <Terminal className="h-3 w-3 text-muted-foreground" />
+              <span className="text-[10px] font-mono text-muted-foreground uppercase tracking-widest">Payload reçu sur votre serveur</span>
+            </div>
+            <div className="bg-[#0d1117] p-3 font-mono text-[11px] text-slate-300 space-y-0.5 overflow-x-auto">
+              <p className="text-slate-500">POST {webhookUrl || "https://votre-url.com/webhook"}</p>
+              <p className="text-slate-600">Content-Type: application/json</p>
+              <p><span className="text-blue-400">X-YookPay-Event</span><span className="text-slate-500">: transaction.status_update</span></p>
+              <p className="pt-1 text-slate-400">{"{"}</p>
+              <p className="pl-4"><span className="text-blue-400">"event"</span><span className="text-slate-500">: </span><span className="text-amber-300">"transaction.status_update"</span><span className="text-slate-600">,</span></p>
+              <p className="pl-4"><span className="text-blue-400">"sentAt"</span><span className="text-slate-500">: </span><span className="text-amber-300">"2024-05-16T10:23:47.000Z"</span><span className="text-slate-600">,</span></p>
+              <p className="pl-4"><span className="text-blue-400">"data"</span><span className="text-slate-500">: {"{ "}</span><span className="text-emerald-400">"reference"</span><span className="text-slate-500">: </span><span className="text-amber-300">"YPY-..."</span><span className="text-slate-500">, </span><span className="text-emerald-400">"status"</span><span className="text-slate-500">: </span><span className="text-purple-400">"SUCCESS"</span><span className="text-slate-500">{" }"}</span></p>
+              <p className="text-slate-400">{"}"}</p>
+            </div>
           </div>
-        </CardContent>
-      </Card>
+        </div>
+      </div>
 
-      {/* Generate dialog */}
+      {/* ── Generate dialog ── */}
       <Dialog open={!!pendingType} onOpenChange={(open) => { if (!open) setPendingType(null); }}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>
+            <DialogTitle className="flex items-center gap-2">
+              <Key className="h-4 w-4" />
               Générer une clé {pendingType === "payin" ? "Payin" : "Payout"}
             </DialogTitle>
             <DialogDescription>
@@ -306,7 +289,7 @@ X-YookPay-Event: transaction.status_update
               <Label htmlFor="key-name">Nom de la clé</Label>
               <Input
                 id="key-name"
-                placeholder={pendingType === "payin" ? "ex : Clé Payin Production" : "ex : Clé Payout Production"}
+                placeholder={pendingType === "payin" ? "ex : Payin Production" : "ex : Payout Production"}
                 value={newKeyName}
                 onChange={(e) => setNewKeyName(e.target.value)}
                 onKeyDown={(e) => { if (e.key === "Enter") handleGenerate(); }}
@@ -317,7 +300,7 @@ X-YookPay-Event: transaction.status_update
           <DialogFooter>
             <Button variant="outline" onClick={() => setPendingType(null)}>Annuler</Button>
             <Button onClick={handleGenerate} disabled={createMutation.isPending}>
-              {createMutation.isPending ? "Génération…" : "Générer"}
+              {createMutation.isPending ? "Génération…" : "Générer la clé"}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -327,60 +310,86 @@ X-YookPay-Event: transaction.status_update
   );
 }
 
-function KeyCard({ keyData, onClick }: { keyData: ApiKey; onClick: () => void }) {
-  return (
-    <Card className="cursor-pointer hover:border-primary/50 hover:shadow-sm transition-all" onClick={onClick}>
-      <CardContent className="pt-4 pb-4">
-        <div className="flex items-center gap-4">
-          <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
-            <Key className="h-5 w-5 text-primary" />
-          </div>
-          <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-2 flex-wrap">
-              <span className="font-semibold truncate">{keyData.name}</span>
-              <KeyTypeBadge type={keyData.keyType} />
-              <Badge variant="outline" className="text-green-600 border-green-200 bg-green-50 dark:bg-green-950/20 dark:border-green-800 text-xs shrink-0">
-                Active
-              </Badge>
-            </div>
-            <div className="flex items-center gap-1.5 mt-1">
-              <code className="text-xs font-mono text-muted-foreground bg-muted px-1.5 py-0.5 rounded">
-                {keyData.prefix}••••••••••••••••••••
-              </code>
-            </div>
-            <div className="flex items-center gap-3 mt-1.5 text-xs text-muted-foreground">
-              <span>Créée le {fmtDate(keyData.createdAt)}</span>
-              {keyData.lastUsedAt && (
-                <>
-                  <span>·</span>
-                  <span className="flex items-center gap-1">
-                    <Clock className="h-3 w-3" />
-                    {fmtDate(keyData.lastUsedAt)}
-                  </span>
-                </>
-              )}
-            </div>
-          </div>
-          <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0" />
-        </div>
-      </CardContent>
-    </Card>
-  );
-}
+function KeySection({
+  type, keyData, isLoading, onGenerate, onClick,
+}: {
+  type: "payin" | "payout";
+  keyData: ApiKey | null;
+  isLoading: boolean;
+  onGenerate: () => void;
+  onClick: () => void;
+}) {
+  const isPayin = type === "payin";
+  const accent  = isPayin
+    ? "from-blue-500/10 to-blue-600/5 border-blue-500/20"
+    : "from-purple-500/10 to-purple-600/5 border-purple-500/20";
+  const iconBg  = isPayin ? "bg-blue-500/15 text-blue-500" : "bg-purple-500/15 text-purple-500";
+  const Icon    = isPayin ? ArrowDownToLine : ArrowUpFromLine;
 
-function EmptyKeyCard({ type, onGenerate }: { type: "payin" | "payout"; onGenerate: () => void }) {
   return (
-    <Card className="border-dashed">
-      <CardContent className="pt-6 pb-6 flex flex-col items-center text-center gap-2">
-        <Key className="h-8 w-8 text-muted-foreground/30" />
-        <p className="text-sm text-muted-foreground">
-          Aucune clé {type === "payin" ? "payin" : "payout"} active
-        </p>
-        <Button onClick={onGenerate} variant="ghost" size="sm" className="mt-1 gap-2 text-xs">
-          <Plus className="h-3.5 w-3.5" />
-          Générer
-        </Button>
-      </CardContent>
-    </Card>
+    <div className={`rounded-xl border bg-gradient-to-br ${accent} overflow-hidden`}>
+      {/* Top */}
+      <div className="flex items-center gap-3 px-4 py-3.5 border-b border-white/5">
+        <div className={`h-8 w-8 rounded-lg flex items-center justify-center shrink-0 ${iconBg}`}>
+          <Icon className="h-4 w-4" />
+        </div>
+        <div className="flex-1 min-w-0">
+          <p className="text-sm font-semibold">{isPayin ? "Payin" : "Payout"}</p>
+          <p className="text-xs text-muted-foreground">{isPayin ? "Encaissement" : "Versement sortant"}</p>
+        </div>
+        {keyData && (
+          <Badge variant="outline" className="text-emerald-600 border-emerald-500/30 bg-emerald-500/10 text-[10px] shrink-0">
+            Active
+          </Badge>
+        )}
+      </div>
+
+      {/* Body */}
+      <div className="px-4 py-4">
+        {isLoading ? (
+          <Skeleton className="h-14 w-full rounded-lg" />
+        ) : keyData ? (
+          <button
+            onClick={onClick}
+            className="w-full text-left group"
+          >
+            <div className="flex items-center justify-between gap-2">
+              <div className="space-y-1.5 min-w-0 flex-1">
+                <p className="text-sm font-medium truncate">{keyData.name}</p>
+                <code className="block text-xs font-mono text-muted-foreground">
+                  {keyData.prefix}<span className="opacity-50">••••••••••••••••</span>
+                </code>
+                <div className="flex items-center gap-2 text-[11px] text-muted-foreground">
+                  <ShieldCheck className="h-3 w-3 shrink-0" />
+                  <span>Créée le {new Date(keyData.createdAt).toLocaleDateString("fr-FR", { day: "2-digit", month: "short", year: "numeric" })}</span>
+                  {keyData.lastUsedAt && (
+                    <>
+                      <span className="opacity-40">·</span>
+                      <Clock className="h-3 w-3 shrink-0" />
+                      <span>{new Date(keyData.lastUsedAt).toLocaleDateString("fr-FR", { day: "2-digit", month: "short" })}</span>
+                    </>
+                  )}
+                </div>
+              </div>
+              <ChevronRight className="h-4 w-4 text-muted-foreground group-hover:translate-x-0.5 transition-transform shrink-0" />
+            </div>
+          </button>
+        ) : (
+          <div className="flex flex-col items-center text-center gap-3 py-2">
+            <Key className="h-7 w-7 text-muted-foreground/25" />
+            <p className="text-xs text-muted-foreground">Aucune clé {isPayin ? "payin" : "payout"} active</p>
+            <Button
+              size="sm"
+              variant={isPayin ? "default" : "outline"}
+              className="gap-1.5 text-xs h-8"
+              onClick={onGenerate}
+            >
+              <Plus className="h-3.5 w-3.5" />
+              Générer
+            </Button>
+          </div>
+        )}
+      </div>
+    </div>
   );
 }
