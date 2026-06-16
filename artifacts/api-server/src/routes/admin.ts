@@ -1610,5 +1610,51 @@ router.put("/users/:id/usdt-fees", async (req: AuthRequest, res) => {
   }
 });
 
+// GET /admin/env-check — vérifie quelles clés API sont détectées (sans révéler les valeurs)
+router.get("/env-check", (req: AuthRequest, res) => {
+  function maskKey(val: string | undefined): { set: boolean; hint: string } {
+    if (!val || !val.trim()) return { set: false, hint: "—" };
+    const v = val.trim();
+    if (v.length <= 8) return { set: true, hint: "****" };
+    return { set: true, hint: `${v.slice(0, 6)}...${v.slice(-4)}` };
+  }
+
+  const keys = [
+    { name: "SESSION_SECRET",         value: process.env.SESSION_SECRET,         required: true  },
+    { name: "SUPABASE_DATABASE_URL",  value: process.env.SUPABASE_DATABASE_URL,  required: false },
+    { name: "DATABASE_URL",           value: process.env.DATABASE_URL,           required: false },
+    { name: "PIXPAY_API_KEY_XAF",     value: process.env.PIXPAY_API_KEY_XAF,     required: true  },
+    { name: "PIXPAY_API_KEY_XOF",     value: process.env.PIXPAY_API_KEY_XOF,     required: true  },
+    { name: "PIXPAY_API_KEY_CDF",     value: process.env.PIXPAY_API_KEY_CDF,     required: true  },
+    { name: "PIXPAY_API_KEY",         value: process.env.PIXPAY_API_KEY,         required: false },
+    { name: "PIXPAY_ENV",             value: process.env.PIXPAY_ENV,             required: false },
+    { name: "NOWPAYMENTS_API_KEY",    value: process.env.NOWPAYMENTS_API_KEY,    required: false },
+    { name: "NOWPAYMENTS_IPN_SECRET", value: process.env.NOWPAYMENTS_IPN_SECRET, required: false },
+    { name: "APP_URL",                value: process.env.APP_URL,                required: false },
+    { name: "PORT",                   value: process.env.PORT,                   required: false },
+    { name: "NODE_ENV",               value: process.env.NODE_ENV,               required: false },
+  ];
+
+  const result = keys.map(({ name, value, required }) => {
+    const { set, hint } = maskKey(value);
+    // Detect common mistakes: spaces inside value
+    const hasLeadingTrailingSpace = value !== undefined && value !== value.trim();
+    const hasInternalSpace = value !== undefined && value.trim().includes(" ");
+    const warnings: string[] = [];
+    if (hasLeadingTrailingSpace) warnings.push("espace en début/fin de valeur");
+    if (hasInternalSpace) warnings.push("espace à l'intérieur de la valeur ⚠️");
+    return { name, set, hint, required, warnings };
+  });
+
+  req.log.info({ check: result.map(r => ({ name: r.name, set: r.set })) }, "Admin env-check");
+
+  res.json({
+    timestamp: new Date().toISOString(),
+    nodeEnv: process.env.NODE_ENV ?? "non défini",
+    pixpayEnv: process.env.PIXPAY_ENV ?? "sandbox (défaut)",
+    keys: result,
+  });
+});
+
 export default router;
 

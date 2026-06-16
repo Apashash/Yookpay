@@ -27,6 +27,7 @@ import AdminTransactionDetail from "@/pages/admin/transaction-detail";
 import AdminExchanges from "@/pages/admin/exchanges";
 import AdminFees from "@/pages/admin/fees";
 import AdminSupportLinks from "@/pages/admin/support-links";
+import AdminEnvCheck from "@/pages/admin/env-check";
 import Landing from "@/pages/landing";
 import Docs from "@/pages/docs";
 import Health from "@/pages/health";
@@ -109,6 +110,7 @@ function Router() {
       <Route path="/admin/exchanges"        component={() => <AdminRoute component={AdminExchanges} />} />
       <Route path="/admin/fees"             component={() => <AdminRoute component={AdminFees} />} />
       <Route path="/admin/support-links"   component={() => <AdminRoute component={AdminSupportLinks} />} />
+      <Route path="/admin/env-check"        component={() => <AdminRoute component={AdminEnvCheck} />} />
 
       <Route component={NotFound} />
     </Switch>

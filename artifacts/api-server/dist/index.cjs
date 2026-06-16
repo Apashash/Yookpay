@@ -70043,6 +70043,45 @@ router9.put("/users/:id/usdt-fees", async (req, res) => {
     res.status(500).json({ error: "InternalError" });
   }
 });
+router9.get("/env-check", (req, res) => {
+  function maskKey(val) {
+    if (!val || !val.trim()) return { set: false, hint: "\u2014" };
+    const v = val.trim();
+    if (v.length <= 8) return { set: true, hint: "****" };
+    return { set: true, hint: `${v.slice(0, 6)}...${v.slice(-4)}` };
+  }
+  const keys = [
+    { name: "SESSION_SECRET", value: process.env.SESSION_SECRET, required: true },
+    { name: "SUPABASE_DATABASE_URL", value: process.env.SUPABASE_DATABASE_URL, required: false },
+    { name: "DATABASE_URL", value: process.env.DATABASE_URL, required: false },
+    { name: "PIXPAY_API_KEY_XAF", value: process.env.PIXPAY_API_KEY_XAF, required: true },
+    { name: "PIXPAY_API_KEY_XOF", value: process.env.PIXPAY_API_KEY_XOF, required: true },
+    { name: "PIXPAY_API_KEY_CDF", value: process.env.PIXPAY_API_KEY_CDF, required: true },
+    { name: "PIXPAY_API_KEY", value: process.env.PIXPAY_API_KEY, required: false },
+    { name: "PIXPAY_ENV", value: process.env.PIXPAY_ENV, required: false },
+    { name: "NOWPAYMENTS_API_KEY", value: process.env.NOWPAYMENTS_API_KEY, required: false },
+    { name: "NOWPAYMENTS_IPN_SECRET", value: process.env.NOWPAYMENTS_IPN_SECRET, required: false },
+    { name: "APP_URL", value: process.env.APP_URL, required: false },
+    { name: "PORT", value: process.env.PORT, required: false },
+    { name: "NODE_ENV", value: process.env.NODE_ENV, required: false }
+  ];
+  const result = keys.map(({ name, value, required: required2 }) => {
+    const { set: set2, hint } = maskKey(value);
+    const hasLeadingTrailingSpace = value !== void 0 && value !== value.trim();
+    const hasInternalSpace = value !== void 0 && value.trim().includes(" ");
+    const warnings = [];
+    if (hasLeadingTrailingSpace) warnings.push("espace en d\xE9but/fin de valeur");
+    if (hasInternalSpace) warnings.push("espace \xE0 l'int\xE9rieur de la valeur \u26A0\uFE0F");
+    return { name, set: set2, hint, required: required2, warnings };
+  });
+  req.log.info({ check: result.map((r) => ({ name: r.name, set: r.set })) }, "Admin env-check");
+  res.json({
+    timestamp: (/* @__PURE__ */ new Date()).toISOString(),
+    nodeEnv: process.env.NODE_ENV ?? "non d\xE9fini",
+    pixpayEnv: process.env.PIXPAY_ENV ?? "sandbox (d\xE9faut)",
+    keys: result
+  });
+});
 var admin_default = router9;
 
 // src/routes/ipn.ts
