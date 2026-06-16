@@ -67318,7 +67318,17 @@ router4.post("/deposit", authMiddleware, transactionRateLimit, async (req, res) 
     }).where(eq(transactionsTable.id, tx.id));
     if (isPixFailed) {
       req.log.warn(
-        { txId: tx.id, pixId: pixResult.pixTransactionId, pixState: pixResult.state },
+        {
+          txId: tx.id,
+          pixId: pixResult.pixTransactionId,
+          pixState: pixResult.state,
+          pixMessage: pixResult.message,
+          serviceId,
+          currency,
+          operator,
+          country,
+          normalizedPhone: normalizePhone(phone, country)
+        },
         "PixPay deposit immediately FAILED"
       );
       res.status(422).json({
