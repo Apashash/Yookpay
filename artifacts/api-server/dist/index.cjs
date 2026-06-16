@@ -66830,12 +66830,14 @@ async function callPixPayAirtime(params) {
     body["redirect_url"] = params.redirectUrl ?? "";
     body["redirect_error_url"] = params.redirectErrorUrl ?? "";
   }
+  const pixpayEnv = process.env["PIXPAY_ENV"] ?? "sandbox (d\xE9faut)";
+  const baseUrl = getBaseUrl();
   const apiKeyHint = apiKey2.length > 8 ? `${apiKey2.slice(0, 4)}...${apiKey2.slice(-4)}` : "***";
   logger.info(
-    { serviceId: params.serviceId, currency: params.currency, amount: params.amount, destination: params.phone, apiKeyHint, customData: params.customData },
+    { serviceId: params.serviceId, currency: params.currency, amount: params.amount, destination: params.phone, apiKeyHint, customData: params.customData, pixpayEnv, baseUrl },
     "PixPay airtime call initiated"
   );
-  const res = await fetch(`${getBaseUrl()}/airtime`, {
+  const res = await fetch(`${baseUrl}/airtime`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(body),
@@ -66866,7 +66868,9 @@ async function callPixPayAirtime(params) {
     const rawMsg = json3.message ?? "";
     const isAuthError = /not authoriz|unauthorized|api.?key|invalid.?key|accès refusé/i.test(rawMsg) || res.status === 401 || res.status === 403;
     if (isAuthError) {
-      throw new Error("Cl\xE9 API PixPay invalide ou expir\xE9e. Veuillez contacter le support YookPay.");
+      throw new Error(
+        `Cl\xE9 API PixPay invalide ou expir\xE9e (env: ${pixpayEnv}, url: ${baseUrl}). V\xE9rifiez PIXPAY_API_KEY_${params.currency.toUpperCase()} et PIXPAY_ENV dans vos variables d'environnement Plesk.`
+      );
     }
     throw new Error(rawMsg || `Erreur PixPay (code ${res.status})`);
   }
