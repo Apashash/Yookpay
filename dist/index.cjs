@@ -71767,6 +71767,8 @@ if (Number.isNaN(port) || port <= 0) {
   throw new Error(`Invalid PORT value: "${rawPort}"`);
 }
 async function startServer() {
+  const pixpayEnv = process.env["PIXPAY_ENV"] ?? "NON D\xC9FINI \u2192 sandbox utilis\xE9 par d\xE9faut \u26A0\uFE0F";
+  logger.info(`[ENV CHECK] PIXPAY_ENV = ${pixpayEnv}`);
   const pixpayKeys = ["PIXPAY_API_KEY_XAF", "PIXPAY_API_KEY_XOF", "PIXPAY_API_KEY_CDF", "PIXPAY_API_KEY"];
   for (const k of pixpayKeys) {
     logger.info(`[ENV CHECK] ${k} = ${process.env[k] ? "SET \u2713" : "NOT SET \u2717"}`);
