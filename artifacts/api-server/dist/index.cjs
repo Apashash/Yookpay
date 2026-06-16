@@ -71309,7 +71309,21 @@ app.get("/healthz", (_req, res) => {
   res.status(200).json({ status: "ok" });
 });
 app.use("/api", routes_default);
-var frontendDist = process.env.FRONTEND_DIST_PATH ? import_path.default.resolve(process.env.FRONTEND_DIST_PATH) : import_path.default.resolve(__dirname, "../../yookpay/dist/public");
+function resolveFrontendDist() {
+  if (process.env.FRONTEND_DIST_PATH) {
+    return import_path.default.resolve(process.env.FRONTEND_DIST_PATH);
+  }
+  const candidates = [
+    import_path.default.resolve(__dirname, "../../yookpay/dist/public"),
+    import_path.default.resolve(__dirname, "public")
+  ];
+  const fs = require("fs");
+  for (const p of candidates) {
+    if (fs.existsSync(p)) return p;
+  }
+  return candidates[0];
+}
+var frontendDist = resolveFrontendDist();
 logger.info({ frontendDist }, "Serving frontend from");
 app.use(import_express17.default.static(frontendDist));
 app.get(/^(?!\/api).*/, (_req, res) => {

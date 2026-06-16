@@ -43,9 +43,24 @@ app.get("/healthz", (_req, res) => {
 
 app.use("/api", router);
 
-const frontendDist = process.env.FRONTEND_DIST_PATH
-  ? path.resolve(process.env.FRONTEND_DIST_PATH)
-  : path.resolve(__dirname, "../../yookpay/dist/public");
+function resolveFrontendDist(): string {
+  if (process.env.FRONTEND_DIST_PATH) {
+    return path.resolve(process.env.FRONTEND_DIST_PATH);
+  }
+  // Try multiple candidate paths to work from both bundle locations:
+  // - artifacts/api-server/dist/index.cjs  → ../../yookpay/dist/public
+  // - dist/index.cjs (root)                → public
+  const candidates = [
+    path.resolve(__dirname, "../../yookpay/dist/public"),
+    path.resolve(__dirname, "public"),
+  ];
+  const fs = require("fs") as typeof import("fs");
+  for (const p of candidates) {
+    if (fs.existsSync(p)) return p;
+  }
+  return candidates[0];
+}
+const frontendDist = resolveFrontendDist();
 
 logger.info({ frontendDist }, "Serving frontend from");
 
