@@ -123,7 +123,13 @@ export async function callPixPayAirtime(params: PixPayCallParams): Promise<PixPa
       { statusCode: res.status, pixpayStatutCode: json.statut_code, message: json.message, fullBody: json },
       "PixPay airtime hard error — no transaction created"
     );
-    throw new Error(json.message ?? `PixPay API error: ${res.status}`);
+    const rawMsg = json.message ?? "";
+    // Detect authorization failures (invalid/missing API key) and give a clear message
+    const isAuthError = /not authoriz|unauthorized|api.?key|invalid.?key|accès refusé/i.test(rawMsg) || res.status === 401 || res.status === 403;
+    if (isAuthError) {
+      throw new Error("Clé API PixPay invalide ou expirée. Veuillez contacter le support YookPay.");
+    }
+    throw new Error(rawMsg || `Erreur PixPay (code ${res.status})`);
   }
 
   return {

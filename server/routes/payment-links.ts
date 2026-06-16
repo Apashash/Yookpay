@@ -14,10 +14,9 @@ import {
 } from "../services/feeService";
 import { callPixPayAirtime, getOperatorFlow, type PixPayCallParams } from "../lib/pixpay";
 import { createNpPayment, getNpMinAmount } from "../lib/nowpayments";
+import { getDefaultMargin } from "../lib/marginCache";
 
 const router = Router();
-
-const DEFAULT_MARGIN = 0.025;
 
 // ─── Local helpers (mirrored from transactions.ts) ────────────────────────────
 
@@ -368,7 +367,7 @@ router.post("/public/:token/pay", async (req, res) => {
   const walletNetAmount = feeBearer === "SENDER" ? amount          : Math.max(amount - feeAmt, 0);
 
   const reference = generateReference();
-  const yookpayMarginAmount = Math.round(amount * (opBreakdown?.margin ?? DEFAULT_MARGIN));
+  const yookpayMarginAmount = Math.round(amount * (opBreakdown?.margin ?? await getDefaultMargin()));
 
   try {
     // Create transaction in merchant's wallet

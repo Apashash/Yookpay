@@ -6,6 +6,7 @@ import { authMiddleware, type AuthRequest } from "../middlewares/authMiddleware"
 import { adminMiddleware } from "../middlewares/adminMiddleware";
 import { z } from "zod";
 import { FEE_TABLE, CURRENCY_MAP, DEFAULT_MARGIN } from "../services/feeService";
+import { getDefaultMargin, invalidateMarginCache } from "../lib/marginCache";
 import { getAllUsdtRates, setUsdtRate, USDT_PAIRS, getEffectiveRate, getExchangeFeeRate } from "../lib/adminRates";
 
 const router = Router();
@@ -1035,6 +1036,43 @@ router.put("/pixpay/config", async (req: AuthRequest, res) => {
   }
 });
 
+// GET /admin/margin — get current default YookPay margin
+router.get("/margin", async (_req, res) => {
+  try {
+    const result = await db.execute(
+      sql`SELECT value FROM platform_config WHERE key = 'default_margin' LIMIT 1`
+    );
+    const value = result.rows.length ? parseFloat((result.rows[0] as { value: string }).value) : 0.025;
+    res.json({ margin: isNaN(value) ? 0.025 : value });
+  } catch (err) {
+    res.status(500).json({ error: "InternalError", message: "Impossible de charger la marge" });
+  }
+});
+
+// PUT /admin/margin — update default YookPay margin
+router.put("/margin", async (req: AuthRequest, res) => {
+  const schema = z.object({ margin: z.number().min(0).max(0.5) });
+  const parse = schema.safeParse(req.body);
+  if (!parse.success) {
+    res.status(400).json({ error: "ValidationError", message: "La marge doit être un nombre entre 0 et 50%" });
+    return;
+  }
+  const { margin } = parse.data;
+  try {
+    await db.execute(sql`
+      INSERT INTO platform_config (key, value, updated_at)
+      VALUES ('default_margin', ${margin.toString()}, NOW())
+      ON CONFLICT (key) DO UPDATE SET value = ${margin.toString()}, updated_at = NOW()
+    `);
+    invalidateMarginCache();
+    req.log.info({ adminId: req.userId, margin }, "Default margin updated");
+    res.json({ success: true, margin, message: `Marge par défaut mise à jour à ${(margin * 100).toFixed(2)}%` });
+  } catch (err) {
+    req.log.error({ err }, "Admin update margin error");
+    res.status(500).json({ error: "InternalError", message: "Impossible de mettre à jour la marge" });
+  }
+});
+
 // ── Admin Transactions ────────────────────────────────────────────────────────
 
 // GET /admin/transactions?page=1&limit=50&status=SUCCESS&type=DEPOSIT&search=xxx
@@ -1570,6 +1608,52 @@ router.put("/users/:id/usdt-fees", async (req: AuthRequest, res) => {
     req.log.error({ err }, "Admin set USDT fee error");
     res.status(500).json({ error: "InternalError" });
   }
+});
+
+// GET /admin/env-check — vérifie quelles clés API sont détectées (sans révéler les valeurs)
+router.get("/env-check", (req: AuthRequest, res) => {
+  function maskKey(val: string | undefined): { set: boolean; hint: string } {
+    if (!val || !val.trim()) return { set: false, hint: "—" };
+    const v = val.trim();
+    if (v.length <= 8) return { set: true, hint: "****" };
+    return { set: true, hint: `${v.slice(0, 6)}...${v.slice(-4)}` };
+  }
+
+  const keys = [
+    { name: "SESSION_SECRET",         value: process.env.SESSION_SECRET,         required: true  },
+    { name: "SUPABASE_DATABASE_URL",  value: process.env.SUPABASE_DATABASE_URL,  required: false },
+    { name: "DATABASE_URL",           value: process.env.DATABASE_URL,           required: false },
+    { name: "PIXPAY_API_KEY_XAF",     value: process.env.PIXPAY_API_KEY_XAF,     required: true  },
+    { name: "PIXPAY_API_KEY_XOF",     value: process.env.PIXPAY_API_KEY_XOF,     required: true  },
+    { name: "PIXPAY_API_KEY_CDF",     value: process.env.PIXPAY_API_KEY_CDF,     required: true  },
+    { name: "PIXPAY_API_KEY",         value: process.env.PIXPAY_API_KEY,         required: false },
+    { name: "PIXPAY_ENV",             value: process.env.PIXPAY_ENV,             required: false },
+    { name: "NOWPAYMENTS_API_KEY",    value: process.env.NOWPAYMENTS_API_KEY,    required: false },
+    { name: "NOWPAYMENTS_IPN_SECRET", value: process.env.NOWPAYMENTS_IPN_SECRET, required: false },
+    { name: "APP_URL",                value: process.env.APP_URL,                required: false },
+    { name: "PORT",                   value: process.env.PORT,                   required: false },
+    { name: "NODE_ENV",               value: process.env.NODE_ENV,               required: false },
+  ];
+
+  const result = keys.map(({ name, value, required }) => {
+    const { set, hint } = maskKey(value);
+    // Detect common mistakes: spaces inside value
+    const hasLeadingTrailingSpace = value !== undefined && value !== value.trim();
+    const hasInternalSpace = value !== undefined && value.trim().includes(" ");
+    const warnings: string[] = [];
+    if (hasLeadingTrailingSpace) warnings.push("espace en début/fin de valeur");
+    if (hasInternalSpace) warnings.push("espace à l'intérieur de la valeur ⚠️");
+    return { name, set, hint, required, warnings };
+  });
+
+  req.log.info({ check: result.map(r => ({ name: r.name, set: r.set })) }, "Admin env-check");
+
+  res.json({
+    timestamp: new Date().toISOString(),
+    nodeEnv: process.env.NODE_ENV ?? "non défini",
+    pixpayEnv: process.env.PIXPAY_ENV ?? "sandbox (défaut)",
+    keys: result,
+  });
 });
 
 export default router;
