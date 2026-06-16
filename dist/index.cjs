@@ -66233,7 +66233,7 @@ router2.post("/register", authRateLimit, async (req, res) => {
       res.status(400).json({ error: "Conflict", message: "Email already registered" });
       return;
     }
-    const passwordHash = await bcryptjs_default.hash(password, 12);
+    const passwordHash = await bcryptjs_default.hash(password, 10);
     const [user] = await db.insert(usersTable).values({ email: email3, passwordHash, name, phone, country }).returning();
     await db.insert(walletsTable).values([
       { userId: user.id, currency: "XAF", balance: "0", country: "CM" },
@@ -66352,7 +66352,7 @@ router2.put("/password", authMiddleware, async (req, res) => {
       res.status(401).json({ error: "Unauthorized", message: "Mot de passe actuel incorrect" });
       return;
     }
-    const newHash = await bcryptjs_default.hash(newPassword, 12);
+    const newHash = await bcryptjs_default.hash(newPassword, 10);
     await db.update(usersTable).set({ passwordHash: newHash }).where(eq(usersTable.id, req.userId));
     req.log.info({ userId: req.userId }, "Password changed");
     res.json({ success: true, message: "Mot de passe mis \xE0 jour avec succ\xE8s" });

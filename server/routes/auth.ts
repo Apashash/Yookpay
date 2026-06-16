@@ -38,7 +38,7 @@ router.post("/register", authRateLimit, async (req, res) => {
       return;
     }
 
-    const passwordHash = await bcrypt.hash(password, 12);
+    const passwordHash = await bcrypt.hash(password, 10);
     const [user] = await db
       .insert(usersTable)
       .values({ email, passwordHash, name, phone, country })
@@ -186,7 +186,7 @@ router.put("/password", authMiddleware, async (req: AuthRequest, res) => {
       return;
     }
 
-    const newHash = await bcrypt.hash(newPassword, 12);
+    const newHash = await bcrypt.hash(newPassword, 10);
     await db.update(usersTable).set({ passwordHash: newHash }).where(eq(usersTable.id, req.userId!));
 
     req.log.info({ userId: req.userId }, "Password changed");
