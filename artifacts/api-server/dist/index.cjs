@@ -66210,7 +66210,7 @@ router2.post("/register", authRateLimit, async (req, res) => {
       res.status(400).json({ error: "Conflict", message: "Email already registered" });
       return;
     }
-    const passwordHash = await bcryptjs_default.hash(password, 12);
+    const passwordHash = await bcryptjs_default.hash(password, 10);
     const [user] = await db.insert(usersTable).values({ email: email3, passwordHash, name, phone, country }).returning();
     await db.insert(walletsTable).values([
       { userId: user.id, currency: "XAF", balance: "0", country: "CM" },
@@ -66329,7 +66329,7 @@ router2.put("/password", authMiddleware, async (req, res) => {
       res.status(401).json({ error: "Unauthorized", message: "Mot de passe actuel incorrect" });
       return;
     }
-    const newHash = await bcryptjs_default.hash(newPassword, 12);
+    const newHash = await bcryptjs_default.hash(newPassword, 10);
     await db.update(usersTable).set({ passwordHash: newHash }).where(eq(usersTable.id, req.userId));
     req.log.info({ userId: req.userId }, "Password changed");
     res.json({ success: true, message: "Mot de passe mis \xE0 jour avec succ\xE8s" });
@@ -67299,7 +67299,17 @@ router4.post("/deposit", authMiddleware, transactionRateLimit, async (req, res) 
     }).where(eq(transactionsTable.id, tx.id));
     if (isPixFailed) {
       req.log.warn(
-        { txId: tx.id, pixId: pixResult.pixTransactionId, pixState: pixResult.state },
+        {
+          txId: tx.id,
+          pixId: pixResult.pixTransactionId,
+          pixState: pixResult.state,
+          pixMessage: pixResult.message,
+          serviceId,
+          currency,
+          operator,
+          country,
+          normalizedPhone: normalizePhone(phone, country)
+        },
         "PixPay deposit immediately FAILED"
       );
       res.status(422).json({
@@ -71748,6 +71758,8 @@ if (Number.isNaN(port) || port <= 0) {
   throw new Error(`Invalid PORT value: "${rawPort}"`);
 }
 async function startServer() {
+  const pixpayEnv = process.env["PIXPAY_ENV"] ?? "NON D\xC9FINI \u2192 sandbox utilis\xE9 par d\xE9faut \u26A0\uFE0F";
+  logger.info(`[ENV CHECK] PIXPAY_ENV = ${pixpayEnv}`);
   const pixpayKeys = ["PIXPAY_API_KEY_XAF", "PIXPAY_API_KEY_XOF", "PIXPAY_API_KEY_CDF", "PIXPAY_API_KEY"];
   for (const k of pixpayKeys) {
     logger.info(`[ENV CHECK] ${k} = ${process.env[k] ? "SET \u2713" : "NOT SET \u2717"}`);
