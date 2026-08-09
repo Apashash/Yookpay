@@ -33831,6 +33831,9 @@ var init_tracing_utils = __esm({
 });
 
 // ../../node_modules/.pnpm/drizzle-orm@0.45.1_@types+pg@8.18.0_pg@8.20.0/node_modules/drizzle-orm/pg-core/unique-constraint.js
+function unique(name) {
+  return new UniqueOnConstraintBuilder(name);
+}
 function uniqueKeyName(table, columns) {
   return `${table[TableName]}_${columns.join("_")}_unique`;
 }
@@ -36971,8 +36974,8 @@ var init_indexes = __esm({
     init_entity();
     init_columns();
     IndexBuilderOn = class {
-      constructor(unique, name) {
-        this.unique = unique;
+      constructor(unique3, name) {
+        this.unique = unique3;
         this.name = name;
       }
       static [entityKind] = "PgIndexBuilderOn";
@@ -37041,11 +37044,11 @@ var init_indexes = __esm({
       static [entityKind] = "PgIndexBuilder";
       /** @internal */
       config;
-      constructor(columns, unique, only, name, method = "btree") {
+      constructor(columns, unique3, only, name, method = "btree") {
         this.config = {
           name,
           columns,
-          unique,
+          unique: unique3,
           only,
           method
         };
@@ -53572,16 +53575,300 @@ var init_user_fees = __esm({
   }
 });
 
+// ../../lib/db/src/schema/conversion-fees.ts
+var conversionFeesTable, insertConversionFeeSchema;
+var init_conversion_fees = __esm({
+  "../../lib/db/src/schema/conversion-fees.ts"() {
+    "use strict";
+    init_pg_core();
+    init_drizzle_zod();
+    conversionFeesTable = pgTable("conversion_fees", {
+      id: serial("id").primaryKey(),
+      // pair uniqueness enforced by DB constraint conversion_fees_pair_key (from raw-SQL migration)
+      pair: varchar("pair", { length: 10 }).notNull(),
+      rate: numeric("rate", { precision: 6, scale: 4 }).notNull().default("0.0190"),
+      minAmount: numeric("min_amount", { precision: 12, scale: 0 }).notNull().default("1000"),
+      createdAt: timestamp("created_at").defaultNow().notNull(),
+      updatedAt: timestamp("updated_at").defaultNow().notNull()
+    });
+    insertConversionFeeSchema = createInsertSchema(conversionFeesTable).omit({
+      id: true,
+      createdAt: true,
+      updatedAt: true
+    });
+  }
+});
+
+// ../../lib/db/src/schema/pixpay-services.ts
+var pixpayServicesTable, insertPixpayServiceSchema;
+var init_pixpay_services = __esm({
+  "../../lib/db/src/schema/pixpay-services.ts"() {
+    "use strict";
+    init_pg_core();
+    init_drizzle_zod();
+    pixpayServicesTable = pgTable("pixpay_services", {
+      id: serial("id").primaryKey(),
+      operator: varchar("operator", { length: 30 }).notNull(),
+      country: varchar("country", { length: 5 }),
+      currency: varchar("currency", { length: 10 }).notNull(),
+      type: varchar("type", { length: 20 }).notNull(),
+      serviceId: integer("service_id").notNull().default(0),
+      active: boolean("active").notNull().default(true),
+      notes: text("notes"),
+      createdAt: timestamp("created_at").defaultNow().notNull(),
+      updatedAt: timestamp("updated_at").defaultNow().notNull()
+    }, (t) => [
+      // constraint name must match the one created by raw-SQL migration (pixpay_services_uq)
+      unique("pixpay_services_uq").on(t.operator, t.country, t.currency, t.type)
+    ]);
+    insertPixpayServiceSchema = createInsertSchema(pixpayServicesTable).omit({
+      id: true,
+      createdAt: true,
+      updatedAt: true
+    });
+  }
+});
+
+// ../../lib/db/src/schema/usdt-rates.ts
+var usdtRatesTable, insertUsdtRateSchema;
+var init_usdt_rates = __esm({
+  "../../lib/db/src/schema/usdt-rates.ts"() {
+    "use strict";
+    init_pg_core();
+    init_drizzle_zod();
+    usdtRatesTable = pgTable("usdt_rates", {
+      pair: varchar("pair", { length: 20 }).primaryKey(),
+      rate: decimal("rate", { precision: 20, scale: 8 }).notNull().default("0"),
+      updatedAt: timestamp("updated_at").defaultNow()
+    });
+    insertUsdtRateSchema = createInsertSchema(usdtRatesTable);
+  }
+});
+
+// ../../lib/db/src/schema/support-links.ts
+var supportLinksTable, insertSupportLinksSchema;
+var init_support_links = __esm({
+  "../../lib/db/src/schema/support-links.ts"() {
+    "use strict";
+    init_pg_core();
+    init_drizzle_zod();
+    supportLinksTable = pgTable("support_links", {
+      id: integer("id").primaryKey().default(1),
+      whatsappUrl: text("whatsapp_url").notNull().default(""),
+      facebookUrl: text("facebook_url").notNull().default(""),
+      telegramUrl: text("telegram_url").notNull().default(""),
+      phoneUrl: text("phone_url").notNull().default(""),
+      updatedAt: timestamp("updated_at").defaultNow().notNull()
+    });
+    insertSupportLinksSchema = createInsertSchema(supportLinksTable).omit({
+      updatedAt: true
+    });
+  }
+});
+
+// ../../lib/db/src/schema/kyc-profiles.ts
+var kycProfilesTable, insertKycProfileSchema;
+var init_kyc_profiles = __esm({
+  "../../lib/db/src/schema/kyc-profiles.ts"() {
+    "use strict";
+    init_pg_core();
+    init_drizzle_zod();
+    init_users();
+    kycProfilesTable = pgTable("kyc_profiles", {
+      id: serial("id").primaryKey(),
+      userId: integer("user_id").notNull().unique().references(() => usersTable.id, { onDelete: "cascade" }),
+      fullName: varchar("full_name", { length: 255 }),
+      dateOfBirth: date("date_of_birth"),
+      docType: varchar("doc_type", { length: 30 }),
+      docNumber: varchar("doc_number", { length: 100 }),
+      kycStatus: varchar("kyc_status", { length: 20 }).notNull().default("NOT_STARTED"),
+      businessDescription: text("business_description"),
+      businessWebsite: varchar("business_website", { length: 500 }),
+      businessCategory: varchar("business_category", { length: 200 }),
+      businessType: varchar("business_type", { length: 50 }),
+      signatureData: text("signature_data"),
+      niuNumber: varchar("niu_number", { length: 100 }),
+      rccmNumber: varchar("rccm_number", { length: 100 }),
+      kybStatus: varchar("kyb_status", { length: 20 }).notNull().default("NOT_STARTED"),
+      adminNotes: text("admin_notes"),
+      createdAt: timestamp("created_at").defaultNow().notNull(),
+      updatedAt: timestamp("updated_at").defaultNow().notNull()
+    });
+    insertKycProfileSchema = createInsertSchema(kycProfilesTable).omit({
+      id: true,
+      createdAt: true,
+      updatedAt: true
+    });
+  }
+});
+
+// ../../lib/db/src/schema/platform-config.ts
+var platformConfigTable, insertPlatformConfigSchema;
+var init_platform_config = __esm({
+  "../../lib/db/src/schema/platform-config.ts"() {
+    "use strict";
+    init_pg_core();
+    init_drizzle_zod();
+    platformConfigTable = pgTable("platform_config", {
+      key: varchar("key", { length: 100 }).primaryKey(),
+      value: text("value").notNull(),
+      updatedAt: timestamp("updated_at").defaultNow().notNull()
+    });
+    insertPlatformConfigSchema = createInsertSchema(platformConfigTable);
+  }
+});
+
+// ../../lib/db/src/schema/crypto-exchanges.ts
+var cryptoExchangesTable, insertCryptoExchangeSchema;
+var init_crypto_exchanges = __esm({
+  "../../lib/db/src/schema/crypto-exchanges.ts"() {
+    "use strict";
+    init_pg_core();
+    init_drizzle_zod();
+    init_users();
+    init_transactions();
+    cryptoExchangesTable = pgTable("crypto_exchanges", {
+      id: serial("id").primaryKey(),
+      userId: integer("user_id").notNull().references(() => usersTable.id, { onDelete: "cascade" }),
+      fromCurrency: varchar("from_currency", { length: 10 }).notNull(),
+      toCurrency: varchar("to_currency", { length: 10 }).notNull(),
+      fromAmount: decimal("from_amount", { precision: 18, scale: 2 }).notNull(),
+      usdtAmount: decimal("usdt_amount", { precision: 18, scale: 8 }).notNull(),
+      toAmount: decimal("to_amount", { precision: 18, scale: 2 }),
+      exchangeRate: decimal("exchange_rate", { precision: 18, scale: 8 }).notNull(),
+      feeAmount: decimal("fee_amount", { precision: 18, scale: 2 }).notNull().default("0"),
+      status: varchar("status", { length: 30 }).notNull().default("STEP1_DONE"),
+      txStep1Id: integer("tx_step1_id").references(() => transactionsTable.id),
+      txStep2Id: integer("tx_step2_id").references(() => transactionsTable.id),
+      adminNotes: text("admin_notes"),
+      createdAt: timestamp("created_at").defaultNow().notNull(),
+      updatedAt: timestamp("updated_at").defaultNow().notNull()
+    });
+    insertCryptoExchangeSchema = createInsertSchema(cryptoExchangesTable).omit({
+      id: true,
+      createdAt: true,
+      updatedAt: true
+    });
+  }
+});
+
+// ../../lib/db/src/schema/user-operator-fees.ts
+var userOperatorFeesTable, insertUserOperatorFeeSchema;
+var init_user_operator_fees = __esm({
+  "../../lib/db/src/schema/user-operator-fees.ts"() {
+    "use strict";
+    init_pg_core();
+    init_drizzle_zod();
+    init_users();
+    userOperatorFeesTable = pgTable("user_operator_fees", {
+      id: serial("id").primaryKey(),
+      userId: integer("user_id").notNull().references(() => usersTable.id, { onDelete: "cascade" }),
+      country: varchar("country", { length: 2 }).notNull(),
+      operator: varchar("operator", { length: 20 }).notNull(),
+      pixpayDeposit: numeric("pixpay_deposit", { precision: 6, scale: 4 }).notNull(),
+      pixpayWithdrawal: numeric("pixpay_withdrawal", { precision: 6, scale: 4 }).notNull(),
+      marginDeposit: numeric("margin_deposit", { precision: 6, scale: 4 }).notNull().default("0.015"),
+      marginWithdrawal: numeric("margin_withdrawal", { precision: 6, scale: 4 }).notNull().default("0.015"),
+      createdAt: timestamp("created_at").defaultNow().notNull(),
+      updatedAt: timestamp("updated_at").defaultNow().notNull()
+    }, (t) => [
+      unique().on(t.userId, t.country, t.operator)
+    ]);
+    insertUserOperatorFeeSchema = createInsertSchema(userOperatorFeesTable).omit({
+      id: true,
+      createdAt: true,
+      updatedAt: true
+    });
+  }
+});
+
+// ../../lib/db/src/schema/payment-links.ts
+var paymentLinksTable, insertPaymentLinkSchema;
+var init_payment_links = __esm({
+  "../../lib/db/src/schema/payment-links.ts"() {
+    "use strict";
+    init_pg_core();
+    init_drizzle_zod();
+    init_users();
+    paymentLinksTable = pgTable("payment_links", {
+      id: serial("id").primaryKey(),
+      userId: integer("user_id").notNull().references(() => usersTable.id, { onDelete: "cascade" }),
+      token: varchar("token", { length: 32 }).notNull().unique(),
+      title: varchar("title", { length: 200 }).notNull(),
+      description: text("description"),
+      photoData: text("photo_data"),
+      priceType: varchar("price_type", { length: 10 }).notNull().default("FREE"),
+      priceAmount: numeric("price_amount", { precision: 12, scale: 2 }),
+      currency: varchar("currency", { length: 10 }),
+      isActive: boolean("is_active").notNull().default(true),
+      clickCount: integer("click_count").notNull().default(0),
+      createdAt: timestamp("created_at").defaultNow().notNull(),
+      updatedAt: timestamp("updated_at").defaultNow().notNull()
+    });
+    insertPaymentLinkSchema = createInsertSchema(paymentLinksTable).omit({
+      id: true,
+      createdAt: true,
+      updatedAt: true
+    });
+  }
+});
+
+// ../../lib/db/src/schema/notifications.ts
+var notificationsTable, insertNotificationSchema;
+var init_notifications = __esm({
+  "../../lib/db/src/schema/notifications.ts"() {
+    "use strict";
+    init_pg_core();
+    init_drizzle_zod();
+    init_users();
+    init_transactions();
+    notificationsTable = pgTable("notifications", {
+      id: serial("id").primaryKey(),
+      userId: integer("user_id").notNull().references(() => usersTable.id, { onDelete: "cascade" }),
+      type: varchar("type", { length: 30 }).notNull().default("SYSTEM"),
+      title: varchar("title", { length: 200 }).notNull(),
+      body: text("body").notNull().default(""),
+      transactionId: integer("transaction_id").references(() => transactionsTable.id, { onDelete: "set null" }),
+      readAt: timestamp("read_at"),
+      createdAt: timestamp("created_at").defaultNow().notNull()
+    });
+    insertNotificationSchema = createInsertSchema(notificationsTable).omit({
+      id: true,
+      createdAt: true
+    });
+  }
+});
+
 // ../../lib/db/src/schema/index.ts
 var schema_exports = {};
 __export(schema_exports, {
   apiKeysTable: () => apiKeysTable,
+  conversionFeesTable: () => conversionFeesTable,
+  cryptoExchangesTable: () => cryptoExchangesTable,
+  insertConversionFeeSchema: () => insertConversionFeeSchema,
+  insertCryptoExchangeSchema: () => insertCryptoExchangeSchema,
+  insertKycProfileSchema: () => insertKycProfileSchema,
+  insertNotificationSchema: () => insertNotificationSchema,
+  insertPaymentLinkSchema: () => insertPaymentLinkSchema,
+  insertPixpayServiceSchema: () => insertPixpayServiceSchema,
+  insertPlatformConfigSchema: () => insertPlatformConfigSchema,
+  insertSupportLinksSchema: () => insertSupportLinksSchema,
   insertTransactionSchema: () => insertTransactionSchema,
+  insertUsdtRateSchema: () => insertUsdtRateSchema,
+  insertUserOperatorFeeSchema: () => insertUserOperatorFeeSchema,
   insertUserSchema: () => insertUserSchema,
   insertWalletSchema: () => insertWalletSchema,
   kycDocumentsTable: () => kycDocumentsTable,
+  kycProfilesTable: () => kycProfilesTable,
+  notificationsTable: () => notificationsTable,
+  paymentLinksTable: () => paymentLinksTable,
+  pixpayServicesTable: () => pixpayServicesTable,
+  platformConfigTable: () => platformConfigTable,
+  supportLinksTable: () => supportLinksTable,
   transactionsTable: () => transactionsTable,
+  usdtRatesTable: () => usdtRatesTable,
   userFeesTable: () => userFeesTable,
+  userOperatorFeesTable: () => userOperatorFeesTable,
   usersTable: () => usersTable,
   walletsTable: () => walletsTable
 });
@@ -53594,6 +53881,16 @@ var init_schema2 = __esm({
     init_api_keys();
     init_kyc_documents();
     init_user_fees();
+    init_conversion_fees();
+    init_pixpay_services();
+    init_usdt_rates();
+    init_support_links();
+    init_kyc_profiles();
+    init_platform_config();
+    init_crypto_exchanges();
+    init_user_operator_fees();
+    init_payment_links();
+    init_notifications();
   }
 });
 
