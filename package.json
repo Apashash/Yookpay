@@ -9,8 +9,8 @@
   },
   "scripts": {
     "start": "node dist/index.cjs",
-    "build:frontend": "vite build",
-    "build:backend": "node build.mjs",
+    "build:frontend": "pnpm --filter @workspace/yookpay run build && rm -rf dist/public && mkdir -p dist && cp -R artifacts/yookpay/dist/public dist/public",
+    "build:backend": "pnpm --filter @workspace/api-server run build && rm -f dist/*.cjs dist/*.map && cp -R artifacts/api-server/dist/. dist/",
     "build": "npm run build:frontend && npm run build:backend",
     "dev:frontend": "vite",
     "dev:backend": "tsx watch server/index.ts",

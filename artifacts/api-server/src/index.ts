@@ -3,12 +3,42 @@ import { logger } from "./lib/logger";
 import { runStartupMigrations } from "./lib/migrations";
 import { startExpiryWorker } from "./lib/expiryWorker";
 import { pool } from "@workspace/db";
+import fs from "node:fs";
+import path from "node:path";
 
 const rawPort = process.env["PORT"] ?? process.env["port"] ?? "3000";
 const port = Number(rawPort);
 
 if (Number.isNaN(port) || port <= 0) {
   throw new Error(`Invalid PORT value: "${rawPort}"`);
+}
+
+function loadDotEnv(): void {
+  const envPath = path.resolve(process.cwd(), ".env");
+  if (!fs.existsSync(envPath)) return;
+
+  try {
+    const lines = fs.readFileSync(envPath, "utf8").split(/\r?\n/);
+    for (const line of lines) {
+      const trimmed = line.trim();
+      if (!trimmed || trimmed.startsWith("#")) continue;
+      const separator = trimmed.indexOf("=");
+      if (separator <= 0) continue;
+
+      const key = trimmed.slice(0, separator).trim();
+      const value = trimmed
+        .slice(separator + 1)
+        .trim()
+        .replace(/^['"]|['"]$/g, "");
+
+      if (key && !(key in process.env)) {
+        process.env[key] = value;
+      }
+    }
+    logger.info({ envPath }, "Loaded environment variables from .env");
+  } catch (err) {
+    logger.warn({ err, envPath }, "Could not load .env file");
+  }
 }
 
 async function startServer(): Promise<void> {
@@ -64,4 +94,5 @@ async function startServer(): Promise<void> {
   });
 }
 
+loadDotEnv();
 void startServer();
