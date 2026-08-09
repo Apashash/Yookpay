@@ -106,26 +106,58 @@ router.get("/fees", authMiddleware, async (req: AuthRequest, res) => {
   }
 });
 
-// GET /services/available-operators — active operators per country (no auth, used by public pay page)
+// GET /services/available-operators — active operators per country (union of PixPay + Maviance)
 router.get("/available-operators", async (_req, res) => {
   try {
-    const result = await db.execute<{
-      operator: string; country: string; type: string;
-    }>(sql`SELECT operator, country, type FROM pixpay_services WHERE active = true`);
+    // Merge services from both providers; operator appears once even if in both
+    const [pixResult, mavResult] = await Promise.all([
+      db.execute<{ operator: string; country: string; type: string }>(
+        sql`SELECT operator, country, type FROM pixpay_services WHERE active = true`
+      ),
+      db.execute<{ operator: string; country: string; type: string }>(
+        sql`SELECT operator, country, type FROM maviance_services WHERE active = true`
+      ).catch(() => ({ rows: [] as Array<{ operator: string; country: string; type: string }> })),
+    ]);
 
-    const map: Record<string, { deposit: string[]; withdrawal: string[] }> = {};
-    for (const row of result.rows as Array<{ operator: string; country: string | null; type: string }>) {
+    const map: Record<string, { deposit: string[]; withdrawal: string[]; providers: Record<string, string[]> }> = {};
+
+    const addRow = (row: { operator: string; country: string | null; type: string }, source: string) => {
       const country  = row.country?.toUpperCase();
       const operator = row.operator?.toUpperCase();
       const type     = row.type?.toUpperCase();
-      if (!country || !operator || !type) continue;
-      if (!map[country]) map[country] = { deposit: [], withdrawal: [] };
+      if (!country || !operator || !type) return;
+      if (operator === "CARD") return; // Card shown separately
+      if (!map[country]) map[country] = { deposit: [], withdrawal: [], providers: {} };
       if (type === "DEPOSIT"    && !map[country].deposit.includes(operator))    map[country].deposit.push(operator);
       if (type === "WITHDRAWAL" && !map[country].withdrawal.includes(operator)) map[country].withdrawal.push(operator);
+      // Track which providers support each operator
+      const pKey = `${operator}:${type}`;
+      if (!map[country].providers[pKey]) map[country].providers[pKey] = [];
+      if (!map[country].providers[pKey].includes(source)) map[country].providers[pKey].push(source);
+    };
+
+    for (const row of pixResult.rows as Array<{ operator: string; country: string | null; type: string }>) {
+      addRow(row, "PIXPAY");
     }
+    for (const row of mavResult.rows as Array<{ operator: string; country: string | null; type: string }>) {
+      addRow(row, "MAVIANCE");
+    }
+
     res.json({ available: map });
   } catch {
     res.json({ available: {} });
+  }
+});
+
+// GET /services/card-available — countries/currencies that support card payment via e-nkap
+router.get("/card-available", async (_req, res) => {
+  try {
+    const result = await db.execute<{ country: string; currency: string }>(
+      sql`SELECT DISTINCT country, currency FROM maviance_services WHERE type = 'CARD' AND active = true`
+    ).catch(() => ({ rows: [] as Array<{ country: string; currency: string }> }));
+    res.json({ available: result.rows });
+  } catch {
+    res.json({ available: [] });
   }
 });
 

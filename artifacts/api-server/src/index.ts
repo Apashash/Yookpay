@@ -12,13 +12,17 @@ if (Number.isNaN(port) || port <= 0) {
 }
 
 async function startServer(): Promise<void> {
-  // Diagnostic — log which PixPay keys are detected at startup
+  // Diagnostic — log which provider keys are detected at startup
   const pixpayEnv = process.env["PIXPAY_ENV"] ?? "NON DÉFINI → sandbox utilisé par défaut ⚠️";
   logger.info(`[ENV CHECK] PIXPAY_ENV = ${pixpayEnv}`);
   const pixpayKeys = ["PIXPAY_API_KEY_XAF", "PIXPAY_API_KEY_XOF", "PIXPAY_API_KEY_CDF", "PIXPAY_API_KEY"];
   for (const k of pixpayKeys) {
     logger.info(`[ENV CHECK] ${k} = ${process.env[k] ? "SET ✓" : "NOT SET ✗"}`);
   }
+  const mavianceEnv = process.env["MAVIANCE_ENV"] ?? "staging (défaut)";
+  logger.info(`[ENV CHECK] MAVIANCE_ENV = ${mavianceEnv}`);
+  logger.info(`[ENV CHECK] MAVIANCE_PUBLIC_KEY = ${process.env["MAVIANCE_PUBLIC_KEY"] ? "SET ✓" : "NOT SET ✗"}`);
+  logger.info(`[ENV CHECK] MAVIANCE_SECRET     = ${process.env["MAVIANCE_SECRET"]     ? "SET ✓" : "NOT SET ✗"}`);
 
   const dbUrl = process.env.SUPABASE_DATABASE_URL || process.env.DATABASE_URL;
 

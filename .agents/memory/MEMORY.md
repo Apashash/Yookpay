@@ -1,0 +1,1 @@
+- [Maviance SmobilPay Integration](maviance-integration.md) — S3P flow, staging service IDs, HMAC auth, provider selection via payment_provider_config table, e-nkap card collection.

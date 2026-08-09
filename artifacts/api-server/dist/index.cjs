@@ -29582,7 +29582,7 @@ var require_utils_webcrypto = __commonJS({
     var nodeCrypto2 = require("crypto");
     module2.exports = {
       postgresMd5PasswordHash,
-      randomBytes: randomBytes3,
+      randomBytes: randomBytes4,
       deriveKey,
       sha256,
       hashByName,
@@ -29592,7 +29592,7 @@ var require_utils_webcrypto = __commonJS({
     var webCrypto = nodeCrypto2.webcrypto || globalThis.crypto;
     var subtleCrypto = webCrypto.subtle;
     var textEncoder = new TextEncoder();
-    function randomBytes3(length) {
+    function randomBytes4(length) {
       return webCrypto.getRandomValues(Buffer.alloc(length));
     }
     async function md5(string4) {
@@ -67207,6 +67207,175 @@ async function getPixPayTransactionStatus(pixTransactionId, currency) {
   }
 }
 
+// src/lib/maviance.ts
+var import_crypto3 = require("crypto");
+var STAGING_BASE = "https://s3p.smobilpay.staging.maviance.info/v2";
+var PROD_BASE2 = "https://s3p.smobilpay.maviance.info/v2";
+function getMavianceBaseUrl() {
+  return process.env["MAVIANCE_ENV"] === "production" ? PROD_BASE2 : STAGING_BASE;
+}
+function getCredentials() {
+  const publicKey = process.env["MAVIANCE_PUBLIC_KEY"];
+  const secret = process.env["MAVIANCE_SECRET"];
+  if (!publicKey || !secret) {
+    throw new Error(
+      "Cl\xE9s Maviance manquantes \u2014 d\xE9finissez MAVIANCE_PUBLIC_KEY et MAVIANCE_SECRET dans les variables d'environnement."
+    );
+  }
+  return { publicKey: publicKey.trim(), secret: secret.trim() };
+}
+function buildHeaders(body = "") {
+  const { publicKey, secret } = getCredentials();
+  const timestamp2 = (/* @__PURE__ */ new Date()).toISOString();
+  const nonce = (0, import_crypto3.randomBytes)(16).toString("hex");
+  const message = nonce + timestamp2 + body;
+  const signature = (0, import_crypto3.createHmac)("sha256", secret).update(message).digest("hex");
+  return {
+    "Content-Type": "application/json",
+    "X-Api-Key": publicKey,
+    "X-HS-Date": timestamp2,
+    "X-Nonce": nonce,
+    "Authorization": `HMAC ${signature}`
+  };
+}
+async function s3pRequest(method, endpoint, body) {
+  const base = getMavianceBaseUrl();
+  const url2 = `${base}${endpoint}`;
+  const bodyStr = body ? JSON.stringify(body) : "";
+  const headers = buildHeaders(method === "POST" ? bodyStr : "");
+  logger.debug({ method, url: url2, bodyLen: bodyStr.length }, "Maviance S3P request");
+  const res = await fetch(url2, {
+    method,
+    headers,
+    body: method === "POST" ? bodyStr : void 0,
+    signal: AbortSignal.timeout(3e4)
+  });
+  const text2 = await res.text();
+  let json3;
+  try {
+    json3 = JSON.parse(text2);
+  } catch {
+    logger.error({ status: res.status, body: text2.slice(0, 500) }, "Maviance non-JSON response");
+    throw new Error(`Maviance r\xE9ponse non-JSON (HTTP ${res.status}): ${text2.slice(0, 200)}`);
+  }
+  logger.info(
+    { status: res.status, endpoint, preview: text2.slice(0, 400) },
+    "Maviance S3P response"
+  );
+  if (!res.ok) {
+    const err = json3;
+    const msg = err.message ?? err.description ?? `Erreur Maviance HTTP ${res.status}`;
+    throw new MavianceApiError(msg, res.status, err.errorCode);
+  }
+  return json3;
+}
+var MavianceApiError = class extends Error {
+  constructor(message, httpStatus, errorCode) {
+    super(message);
+    this.httpStatus = httpStatus;
+    this.errorCode = errorCode;
+    this.name = "MavianceApiError";
+  }
+};
+function isMavianceSuccess(status) {
+  return ["SUCCESS", "SUCCESSFUL", "SUCCESSFULL", "COMPLETED"].includes(status.toUpperCase());
+}
+function isMavianceFailed(status) {
+  return ["FAILED", "CANCELLED", "EXPIRED", "REJECTED", "ERROR"].includes(status.toUpperCase());
+}
+function getMavianceIpnUrl(path2) {
+  const base = process.env["MAVIANCE_IPN_BASE_URL"] || (process.env["REPLIT_DOMAINS"] ? `https://${process.env["REPLIT_DOMAINS"].split(",")[0]}` : "http://localhost:8080");
+  return `${base}${path2}`;
+}
+function normalizeMaviancePhone(phone, country) {
+  const DIAL_CODES3 = {
+    CM: "237",
+    CI: "225",
+    SN: "221",
+    BF: "226",
+    CD: "243",
+    CG: "242",
+    GA: "241",
+    GN: "224",
+    ML: "223",
+    TG: "228",
+    BJ: "229"
+  };
+  const dialCode = DIAL_CODES3[country.toUpperCase()] ?? "";
+  const digits = phone.replace(/\D/g, "");
+  if (!dialCode) return digits;
+  if (digits.startsWith(dialCode)) return digits;
+  return dialCode + digits.replace(/^0+/, "");
+}
+async function createQuote(serviceId, amount, currency) {
+  return s3pRequest("POST", "/quotestd", {
+    serviceid: serviceId,
+    amount,
+    currency: currency.toUpperCase()
+  });
+}
+async function collectStd(payToken, phone, trid) {
+  return s3pRequest("POST", "/collectstd", {
+    payToken,
+    phonenumber: phone,
+    trid,
+    processing_number: phone
+  });
+}
+async function cashin(payToken, phone, trid) {
+  return s3pRequest("POST", "/cashin", {
+    payToken,
+    phonenumber: phone,
+    trid
+  });
+}
+async function collectCard(payToken, redirectUrl, cancelUrl) {
+  return s3pRequest("POST", "/collectcard", {
+    payToken,
+    redirectUrl,
+    cancelUrl: cancelUrl ?? redirectUrl
+  });
+}
+async function verifyTx(payToken) {
+  try {
+    return await s3pRequest(
+      "GET",
+      `/verifytx?payToken=${encodeURIComponent(payToken)}`
+    );
+  } catch (err) {
+    logger.warn({ err, payToken }, "Maviance verifyTx error");
+    return null;
+  }
+}
+async function initiateDeposit(params) {
+  const hint = (process.env["MAVIANCE_PUBLIC_KEY"] ?? "").slice(0, 6) + "...";
+  logger.info(
+    { ...params, phone: params.phone.replace(/\d(?=\d{4})/g, "*"), env: process.env["MAVIANCE_ENV"] ?? "staging", hint },
+    "Maviance DEPOSIT: quote \u2192 collectstd"
+  );
+  const quote = await createQuote(params.serviceId, params.amount, params.currency);
+  const collect = await collectStd(quote.payToken, params.phone, params.trid);
+  logger.info({ payToken: quote.payToken, status: collect.status, trid: params.trid }, "Maviance DEPOSIT done");
+  return { payToken: quote.payToken, quote, collect };
+}
+async function initiateWithdrawal(params) {
+  logger.info(
+    { ...params, phone: params.phone.replace(/\d(?=\d{4})/g, "*") },
+    "Maviance WITHDRAWAL: quote \u2192 cashin"
+  );
+  const quote = await createQuote(params.serviceId, params.amount, params.currency);
+  const collect = await cashin(quote.payToken, params.phone, params.trid);
+  logger.info({ payToken: quote.payToken, status: collect.status, trid: params.trid }, "Maviance WITHDRAWAL done");
+  return { payToken: quote.payToken, quote, collect };
+}
+async function initiateCardDeposit(params) {
+  logger.info(params, "Maviance CARD DEPOSIT: quote \u2192 collectcard");
+  const quote = await createQuote(params.serviceId, params.amount, params.currency);
+  const result = await collectCard(quote.payToken, params.redirectUrl, params.cancelUrl);
+  logger.info({ payToken: quote.payToken, redirectUrl: result.redirectUrl }, "Maviance CARD done");
+  return { payToken: quote.payToken, quote, redirectUrl: result.redirectUrl };
+}
+
 // src/routes/transactions.ts
 var DIAL_CODES = {
   BJ: "229",
@@ -67378,28 +67547,48 @@ router4.get("/:id", authMiddleware, async (req, res) => {
     }
     if (tx.status === "PENDING" && tx.providerReference) {
       try {
-        const pixStatus = await getPixPayTransactionStatus(tx.providerReference, tx.currency);
-        if (pixStatus && (pixStatus.isSuccess || pixStatus.isFailed)) {
-          const newStatus = pixStatus.isSuccess ? "SUCCESS" : "FAILED";
-          req.log.info({ txId: tx.id, pixStatus: pixStatus.state, newStatus }, "Auto-sync from PixPay status check");
+        const meta = tx.metadata ?? {};
+        const txProv = String(meta["provider"] ?? "PIXPAY").toUpperCase();
+        let newStatus = null;
+        let syncMeta = {};
+        if (txProv === "MAVIANCE") {
+          const mavStatus = await verifyTx(tx.providerReference);
+          if (mavStatus) {
+            if (isMavianceSuccess(mavStatus.status)) {
+              newStatus = "SUCCESS";
+            } else if (isMavianceFailed(mavStatus.status)) {
+              newStatus = "FAILED";
+            }
+            syncMeta = { mavStatusSynced: mavStatus.status, syncedAt: (/* @__PURE__ */ new Date()).toISOString() };
+            req.log.info({ txId: tx.id, mavStatus: mavStatus.status, newStatus }, "Auto-sync from Maviance verifyTx");
+          }
+        } else {
+          const pixStatus = await getPixPayTransactionStatus(tx.providerReference, tx.currency);
+          if (pixStatus) {
+            if (pixStatus.isSuccess) {
+              newStatus = "SUCCESS";
+            } else if (pixStatus.isFailed) {
+              newStatus = "FAILED";
+            }
+            syncMeta = { pixStateSynced: pixStatus.state, syncedAt: (/* @__PURE__ */ new Date()).toISOString() };
+            req.log.info({ txId: tx.id, pixStatus: pixStatus.state, newStatus }, "Auto-sync from PixPay status check");
+          }
+        }
+        if (newStatus) {
           const syncResult = await db.update(transactionsTable).set({
             status: newStatus,
-            metadata: {
-              ...tx.metadata ?? {},
-              pixStateSynced: pixStatus.state,
-              syncedAt: (/* @__PURE__ */ new Date()).toISOString()
-            },
+            metadata: { ...meta, ...syncMeta },
             updatedAt: /* @__PURE__ */ new Date()
           }).where(and(eq(transactionsTable.id, tx.id), eq(transactionsTable.status, "PENDING")));
           const rowClaimed = syncResult.rowCount > 0;
-          if (rowClaimed && pixStatus.isSuccess && tx.type === "DEPOSIT") {
+          if (rowClaimed && newStatus === "SUCCESS" && (tx.type === "DEPOSIT" || tx.type === "CARD_DEPOSIT")) {
             const [wallet] = await db.select().from(walletsTable).where(and(eq(walletsTable.userId, tx.userId), eq(walletsTable.currency, tx.currency))).limit(1);
             if (wallet) {
               const credit = parseFloat(tx.netAmount);
               await db.update(walletsTable).set({ balance: (parseFloat(wallet.balance) + credit).toFixed(2), updatedAt: /* @__PURE__ */ new Date() }).where(eq(walletsTable.id, wallet.id));
               req.log.info({ txId: tx.id, credit, currency: tx.currency }, "Auto-sync DEPOSIT credited wallet");
             }
-          } else if (rowClaimed && pixStatus.isFailed && tx.type === "WITHDRAWAL") {
+          } else if (rowClaimed && newStatus === "FAILED" && tx.type === "WITHDRAWAL") {
             const [wallet] = await db.select().from(walletsTable).where(and(eq(walletsTable.userId, tx.userId), eq(walletsTable.currency, tx.currency))).limit(1);
             if (wallet) {
               const refund = parseFloat(tx.netAmount) + parseFloat(tx.fee);
@@ -67414,7 +67603,7 @@ router4.get("/:id", authMiddleware, async (req, res) => {
           }
         }
       } catch (syncErr) {
-        req.log.warn({ syncErr, txId: tx.id }, "PixPay auto-sync failed \u2014 returning current status");
+        req.log.warn({ syncErr, txId: tx.id }, "Auto-sync failed \u2014 returning current status");
       }
     }
     res.json(formatTx(tx));
@@ -67477,6 +67666,43 @@ async function getPlatformConfig(key) {
   }
   return null;
 }
+async function getMavianceServiceId(operator, currency, type, country) {
+  try {
+    const result = await db.execute(
+      sql`SELECT service_id FROM maviance_services
+          WHERE operator = ${operator.toUpperCase()}
+            AND currency = ${currency.toUpperCase()}
+            AND type = ${type}
+            AND active = true
+            AND (country = ${country?.toUpperCase() ?? null} OR country IS NULL)
+          ORDER BY (country IS NOT NULL) DESC
+          LIMIT 1`
+    );
+    if (result.rows.length > 0) {
+      const sid = parseInt(String(result.rows[0].service_id));
+      return sid > 0 ? sid : null;
+    }
+  } catch {
+  }
+  return null;
+}
+async function getProviderForRoute(country, operator, type) {
+  try {
+    const result = await db.execute(
+      sql`SELECT provider FROM payment_provider_config
+          WHERE country = ${country.toUpperCase()}
+            AND operator = ${operator.toUpperCase()}
+            AND type = ${type}
+          LIMIT 1`
+    );
+    if (result.rows.length > 0) {
+      const p = String(result.rows[0].provider).toUpperCase();
+      if (p === "MAVIANCE") return "MAVIANCE";
+    }
+  } catch {
+  }
+  return "PIXPAY";
+}
 var COUNTRY_MIN_AMOUNTS = {
   CI: 50,
   SN: 50,
@@ -67530,7 +67756,8 @@ router4.post("/deposit", authMiddleware, transactionRateLimit, async (req, res) 
     const userRate = opBreakdown?.total ?? legacyRate;
     const feeBreakdown = userRate !== void 0 ? calculateFeeWithRate(amount, country, operator, "DEPOSIT", userRate) : calculateFee(amount, country, operator, "DEPOSIT");
     const yookpayMarginAmount = Math.round(amount * (opBreakdown?.margin ?? await getDefaultMargin()));
-    const serviceId = await getPixPayServiceId(operator, currency, "DEPOSIT", country);
+    const provider = await getProviderForRoute(country, operator, "DEPOSIT");
+    const serviceId = provider === "MAVIANCE" ? await getMavianceServiceId(operator, currency, "DEPOSIT", country) : await getPixPayServiceId(operator, currency, "DEPOSIT", country);
     if (serviceId === null) {
       res.status(503).json({
         error: "ServiceNotAvailable",
@@ -67539,7 +67766,7 @@ router4.post("/deposit", authMiddleware, transactionRateLimit, async (req, res) 
       return;
     }
     const feeAmt = feeBreakdown.feeAmount;
-    const pixPayAmount = feeBearer === "SENDER" ? amount + feeAmt : amount;
+    const providerAmount = feeBearer === "SENDER" ? amount + feeAmt : amount;
     const walletNetAmount = feeBearer === "SENDER" ? amount : Math.max(amount - feeAmt, 0);
     const [tx] = await db.insert(transactionsTable).values({
       userId: req.userId,
@@ -67555,16 +67782,62 @@ router4.post("/deposit", authMiddleware, transactionRateLimit, async (req, res) 
       reference,
       feeRate: feeBreakdown.feeRate.toString(),
       yookpayMargin: yookpayMarginAmount.toString(),
-      metadata: { initiatedAt: (/* @__PURE__ */ new Date()).toISOString(), feeBearer, flow, pixPayAmount }
+      metadata: { initiatedAt: (/* @__PURE__ */ new Date()).toISOString(), feeBearer, flow, providerAmount, provider }
     }).returning();
     req.log.info(
-      { txId: tx.id, reference, userId: req.userId, amount, pixPayAmount, walletNetAmount, currency, operator, country, flow, feeBearer },
-      "Deposit transaction created \u2014 calling PixPay"
+      { txId: tx.id, reference, userId: req.userId, amount, providerAmount, walletNetAmount, currency, operator, country, flow, feeBearer, provider },
+      `Deposit transaction created \u2014 calling ${provider}`
     );
+    if (provider === "MAVIANCE") {
+      const mavPhone = normalizeMaviancePhone(phone, country);
+      const mavResult = await initiateDeposit({
+        serviceId,
+        amount: providerAmount,
+        currency,
+        phone: mavPhone,
+        trid: reference
+      });
+      const isImmediatelyFailed = isMavianceFailed(mavResult.collect.status);
+      await db.update(transactionsTable).set({
+        providerReference: mavResult.payToken,
+        status: isImmediatelyFailed ? "FAILED" : "PENDING",
+        metadata: {
+          initiatedAt: (/* @__PURE__ */ new Date()).toISOString(),
+          feeBearer,
+          flow,
+          providerAmount,
+          provider: "MAVIANCE",
+          mavPayToken: mavResult.payToken,
+          mavCollectStatus: mavResult.collect.status,
+          mavQuoteFees: mavResult.quote.fees
+        },
+        updatedAt: /* @__PURE__ */ new Date()
+      }).where(eq(transactionsTable.id, tx.id));
+      if (isImmediatelyFailed) {
+        req.log.warn({ txId: tx.id, payToken: mavResult.payToken, status: mavResult.collect.status }, "Maviance deposit immediately FAILED");
+        res.status(422).json({
+          error: "ProviderFailed",
+          message: `Le d\xE9p\xF4t a \xE9t\xE9 refus\xE9 par l'op\xE9rateur. V\xE9rifiez votre num\xE9ro de t\xE9l\xE9phone et r\xE9essayez.`
+        });
+        return;
+      }
+      req.log.info({ txId: tx.id, payToken: mavResult.payToken, status: mavResult.collect.status }, "Maviance deposit initiated \u2014 awaiting IPN/verify");
+      res.status(201).json({
+        transaction: formatTx(tx),
+        feeBreakdown,
+        feeBearer,
+        flow,
+        provider: "MAVIANCE",
+        status: mavResult.collect.status,
+        message: "Validez le paiement Mobile Money sur votre t\xE9l\xE9phone.",
+        pending: true
+      });
+      return;
+    }
     const pixParams = {
       currency,
       serviceId,
-      amount: pixPayAmount,
+      amount: providerAmount,
       phone: normalizePhone(phone, country),
       customData: reference,
       omOtp
@@ -67588,6 +67861,7 @@ router4.post("/deposit", authMiddleware, transactionRateLimit, async (req, res) 
         initiatedAt: (/* @__PURE__ */ new Date()).toISOString(),
         feeBearer,
         flow,
+        provider: "PIXPAY",
         pixState: pixResult.state,
         pixMessage: pixResult.message,
         smsLink: pixResult.smsLink
@@ -67596,17 +67870,7 @@ router4.post("/deposit", authMiddleware, transactionRateLimit, async (req, res) 
     }).where(eq(transactionsTable.id, tx.id));
     if (isPixFailed) {
       req.log.warn(
-        {
-          txId: tx.id,
-          pixId: pixResult.pixTransactionId,
-          pixState: pixResult.state,
-          pixMessage: pixResult.message,
-          serviceId,
-          currency,
-          operator,
-          country,
-          normalizedPhone: normalizePhone(phone, country)
-        },
+        { txId: tx.id, pixId: pixResult.pixTransactionId, pixState: pixResult.state, pixMessage: pixResult.message, serviceId, currency, operator, country },
         "PixPay deposit immediately FAILED"
       );
       res.status(422).json({
@@ -67615,15 +67879,13 @@ router4.post("/deposit", authMiddleware, transactionRateLimit, async (req, res) 
       });
       return;
     }
-    req.log.info(
-      { txId: tx.id, pixId: pixResult.pixTransactionId, pixState: pixResult.state },
-      "PixPay deposit initiated \u2014 awaiting IPN"
-    );
+    req.log.info({ txId: tx.id, pixId: pixResult.pixTransactionId, pixState: pixResult.state }, "PixPay deposit initiated \u2014 awaiting IPN");
     res.status(201).json({
       transaction: formatTx(tx),
       feeBreakdown,
       feeBearer,
       flow,
+      provider: "PIXPAY",
       pixState: pixResult.state,
       smsLink: pixResult.smsLink,
       message: pixResult.message,
@@ -67693,7 +67955,8 @@ router4.post("/withdraw", authMiddleware, transactionRateLimit, async (req, res)
       return;
     }
     const flow = getOperatorFlow(operator);
-    const serviceId = await getPixPayServiceId(operator, currency, "WITHDRAWAL", country);
+    const provider = await getProviderForRoute(country, operator, "WITHDRAWAL");
+    const serviceId = provider === "MAVIANCE" ? await getMavianceServiceId(operator, currency, "WITHDRAWAL", country) : await getPixPayServiceId(operator, currency, "WITHDRAWAL", country);
     if (serviceId === null) {
       res.status(503).json({
         error: "ServiceNotAvailable",
@@ -67710,7 +67973,6 @@ router4.post("/withdraw", authMiddleware, transactionRateLimit, async (req, res)
       amount: amount.toString(),
       fee: wdFeeAmt.toString(),
       netAmount: phoneNetAmount.toString(),
-      // what phone receives (refund = netAmount + fee = walletDebit)
       currency,
       country,
       operator,
@@ -67718,12 +67980,82 @@ router4.post("/withdraw", authMiddleware, transactionRateLimit, async (req, res)
       reference,
       feeRate: feeBreakdown.feeRate.toString(),
       yookpayMargin: yookpayMarginAmount.toString(),
-      metadata: { initiatedAt: (/* @__PURE__ */ new Date()).toISOString(), feeBearer, flow, walletDebit, pixPayAmount }
+      metadata: { initiatedAt: (/* @__PURE__ */ new Date()).toISOString(), feeBearer, flow, walletDebit, providerAmount: pixPayAmount, provider }
     }).returning();
     req.log.info(
-      { txId: tx.id, reference, userId: req.userId, amount, pixPayAmount, walletDebit, currency, operator, flow, feeBearer },
-      "Withdrawal transaction created \u2014 wallet reserved \u2014 calling PixPay"
+      { txId: tx.id, reference, userId: req.userId, amount, providerAmount: pixPayAmount, walletDebit, currency, operator, flow, feeBearer, provider },
+      `Withdrawal transaction created \u2014 wallet reserved \u2014 calling ${provider}`
     );
+    if (provider === "MAVIANCE") {
+      const mavPhone = normalizeMaviancePhone(phone, country);
+      let mavResult;
+      try {
+        mavResult = await initiateWithdrawal({
+          serviceId,
+          amount: pixPayAmount,
+          currency,
+          phone: mavPhone,
+          trid: reference
+        });
+      } catch (mavErr) {
+        const [cw] = await db.select().from(walletsTable).where(and(eq(walletsTable.userId, req.userId), eq(walletsTable.currency, currency))).limit(1);
+        if (cw) {
+          await db.update(walletsTable).set({
+            balance: (parseFloat(cw.balance) + walletDebit).toFixed(2),
+            updatedAt: /* @__PURE__ */ new Date()
+          }).where(eq(walletsTable.id, cw.id));
+        }
+        await db.update(transactionsTable).set({ status: "FAILED", updatedAt: /* @__PURE__ */ new Date() }).where(eq(transactionsTable.id, tx.id));
+        req.log.error({ err: mavErr, txId: tx.id }, "Maviance withdrawal call failed \u2014 wallet refunded");
+        const msg = mavErr instanceof Error ? mavErr.message : "Retrait Maviance \xE9chou\xE9";
+        res.status(500).json({ error: "ProviderError", message: msg });
+        return;
+      }
+      const isImmediatelyFailed = isMavianceFailed(mavResult.collect.status);
+      await db.update(transactionsTable).set({
+        providerReference: mavResult.payToken,
+        status: isImmediatelyFailed ? "FAILED" : "PENDING",
+        metadata: {
+          initiatedAt: (/* @__PURE__ */ new Date()).toISOString(),
+          feeBearer,
+          flow,
+          walletDebit,
+          providerAmount: pixPayAmount,
+          provider: "MAVIANCE",
+          mavPayToken: mavResult.payToken,
+          mavCollectStatus: mavResult.collect.status,
+          mavQuoteFees: mavResult.quote.fees
+        },
+        updatedAt: /* @__PURE__ */ new Date()
+      }).where(eq(transactionsTable.id, tx.id));
+      if (isImmediatelyFailed) {
+        const [cw] = await db.select().from(walletsTable).where(and(eq(walletsTable.userId, req.userId), eq(walletsTable.currency, currency))).limit(1);
+        if (cw) {
+          await db.update(walletsTable).set({
+            balance: (parseFloat(cw.balance) + walletDebit).toFixed(2),
+            updatedAt: /* @__PURE__ */ new Date()
+          }).where(eq(walletsTable.id, cw.id));
+        }
+        req.log.warn({ txId: tx.id, payToken: mavResult.payToken, status: mavResult.collect.status }, "Maviance withdrawal immediately FAILED \u2014 wallet refunded");
+        res.status(422).json({
+          error: "ProviderFailed",
+          message: "Le retrait a \xE9t\xE9 refus\xE9 par l'op\xE9rateur. Votre solde a \xE9t\xE9 rembours\xE9."
+        });
+        return;
+      }
+      req.log.info({ txId: tx.id, payToken: mavResult.payToken, status: mavResult.collect.status }, "Maviance withdrawal initiated \u2014 awaiting IPN");
+      res.status(201).json({
+        transaction: formatTx(tx),
+        feeBreakdown,
+        feeBearer,
+        flow,
+        provider: "MAVIANCE",
+        status: mavResult.collect.status,
+        message: "Retrait en cours \u2014 vous recevrez les fonds sur votre t\xE9l\xE9phone.",
+        pending: true
+      });
+      return;
+    }
     const pixParams = {
       currency,
       serviceId,
@@ -67750,6 +68082,7 @@ router4.post("/withdraw", authMiddleware, transactionRateLimit, async (req, res)
         initiatedAt: (/* @__PURE__ */ new Date()).toISOString(),
         feeBearer,
         flow,
+        provider: "PIXPAY",
         pixState: pixResult.state,
         pixMessage: pixResult.message,
         smsLink: pixResult.smsLink
@@ -67783,6 +68116,7 @@ router4.post("/withdraw", authMiddleware, transactionRateLimit, async (req, res)
       feeBreakdown,
       feeBearer,
       flow,
+      provider: "PIXPAY",
       pixState: pixResult.state,
       smsLink: pixResult.smsLink,
       message: pixResult.message,
@@ -67791,6 +68125,97 @@ router4.post("/withdraw", authMiddleware, transactionRateLimit, async (req, res)
   } catch (err) {
     req.log.error({ err, reference }, "Withdrawal error");
     const msg = err instanceof Error ? err.message : "Retrait \xE9chou\xE9";
+    res.status(500).json({ error: "InternalError", message: msg });
+  }
+});
+router4.post("/card-deposit", authMiddleware, transactionRateLimit, async (req, res) => {
+  const schema = external_exports.object({
+    amount: external_exports.number().min(100),
+    currency: external_exports.enum(["XAF", "XOF", "CDF"]),
+    country: external_exports.string().min(2),
+    redirectUrl: external_exports.string().url().optional(),
+    cancelUrl: external_exports.string().url().optional()
+  });
+  const parse3 = schema.safeParse(req.body);
+  if (!parse3.success) {
+    res.status(400).json({ error: "ValidationError", message: "Param\xE8tres invalides pour le d\xE9p\xF4t par carte" });
+    return;
+  }
+  const { amount, currency, country, redirectUrl, cancelUrl } = parse3.data;
+  const reference = generateReference();
+  try {
+    const serviceId = await getMavianceServiceId("CARD", currency, "CARD", country);
+    if (serviceId === null) {
+      res.status(503).json({
+        error: "ServiceNotAvailable",
+        message: `Le paiement par carte (${currency}) n'est pas encore disponible. Contactez le support YookPay.`
+      });
+      return;
+    }
+    const defMargin = await getDefaultMargin();
+    const feeAmt = Math.round(amount * defMargin);
+    const netAmount = amount - feeAmt;
+    const ipnBase = getMavianceIpnUrl("/api/ipn/enkap");
+    const successUrl = redirectUrl ?? (process.env["APP_URL"] ? `${process.env["APP_URL"]}/dashboard?ref=${reference}` : `http://localhost:5000/dashboard?ref=${reference}`);
+    const failUrl = cancelUrl ?? successUrl;
+    const [tx] = await db.insert(transactionsTable).values({
+      userId: req.userId,
+      type: "DEPOSIT",
+      status: "PENDING",
+      amount: amount.toString(),
+      fee: feeAmt.toString(),
+      netAmount: netAmount.toString(),
+      currency,
+      country,
+      operator: "CARD",
+      phone: null,
+      reference,
+      feeRate: defMargin.toString(),
+      yookpayMargin: feeAmt.toString(),
+      metadata: {
+        initiatedAt: (/* @__PURE__ */ new Date()).toISOString(),
+        provider: "MAVIANCE_ENKAP",
+        paymentMethod: "CARD",
+        successUrl,
+        failUrl,
+        ipnBase
+      }
+    }).returning();
+    req.log.info({ txId: tx.id, reference, amount, currency, country, serviceId }, "Card deposit created \u2014 calling Maviance e-nkap");
+    const mavResult = await initiateCardDeposit({
+      serviceId,
+      amount,
+      currency,
+      trid: reference,
+      redirectUrl: successUrl,
+      cancelUrl: failUrl
+    });
+    await db.update(transactionsTable).set({
+      providerReference: mavResult.payToken,
+      metadata: {
+        initiatedAt: (/* @__PURE__ */ new Date()).toISOString(),
+        provider: "MAVIANCE_ENKAP",
+        paymentMethod: "CARD",
+        mavPayToken: mavResult.payToken,
+        mavQuoteFees: mavResult.quote.fees,
+        enkapRedirectUrl: mavResult.redirectUrl,
+        successUrl,
+        failUrl
+      },
+      updatedAt: /* @__PURE__ */ new Date()
+    }).where(eq(transactionsTable.id, tx.id));
+    req.log.info({ txId: tx.id, payToken: mavResult.payToken, redirectUrl: mavResult.redirectUrl }, "Maviance e-nkap card deposit initiated");
+    res.status(201).json({
+      transaction: formatTx(tx),
+      provider: "MAVIANCE_ENKAP",
+      redirectUrl: mavResult.redirectUrl,
+      payToken: mavResult.payToken,
+      message: "Redirigez l'utilisateur vers redirectUrl pour compl\xE9ter le paiement par carte.",
+      pending: true
+    });
+  } catch (err) {
+    req.log.error({ err, reference }, "Card deposit error");
+    const msg = err instanceof Error ? err.message : "D\xE9p\xF4t par carte \xE9chou\xE9";
     res.status(500).json({ error: "InternalError", message: msg });
   }
 });
@@ -68597,20 +69022,47 @@ router6.get("/fees", authMiddleware, async (req, res) => {
 });
 router6.get("/available-operators", async (_req, res) => {
   try {
-    const result = await db.execute(sql`SELECT operator, country, type FROM pixpay_services WHERE active = true`);
+    const [pixResult, mavResult] = await Promise.all([
+      db.execute(
+        sql`SELECT operator, country, type FROM pixpay_services WHERE active = true`
+      ),
+      db.execute(
+        sql`SELECT operator, country, type FROM maviance_services WHERE active = true`
+      ).catch(() => ({ rows: [] }))
+    ]);
     const map2 = {};
-    for (const row of result.rows) {
+    const addRow = (row, source) => {
       const country = row.country?.toUpperCase();
       const operator = row.operator?.toUpperCase();
       const type = row.type?.toUpperCase();
-      if (!country || !operator || !type) continue;
-      if (!map2[country]) map2[country] = { deposit: [], withdrawal: [] };
+      if (!country || !operator || !type) return;
+      if (operator === "CARD") return;
+      if (!map2[country]) map2[country] = { deposit: [], withdrawal: [], providers: {} };
       if (type === "DEPOSIT" && !map2[country].deposit.includes(operator)) map2[country].deposit.push(operator);
       if (type === "WITHDRAWAL" && !map2[country].withdrawal.includes(operator)) map2[country].withdrawal.push(operator);
+      const pKey = `${operator}:${type}`;
+      if (!map2[country].providers[pKey]) map2[country].providers[pKey] = [];
+      if (!map2[country].providers[pKey].includes(source)) map2[country].providers[pKey].push(source);
+    };
+    for (const row of pixResult.rows) {
+      addRow(row, "PIXPAY");
+    }
+    for (const row of mavResult.rows) {
+      addRow(row, "MAVIANCE");
     }
     res.json({ available: map2 });
   } catch {
     res.json({ available: {} });
+  }
+});
+router6.get("/card-available", async (_req, res) => {
+  try {
+    const result = await db.execute(
+      sql`SELECT DISTINCT country, currency FROM maviance_services WHERE type = 'CARD' AND active = true`
+    ).catch(() => ({ rows: [] }));
+    res.json({ available: result.rows });
+  } catch {
+    res.json({ available: [] });
   }
 });
 var services_default = router6;
@@ -68619,13 +69071,13 @@ var services_default = router6;
 var import_express7 = __toESM(require_express2(), 1);
 init_schema2();
 init_drizzle_orm();
-var import_crypto3 = require("crypto");
+var import_crypto4 = require("crypto");
 var router7 = (0, import_express7.Router)();
 var KEY_TYPE_SCHEMA = external_exports.enum(["payin", "payout"]);
 function generateKey(type) {
   const tag = type === "payin" ? "IN" : "OUT";
-  const raw = `YKP_${tag}_${(0, import_crypto3.randomBytes)(24).toString("hex")}`;
-  const hash2 = (0, import_crypto3.createHash)("sha256").update(raw).digest("hex");
+  const raw = `YKP_${tag}_${(0, import_crypto4.randomBytes)(24).toString("hex")}`;
+  const hash2 = (0, import_crypto4.createHash)("sha256").update(raw).digest("hex");
   const prefix = raw.slice(0, 16);
   return { raw, hash: hash2, prefix };
 }
@@ -69774,6 +70226,110 @@ router9.put("/users/:id/wallets/:currency", async (req, res) => {
     res.status(500).json({ error: "InternalError", message: "Impossible de modifier le solde" });
   }
 });
+router9.get("/maviance/services", async (_req, res) => {
+  try {
+    const result = await db.execute(sql`
+      SELECT id, operator, country, currency, type, service_id, active, notes, updated_at
+      FROM maviance_services
+      ORDER BY currency, country, operator, type
+    `);
+    res.json({ services: result.rows });
+  } catch (err) {
+    res.status(500).json({ error: "InternalError", message: "Impossible de charger les services Maviance" });
+  }
+});
+router9.put("/maviance/services", async (req, res) => {
+  const schema = external_exports.object({
+    operator: external_exports.string().min(2).toUpperCase(),
+    country: external_exports.string().length(2).toUpperCase().optional().nullable(),
+    currency: external_exports.enum(["XAF", "XOF", "CDF"]),
+    type: external_exports.enum(["DEPOSIT", "WITHDRAWAL", "CARD"]),
+    serviceId: external_exports.number().int().min(0),
+    active: external_exports.boolean().default(true),
+    notes: external_exports.string().optional()
+  });
+  const parse3 = schema.safeParse(req.body);
+  if (!parse3.success) {
+    res.status(400).json({ error: "ValidationError", message: "Param\xE8tres invalides" });
+    return;
+  }
+  const { operator, country, currency, type, serviceId, active, notes } = parse3.data;
+  try {
+    await db.execute(sql`
+      INSERT INTO maviance_services (operator, country, currency, type, service_id, active, notes, updated_at)
+      VALUES (${operator}, ${country ?? null}, ${currency}, ${type}, ${serviceId}, ${active}, ${notes ?? null}, NOW())
+      ON CONFLICT ON CONSTRAINT maviance_services_uq
+      DO UPDATE SET service_id = ${serviceId}, active = ${active}, notes = ${notes ?? null}, updated_at = NOW()
+    `);
+    req.log.info({ adminId: req.userId, operator, country, currency, type, serviceId, active }, "Maviance service upserted");
+    res.json({ success: true, message: `Service Maviance ${operator} (${country ?? "global"}) ${currency} ${type} mis \xE0 jour` });
+  } catch (err) {
+    req.log.error({ err }, "Admin upsert maviance service error");
+    res.status(500).json({ error: "InternalError", message: "Impossible de mettre \xE0 jour le service Maviance" });
+  }
+});
+router9.get("/provider-config", async (_req, res) => {
+  try {
+    const result = await db.execute(sql`
+      SELECT id, country, operator, type, provider, updated_at
+      FROM payment_provider_config
+      ORDER BY country, operator, type
+    `);
+    res.json({ config: result.rows });
+  } catch (err) {
+    res.status(500).json({ error: "InternalError", message: "Impossible de charger la configuration des fournisseurs" });
+  }
+});
+router9.put("/provider-config", async (req, res) => {
+  const schema = external_exports.object({
+    country: external_exports.string().length(2).toUpperCase(),
+    operator: external_exports.string().min(2).toUpperCase(),
+    type: external_exports.enum(["DEPOSIT", "WITHDRAWAL"]),
+    provider: external_exports.enum(["PIXPAY", "MAVIANCE"])
+  });
+  const parse3 = schema.safeParse(req.body);
+  if (!parse3.success) {
+    res.status(400).json({ error: "ValidationError", message: "Param\xE8tres invalides (country, operator, type, provider requis)" });
+    return;
+  }
+  const { country, operator, type, provider } = parse3.data;
+  try {
+    await db.execute(sql`
+      INSERT INTO payment_provider_config (country, operator, type, provider, updated_at)
+      VALUES (${country}, ${operator}, ${type}, ${provider}, NOW())
+      ON CONFLICT ON CONSTRAINT provider_config_uq
+      DO UPDATE SET provider = ${provider}, updated_at = NOW()
+    `);
+    req.log.info({ adminId: req.userId, country, operator, type, provider }, "Provider config updated");
+    res.json({ success: true, message: `Fournisseur pour ${operator} ${country} ${type} \u2192 ${provider}` });
+  } catch (err) {
+    req.log.error({ err }, "Admin update provider config error");
+    res.status(500).json({ error: "InternalError", message: "Impossible de mettre \xE0 jour la configuration" });
+  }
+});
+router9.delete("/provider-config", async (req, res) => {
+  const schema = external_exports.object({
+    country: external_exports.string().length(2).toUpperCase(),
+    operator: external_exports.string().min(2).toUpperCase(),
+    type: external_exports.enum(["DEPOSIT", "WITHDRAWAL"])
+  });
+  const parse3 = schema.safeParse(req.body);
+  if (!parse3.success) {
+    res.status(400).json({ error: "ValidationError", message: "Param\xE8tres invalides" });
+    return;
+  }
+  const { country, operator, type } = parse3.data;
+  try {
+    await db.execute(sql`
+      DELETE FROM payment_provider_config
+      WHERE country = ${country} AND operator = ${operator} AND type = ${type}
+    `);
+    req.log.info({ adminId: req.userId, country, operator, type }, "Provider config reset to PIXPAY (default)");
+    res.json({ success: true, message: `R\xE9initialis\xE9 \xE0 PIXPAY pour ${operator} ${country} ${type}` });
+  } catch (err) {
+    res.status(500).json({ error: "InternalError", message: "Impossible de r\xE9initialiser la configuration" });
+  }
+});
 router9.get("/pixpay/services", async (_req, res) => {
   try {
     const result = await db.execute(sql`
@@ -70365,11 +70921,14 @@ router9.get("/env-check", (req, res) => {
     { name: "SESSION_SECRET", value: process.env.SESSION_SECRET, required: true },
     { name: "SUPABASE_DATABASE_URL", value: process.env.SUPABASE_DATABASE_URL, required: false },
     { name: "DATABASE_URL", value: process.env.DATABASE_URL, required: false },
-    { name: "PIXPAY_API_KEY_XAF", value: process.env.PIXPAY_API_KEY_XAF, required: true },
-    { name: "PIXPAY_API_KEY_XOF", value: process.env.PIXPAY_API_KEY_XOF, required: true },
-    { name: "PIXPAY_API_KEY_CDF", value: process.env.PIXPAY_API_KEY_CDF, required: true },
+    { name: "PIXPAY_API_KEY_XAF", value: process.env.PIXPAY_API_KEY_XAF, required: false },
+    { name: "PIXPAY_API_KEY_XOF", value: process.env.PIXPAY_API_KEY_XOF, required: false },
+    { name: "PIXPAY_API_KEY_CDF", value: process.env.PIXPAY_API_KEY_CDF, required: false },
     { name: "PIXPAY_API_KEY", value: process.env.PIXPAY_API_KEY, required: false },
     { name: "PIXPAY_ENV", value: process.env.PIXPAY_ENV, required: false },
+    { name: "MAVIANCE_PUBLIC_KEY", value: process.env.MAVIANCE_PUBLIC_KEY, required: false },
+    { name: "MAVIANCE_SECRET", value: process.env.MAVIANCE_SECRET, required: false },
+    { name: "MAVIANCE_ENV", value: process.env.MAVIANCE_ENV, required: false },
     { name: "NOWPAYMENTS_API_KEY", value: process.env.NOWPAYMENTS_API_KEY, required: false },
     { name: "NOWPAYMENTS_IPN_SECRET", value: process.env.NOWPAYMENTS_IPN_SECRET, required: false },
     { name: "APP_URL", value: process.env.APP_URL, required: false },
@@ -70413,7 +70972,7 @@ async function createNotification(userId, type, title, body, transactionId) {
 }
 
 // src/lib/webhookDispatch.ts
-var import_crypto4 = __toESM(require("crypto"), 1);
+var import_crypto5 = __toESM(require("crypto"), 1);
 init_schema2();
 init_drizzle_orm();
 function dispatchWebhook(userId, payload, notificationUrl) {
@@ -70427,7 +70986,7 @@ function dispatchWebhook(userId, payload, notificationUrl) {
       if (!url2) return;
       const body = JSON.stringify(payload);
       const secret = process.env.SESSION_SECRET ?? "yookpay-secret-key";
-      const sig = import_crypto4.default.createHmac("sha256", secret).update(body).digest("hex");
+      const sig = import_crypto5.default.createHmac("sha256", secret).update(body).digest("hex");
       const resp = await fetch(url2, {
         method: "POST",
         headers: {
@@ -70516,67 +71075,173 @@ router10.post("/pixpay", async (req, res) => {
       updatedAt
     }).where(eq(transactionsTable.id, tx.id));
     dispatchWebhook(tx.userId, buildTxPayload({ ...tx, status: newStatus, updatedAt }), getNotificationUrl(tx.metadata));
-    if (isSuccess) {
-      if (tx.type === "DEPOSIT") {
-        const [wallet] = await db.select().from(walletsTable).where(and(eq(walletsTable.userId, tx.userId), eq(walletsTable.currency, tx.currency))).limit(1);
-        if (wallet) {
-          const creditAmount = parseFloat(tx.netAmount);
-          const newBalance = parseFloat(wallet.balance) + creditAmount;
-          await db.update(walletsTable).set({ balance: newBalance.toFixed(2), updatedAt: /* @__PURE__ */ new Date() }).where(eq(walletsTable.id, wallet.id));
-          req.log?.info({ txId: tx.id, reference, creditAmount, currency: tx.currency }, "IPN DEPOSIT SUCCESS - wallet credited");
-        }
-        const meta = tx.metadata;
-        const isYookLink = !!meta?.paymentLinkId;
-        const linkTitle = meta?.paymentLinkTitle;
-        await createNotification(
-          tx.userId,
-          isYookLink ? "PAYMENT_LINK" : "DEPOSIT",
-          isYookLink ? "Paiement YookLink re\xE7u \u2713" : "D\xE9p\xF4t confirm\xE9 \u2713",
-          isYookLink ? `Vous avez re\xE7u ${parseFloat(tx.netAmount).toLocaleString("fr-FR")} ${tx.currency} via le lien${linkTitle ? ` "${linkTitle}"` : ""}.` : `Votre d\xE9p\xF4t de ${parseFloat(tx.netAmount).toLocaleString("fr-FR")} ${tx.currency} a bien \xE9t\xE9 re\xE7u.`,
-          tx.id
-        );
-      } else if (tx.type === "WITHDRAWAL") {
-        req.log?.info({ txId: tx.id, reference }, "IPN WITHDRAWAL SUCCESS - balance already reserved");
-        await createNotification(
-          tx.userId,
-          "WITHDRAWAL",
-          "Retrait confirm\xE9 \u2713",
-          `Votre retrait de ${parseFloat(tx.amount).toLocaleString("fr-FR")} ${tx.currency} a \xE9t\xE9 effectu\xE9 avec succ\xE8s.`,
-          tx.id
-        );
-      }
-    } else if (isFailed) {
-      if (tx.type === "WITHDRAWAL") {
-        const [wallet] = await db.select().from(walletsTable).where(and(eq(walletsTable.userId, tx.userId), eq(walletsTable.currency, tx.currency))).limit(1);
-        if (wallet) {
-          const refundAmount = parseFloat(tx.netAmount) + parseFloat(tx.fee);
-          const newBalance = parseFloat(wallet.balance) + refundAmount;
-          await db.update(walletsTable).set({ balance: newBalance.toFixed(2), updatedAt: /* @__PURE__ */ new Date() }).where(eq(walletsTable.id, wallet.id));
-          req.log?.info({ txId: tx.id, reference, refundAmount, currency: tx.currency }, "IPN WITHDRAWAL FAILED - wallet refunded");
-        }
-        await createNotification(
-          tx.userId,
-          "WITHDRAWAL",
-          "Retrait \xE9chou\xE9",
-          `Votre retrait de ${parseFloat(tx.amount).toLocaleString("fr-FR")} ${tx.currency} a \xE9chou\xE9. Votre solde a \xE9t\xE9 rembours\xE9.`,
-          tx.id
-        );
-      } else if (tx.type === "DEPOSIT") {
-        await createNotification(
-          tx.userId,
-          "DEPOSIT",
-          "D\xE9p\xF4t \xE9chou\xE9",
-          `Votre d\xE9p\xF4t de ${parseFloat(tx.amount).toLocaleString("fr-FR")} ${tx.currency} n'a pas pu \xEAtre trait\xE9.`,
-          tx.id
-        );
-      }
-    }
+    await handleWalletAndNotify(tx, newStatus, isSuccess, isFailed, req.log);
     res.status(200).json({ ok: true, processed: newStatus });
   } catch (err) {
     req.log?.error({ err, reference }, "PixPay IPN processing error");
     res.status(500).json({ ok: false, error: "processing_error" });
   }
 });
+router10.post("/maviance", async (req, res) => {
+  const body = req.body;
+  req.log?.info(
+    { payToken: body.payToken, trid: body.trid, status: body.status },
+    "Maviance IPN received"
+  );
+  const reference = body.trid;
+  if (!reference) {
+    res.status(200).json({ ok: false, reason: "no_reference" });
+    return;
+  }
+  const rawStatus = (body.status ?? "").trim();
+  const isSuccess = isMavianceSuccess(rawStatus);
+  const isFailed = isMavianceFailed(rawStatus);
+  if (!isSuccess && !isFailed) {
+    req.log?.info({ reference, status: rawStatus }, "Maviance IPN: intermediate state ignored");
+    res.status(200).json({ ok: true, note: "intermediate_state_ignored" });
+    return;
+  }
+  try {
+    const [tx] = await db.select().from(transactionsTable).where(eq(transactionsTable.reference, reference)).limit(1);
+    if (!tx) {
+      req.log?.warn({ reference }, "Maviance IPN: transaction not found");
+      res.status(200).json({ ok: false, reason: "not_found" });
+      return;
+    }
+    if (tx.status !== "PENDING") {
+      res.status(200).json({ ok: true, note: "already_processed" });
+      return;
+    }
+    const newStatus = isSuccess ? "SUCCESS" : "FAILED";
+    const updatedAt = /* @__PURE__ */ new Date();
+    await db.update(transactionsTable).set({
+      status: newStatus,
+      providerReference: body.payToken ?? tx.providerReference,
+      metadata: {
+        ...tx.metadata ?? {},
+        mavianceStatus: rawStatus,
+        mavianceErrorCode: body.errorCode,
+        mavianceMessage: body.message,
+        ipnReceivedAt: (/* @__PURE__ */ new Date()).toISOString()
+      },
+      updatedAt
+    }).where(eq(transactionsTable.id, tx.id));
+    dispatchWebhook(tx.userId, buildTxPayload({ ...tx, status: newStatus, updatedAt }), getNotificationUrl(tx.metadata));
+    await handleWalletAndNotify(tx, newStatus, isSuccess, isFailed, req.log);
+    res.status(200).json({ ok: true, processed: newStatus });
+  } catch (err) {
+    req.log?.error({ err, reference }, "Maviance IPN processing error");
+    res.status(500).json({ ok: false, error: "processing_error" });
+  }
+});
+router10.post("/enkap", async (req, res) => {
+  const body = req.body;
+  const reference = body.trid ?? body.orderRef;
+  req.log?.info(
+    { payToken: body.payToken, reference, status: body.status },
+    "E-nkap card IPN received"
+  );
+  if (!reference) {
+    res.status(200).json({ ok: false, reason: "no_reference" });
+    return;
+  }
+  const rawStatus = (body.status ?? "").trim();
+  const isSuccess = isMavianceSuccess(rawStatus);
+  const isFailed = isMavianceFailed(rawStatus);
+  if (!isSuccess && !isFailed) {
+    res.status(200).json({ ok: true, note: "intermediate_state_ignored" });
+    return;
+  }
+  try {
+    const [tx] = await db.select().from(transactionsTable).where(eq(transactionsTable.reference, reference)).limit(1);
+    if (!tx) {
+      req.log?.warn({ reference }, "E-nkap IPN: transaction not found");
+      res.status(200).json({ ok: false, reason: "not_found" });
+      return;
+    }
+    if (tx.status !== "PENDING") {
+      res.status(200).json({ ok: true, note: "already_processed" });
+      return;
+    }
+    const newStatus = isSuccess ? "SUCCESS" : "FAILED";
+    const updatedAt = /* @__PURE__ */ new Date();
+    await db.update(transactionsTable).set({
+      status: newStatus,
+      providerReference: body.payToken ?? tx.providerReference,
+      metadata: {
+        ...tx.metadata ?? {},
+        enkapStatus: rawStatus,
+        enkapErrorCode: body.errorCode,
+        enkapMessage: body.message,
+        ipnReceivedAt: (/* @__PURE__ */ new Date()).toISOString()
+      },
+      updatedAt
+    }).where(eq(transactionsTable.id, tx.id));
+    dispatchWebhook(tx.userId, buildTxPayload({ ...tx, status: newStatus, updatedAt }), getNotificationUrl(tx.metadata));
+    await handleWalletAndNotify(tx, newStatus, isSuccess, isFailed, req.log);
+    res.status(200).json({ ok: true, processed: newStatus });
+  } catch (err) {
+    req.log?.error({ err, reference }, "E-nkap IPN processing error");
+    res.status(500).json({ ok: false, error: "processing_error" });
+  }
+});
+async function handleWalletAndNotify(tx, newStatus, isSuccess, isFailed, log) {
+  const meta = tx.metadata;
+  if (isSuccess) {
+    if (tx.type === "DEPOSIT" || tx.type === "CARD_DEPOSIT") {
+      const [wallet] = await db.select().from(walletsTable).where(and(eq(walletsTable.userId, tx.userId), eq(walletsTable.currency, tx.currency))).limit(1);
+      if (wallet) {
+        const creditAmount = parseFloat(tx.netAmount);
+        const newBalance = parseFloat(wallet.balance) + creditAmount;
+        await db.update(walletsTable).set({ balance: newBalance.toFixed(2), updatedAt: /* @__PURE__ */ new Date() }).where(eq(walletsTable.id, wallet.id));
+        log?.info({ txId: tx.id, creditAmount, currency: tx.currency }, "IPN DEPOSIT SUCCESS - wallet credited");
+      }
+      const isYookLink = !!meta?.paymentLinkId;
+      const linkTitle = meta?.paymentLinkTitle;
+      await createNotification(
+        tx.userId,
+        isYookLink ? "PAYMENT_LINK" : "DEPOSIT",
+        isYookLink ? "Paiement YookLink re\xE7u \u2713" : "D\xE9p\xF4t confirm\xE9 \u2713",
+        isYookLink ? `Vous avez re\xE7u ${parseFloat(tx.netAmount).toLocaleString("fr-FR")} ${tx.currency} via le lien${linkTitle ? ` "${linkTitle}"` : ""}.` : `Votre d\xE9p\xF4t de ${parseFloat(tx.netAmount).toLocaleString("fr-FR")} ${tx.currency} a bien \xE9t\xE9 re\xE7u.`,
+        tx.id
+      );
+    } else if (tx.type === "WITHDRAWAL") {
+      log?.info({ txId: tx.id }, "IPN WITHDRAWAL SUCCESS - balance already reserved");
+      await createNotification(
+        tx.userId,
+        "WITHDRAWAL",
+        "Retrait confirm\xE9 \u2713",
+        `Votre retrait de ${parseFloat(tx.amount).toLocaleString("fr-FR")} ${tx.currency} a \xE9t\xE9 effectu\xE9 avec succ\xE8s.`,
+        tx.id
+      );
+    }
+  } else if (isFailed) {
+    if (tx.type === "WITHDRAWAL") {
+      const [wallet] = await db.select().from(walletsTable).where(and(eq(walletsTable.userId, tx.userId), eq(walletsTable.currency, tx.currency))).limit(1);
+      if (wallet) {
+        const refundAmount = parseFloat(tx.netAmount) + parseFloat(tx.fee);
+        const newBalance = parseFloat(wallet.balance) + refundAmount;
+        await db.update(walletsTable).set({ balance: newBalance.toFixed(2), updatedAt: /* @__PURE__ */ new Date() }).where(eq(walletsTable.id, wallet.id));
+        log?.info({ txId: tx.id, refundAmount, currency: tx.currency }, "IPN WITHDRAWAL FAILED - wallet refunded");
+      }
+      await createNotification(
+        tx.userId,
+        "WITHDRAWAL",
+        "Retrait \xE9chou\xE9",
+        `Votre retrait de ${parseFloat(tx.amount).toLocaleString("fr-FR")} ${tx.currency} a \xE9chou\xE9. Votre solde a \xE9t\xE9 rembours\xE9.`,
+        tx.id
+      );
+    } else if (tx.type === "DEPOSIT" || tx.type === "CARD_DEPOSIT") {
+      await createNotification(
+        tx.userId,
+        "DEPOSIT",
+        "D\xE9p\xF4t \xE9chou\xE9",
+        `Votre d\xE9p\xF4t de ${parseFloat(tx.amount).toLocaleString("fr-FR")} ${tx.currency} n'a pas pu \xEAtre trait\xE9.`,
+        tx.id
+      );
+    }
+  }
+}
 var ipn_default = router10;
 
 // src/routes/nowpayments-ipn.ts
@@ -70656,7 +71321,7 @@ var nowpayments_ipn_default = router11;
 
 // src/routes/payment-links.ts
 var import_express12 = __toESM(require_express2(), 1);
-var import_crypto5 = __toESM(require("crypto"), 1);
+var import_crypto6 = __toESM(require("crypto"), 1);
 var router12 = (0, import_express12.Router)();
 var DIAL_CODES2 = {
   BJ: "229",
@@ -70741,7 +71406,7 @@ router12.post("/", authMiddleware, async (req, res) => {
     res.status(400).json({ error: "ValidationError", message: "Montant et devise requis pour un prix fixe" });
     return;
   }
-  const token = import_crypto5.default.randomBytes(5).toString("hex");
+  const token = import_crypto6.default.randomBytes(5).toString("hex");
   try {
     const r = await pool.query(
       `INSERT INTO payment_links (user_id, token, title, description, photo_data, price_type, price_amount, currency, countries)
@@ -71289,17 +71954,17 @@ var support_default = router14;
 var import_express15 = __toESM(require_express2(), 1);
 init_schema2();
 init_drizzle_orm();
-var import_crypto6 = require("crypto");
+var import_crypto7 = require("crypto");
 var router15 = (0, import_express15.Router)();
 async function resolveMerchantFromKey(rawKey) {
-  const hash2 = (0, import_crypto6.createHash)("sha256").update(rawKey).digest("hex");
+  const hash2 = (0, import_crypto7.createHash)("sha256").update(rawKey).digest("hex");
   const [key] = await db.select({ id: apiKeysTable.id, userId: apiKeysTable.userId, keyType: apiKeysTable.keyType, active: apiKeysTable.active }).from(apiKeysTable).where(and(eq(apiKeysTable.keyHash, hash2), eq(apiKeysTable.active, true))).limit(1);
   if (!key || key.keyType !== "payin") return null;
   await db.update(apiKeysTable).set({ lastUsedAt: /* @__PURE__ */ new Date() }).where(eq(apiKeysTable.id, key.id));
   return { userId: key.userId, keyId: key.id };
 }
 async function resolveMerchantFromAnyKey(rawKey) {
-  const hash2 = (0, import_crypto6.createHash)("sha256").update(rawKey).digest("hex");
+  const hash2 = (0, import_crypto7.createHash)("sha256").update(rawKey).digest("hex");
   const [key] = await db.select({ id: apiKeysTable.id, userId: apiKeysTable.userId, keyType: apiKeysTable.keyType, active: apiKeysTable.active }).from(apiKeysTable).where(and(eq(apiKeysTable.keyHash, hash2), eq(apiKeysTable.active, true))).limit(1);
   if (!key) return null;
   await db.update(apiKeysTable).set({ lastUsedAt: /* @__PURE__ */ new Date() }).where(eq(apiKeysTable.id, key.id));
@@ -71410,7 +72075,7 @@ router15.post("/v1/payout", async (req, res) => {
     res.status(401).json({ error: "Unauthorized", message: "En-t\xEAte x-api-key manquant." });
     return;
   }
-  const hash2 = (0, import_crypto6.createHash)("sha256").update(rawKey).digest("hex");
+  const hash2 = (0, import_crypto7.createHash)("sha256").update(rawKey).digest("hex");
   const [keyRow] = await db.select({ id: apiKeysTable.id, userId: apiKeysTable.userId, keyType: apiKeysTable.keyType, active: apiKeysTable.active }).from(apiKeysTable).where(and(eq(apiKeysTable.keyHash, hash2), eq(apiKeysTable.active, true))).limit(1);
   if (!keyRow || keyRow.keyType !== "payout") {
     res.status(401).json({ error: "Unauthorized", message: "Cl\xE9 API invalide, r\xE9voqu\xE9e ou de type incorrect (payout requis)." });
@@ -71711,6 +72376,17 @@ async function runStartupMigrations() {
       )
     `);
     await client.query(`
+      DO $$
+      BEGIN
+        IF NOT EXISTS (
+          SELECT 1 FROM information_schema.table_constraints
+          WHERE table_name = 'conversion_fees' AND constraint_type = 'UNIQUE'
+        ) THEN
+          ALTER TABLE conversion_fees ADD CONSTRAINT conversion_fees_pair_uq UNIQUE (pair);
+        END IF;
+      END$$
+    `);
+    await client.query(`
       INSERT INTO conversion_fees (pair, rate, min_amount)
       VALUES ('XAF:XOF', 0.0190, 1000),
              ('XAF:CDF', 0.0190, 1000),
@@ -71968,6 +72644,40 @@ async function runStartupMigrations() {
       ALTER TABLE user_fees
         ALTER COLUMN country TYPE varchar(10)
     `);
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS maviance_services (
+        id         SERIAL PRIMARY KEY,
+        operator   VARCHAR(30)  NOT NULL,
+        country    VARCHAR(5),
+        currency   VARCHAR(10)  NOT NULL,
+        type       VARCHAR(20)  NOT NULL,
+        service_id INTEGER      NOT NULL DEFAULT 0,
+        active     BOOLEAN      NOT NULL DEFAULT true,
+        notes      TEXT,
+        created_at TIMESTAMP DEFAULT NOW() NOT NULL,
+        updated_at TIMESTAMP DEFAULT NOW() NOT NULL,
+        CONSTRAINT maviance_services_uq UNIQUE(operator, country, currency, type)
+      )
+    `);
+    await client.query(`
+      INSERT INTO maviance_services (operator, country, currency, type, service_id, active, notes) VALUES
+        ('MTN',    'CM', 'XAF', 'DEPOSIT',    20053, true, 'MTN MoMo CM Cash-Out/Depot (CASHOUT) \u2192 collectstd'),
+        ('MTN',    'CM', 'XAF', 'WITHDRAWAL', 20052, true, 'MTN MoMo CM Cash-In/Retrait (CASHIN) \u2192 cashin'),
+        ('ORANGE', 'CM', 'XAF', 'DEPOSIT',    30053, true, 'Orange Money CM Cash-Out (CASHOUT) \u2192 collectstd'),
+        ('ORANGE', 'CM', 'XAF', 'WITHDRAWAL', 30052, true, 'Orange Money CM Cash-In (CASHIN) \u2192 cashin')
+      ON CONFLICT ON CONSTRAINT maviance_services_uq DO NOTHING
+    `);
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS payment_provider_config (
+        id         SERIAL PRIMARY KEY,
+        country    VARCHAR(5)   NOT NULL,
+        operator   VARCHAR(30)  NOT NULL,
+        type       VARCHAR(20)  NOT NULL,
+        provider   VARCHAR(20)  NOT NULL DEFAULT 'PIXPAY',
+        updated_at TIMESTAMP DEFAULT NOW() NOT NULL,
+        CONSTRAINT provider_config_uq UNIQUE(country, operator, type)
+      )
+    `);
     logger3.info("Startup migrations completed successfully");
   } catch (err) {
     logger3.error({ err }, "Startup migration error");
@@ -72061,6 +72771,10 @@ async function startServer() {
   for (const k of pixpayKeys) {
     logger.info(`[ENV CHECK] ${k} = ${process.env[k] ? "SET \u2713" : "NOT SET \u2717"}`);
   }
+  const mavianceEnv = process.env["MAVIANCE_ENV"] ?? "staging (d\xE9faut)";
+  logger.info(`[ENV CHECK] MAVIANCE_ENV = ${mavianceEnv}`);
+  logger.info(`[ENV CHECK] MAVIANCE_PUBLIC_KEY = ${process.env["MAVIANCE_PUBLIC_KEY"] ? "SET \u2713" : "NOT SET \u2717"}`);
+  logger.info(`[ENV CHECK] MAVIANCE_SECRET     = ${process.env["MAVIANCE_SECRET"] ? "SET \u2713" : "NOT SET \u2717"}`);
   const dbUrl = process.env.SUPABASE_DATABASE_URL || process.env.DATABASE_URL;
   if (!dbUrl) {
     logger.error(

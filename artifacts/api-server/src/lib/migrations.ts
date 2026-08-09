@@ -78,6 +78,19 @@ export async function runStartupMigrations(): Promise<void> {
       )
     `);
 
+    // Ensure UNIQUE constraint on conversion_fees.pair exists (may be absent on older DBs)
+    await client.query(`
+      DO $$
+      BEGIN
+        IF NOT EXISTS (
+          SELECT 1 FROM information_schema.table_constraints
+          WHERE table_name = 'conversion_fees' AND constraint_type = 'UNIQUE'
+        ) THEN
+          ALTER TABLE conversion_fees ADD CONSTRAINT conversion_fees_pair_uq UNIQUE (pair);
+        END IF;
+      END$$
+    `);
+
     // Seed default conversion fee rows if absent
     await client.query(`
       INSERT INTO conversion_fees (pair, rate, min_amount)
@@ -376,6 +389,51 @@ export async function runStartupMigrations(): Promise<void> {
     await client.query(`
       ALTER TABLE user_fees
         ALTER COLUMN country TYPE varchar(10)
+    `);
+
+    // ── Maviance SmobilPay ────────────────────────────────────────────────────
+
+    // M1. maviance_services — service IDs per operator+country+currency+type
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS maviance_services (
+        id         SERIAL PRIMARY KEY,
+        operator   VARCHAR(30)  NOT NULL,
+        country    VARCHAR(5),
+        currency   VARCHAR(10)  NOT NULL,
+        type       VARCHAR(20)  NOT NULL,
+        service_id INTEGER      NOT NULL DEFAULT 0,
+        active     BOOLEAN      NOT NULL DEFAULT true,
+        notes      TEXT,
+        created_at TIMESTAMP DEFAULT NOW() NOT NULL,
+        updated_at TIMESTAMP DEFAULT NOW() NOT NULL,
+        CONSTRAINT maviance_services_uq UNIQUE(operator, country, currency, type)
+      )
+    `);
+
+    // M2. Seed Cameroon (XAF) staging service IDs from Maviance test data
+    // CASHOUT type → collect from customer → YookPay DEPOSIT  (/collectstd)
+    // CASHIN  type → disburse to customer → YookPay WITHDRAWAL (/cashin)
+    await client.query(`
+      INSERT INTO maviance_services (operator, country, currency, type, service_id, active, notes) VALUES
+        ('MTN',    'CM', 'XAF', 'DEPOSIT',    20053, true, 'MTN MoMo CM Cash-Out/Depot (CASHOUT) → collectstd'),
+        ('MTN',    'CM', 'XAF', 'WITHDRAWAL', 20052, true, 'MTN MoMo CM Cash-In/Retrait (CASHIN) → cashin'),
+        ('ORANGE', 'CM', 'XAF', 'DEPOSIT',    30053, true, 'Orange Money CM Cash-Out (CASHOUT) → collectstd'),
+        ('ORANGE', 'CM', 'XAF', 'WITHDRAWAL', 30052, true, 'Orange Money CM Cash-In (CASHIN) → cashin')
+      ON CONFLICT ON CONSTRAINT maviance_services_uq DO NOTHING
+    `);
+
+    // M3. payment_provider_config — admin-configurable provider preference per route
+    // provider = 'PIXPAY' | 'MAVIANCE'  (key format: "COUNTRY:OPERATOR:TYPE")
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS payment_provider_config (
+        id         SERIAL PRIMARY KEY,
+        country    VARCHAR(5)   NOT NULL,
+        operator   VARCHAR(30)  NOT NULL,
+        type       VARCHAR(20)  NOT NULL,
+        provider   VARCHAR(20)  NOT NULL DEFAULT 'PIXPAY',
+        updated_at TIMESTAMP DEFAULT NOW() NOT NULL,
+        CONSTRAINT provider_config_uq UNIQUE(country, operator, type)
+      )
     `);
 
     logger.info("Startup migrations completed successfully");

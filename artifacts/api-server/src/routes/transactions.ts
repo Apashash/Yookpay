@@ -21,6 +21,17 @@ import {
 import { getDefaultMargin } from "../lib/marginCache";
 
 import { callPixPayAirtime, getOperatorFlow, getPixPayTransactionStatus, type PixPayCallParams } from "../lib/pixpay";
+import {
+  initiateDeposit as mavInitDeposit,
+  initiateWithdrawal as mavInitWithdrawal,
+  initiateCardDeposit as mavInitCard,
+  verifyTx as mavVerifyTx,
+  normalizeMaviancePhone,
+  getMavianceIpnUrl,
+  isMavianceSuccess,
+  isMavianceFailed,
+  MavianceApiError,
+} from "../lib/maviance";
 import { z } from "zod";
 
 // Country code → dial code digits (no '+')
@@ -259,23 +270,40 @@ router.get("/:id", authMiddleware, async (req: AuthRequest, res) => {
       return;
     }
 
-    // Auto-sync with PixPay when transaction is stuck in PENDING and we have a provider reference
+    // Auto-sync when transaction is stuck in PENDING — checks provider from metadata
     if (tx.status === "PENDING" && tx.providerReference) {
       try {
-        const pixStatus = await getPixPayTransactionStatus(tx.providerReference, tx.currency);
-        if (pixStatus && (pixStatus.isSuccess || pixStatus.isFailed)) {
-          const newStatus = pixStatus.isSuccess ? "SUCCESS" : "FAILED";
-          req.log.info({ txId: tx.id, pixStatus: pixStatus.state, newStatus }, "Auto-sync from PixPay status check");
+        const meta     = (tx.metadata as Record<string, unknown> | null) ?? {};
+        const txProv   = String(meta["provider"] ?? "PIXPAY").toUpperCase();
+        let   newStatus: "SUCCESS" | "FAILED" | null = null;
+        let   syncMeta: Record<string, unknown> = {};
 
+        if (txProv === "MAVIANCE") {
+          // Maviance: verify by payToken (= providerReference)
+          const mavStatus = await mavVerifyTx(tx.providerReference);
+          if (mavStatus) {
+            if (isMavianceSuccess(mavStatus.status)) { newStatus = "SUCCESS"; }
+            else if (isMavianceFailed(mavStatus.status))  { newStatus = "FAILED";  }
+            syncMeta = { mavStatusSynced: mavStatus.status, syncedAt: new Date().toISOString() };
+            req.log.info({ txId: tx.id, mavStatus: mavStatus.status, newStatus }, "Auto-sync from Maviance verifyTx");
+          }
+        } else {
+          // PixPay: verify by transaction ID
+          const pixStatus = await getPixPayTransactionStatus(tx.providerReference, tx.currency);
+          if (pixStatus) {
+            if (pixStatus.isSuccess) { newStatus = "SUCCESS"; }
+            else if (pixStatus.isFailed) { newStatus = "FAILED"; }
+            syncMeta = { pixStateSynced: pixStatus.state, syncedAt: new Date().toISOString() };
+            req.log.info({ txId: tx.id, pixStatus: pixStatus.state, newStatus }, "Auto-sync from PixPay status check");
+          }
+        }
+
+        if (newStatus) {
           const syncResult = await db
             .update(transactionsTable)
             .set({
               status: newStatus,
-              metadata: {
-                ...(tx.metadata as object ?? {}),
-                pixStateSynced: pixStatus.state,
-                syncedAt: new Date().toISOString(),
-              },
+              metadata: { ...meta, ...syncMeta },
               updatedAt: new Date(),
             })
             .where(and(eq(transactionsTable.id, tx.id), eq(transactionsTable.status, "PENDING")));
@@ -283,30 +311,22 @@ router.get("/:id", authMiddleware, async (req: AuthRequest, res) => {
           // Only touch wallet if this UPDATE actually claimed the row (prevents double-credit race)
           const rowClaimed = (syncResult as any).rowCount > 0;
 
-          if (rowClaimed && pixStatus.isSuccess && tx.type === "DEPOSIT") {
-            const [wallet] = await db
-              .select()
-              .from(walletsTable)
-              .where(and(eq(walletsTable.userId, tx.userId), eq(walletsTable.currency, tx.currency)))
-              .limit(1);
+          if (rowClaimed && newStatus === "SUCCESS" && (tx.type === "DEPOSIT" || tx.type === "CARD_DEPOSIT")) {
+            const [wallet] = await db.select().from(walletsTable)
+              .where(and(eq(walletsTable.userId, tx.userId), eq(walletsTable.currency, tx.currency))).limit(1);
             if (wallet) {
               const credit = parseFloat(tx.netAmount);
-              await db
-                .update(walletsTable)
+              await db.update(walletsTable)
                 .set({ balance: (parseFloat(wallet.balance) + credit).toFixed(2), updatedAt: new Date() })
                 .where(eq(walletsTable.id, wallet.id));
               req.log.info({ txId: tx.id, credit, currency: tx.currency }, "Auto-sync DEPOSIT credited wallet");
             }
-          } else if (rowClaimed && pixStatus.isFailed && tx.type === "WITHDRAWAL") {
-            const [wallet] = await db
-              .select()
-              .from(walletsTable)
-              .where(and(eq(walletsTable.userId, tx.userId), eq(walletsTable.currency, tx.currency)))
-              .limit(1);
+          } else if (rowClaimed && newStatus === "FAILED" && tx.type === "WITHDRAWAL") {
+            const [wallet] = await db.select().from(walletsTable)
+              .where(and(eq(walletsTable.userId, tx.userId), eq(walletsTable.currency, tx.currency))).limit(1);
             if (wallet) {
               const refund = parseFloat(tx.netAmount) + parseFloat(tx.fee);
-              await db
-                .update(walletsTable)
+              await db.update(walletsTable)
                 .set({ balance: (parseFloat(wallet.balance) + refund).toFixed(2), updatedAt: new Date() })
                 .where(eq(walletsTable.id, wallet.id));
               req.log.info({ txId: tx.id, refund, currency: tx.currency }, "Auto-sync WITHDRAWAL FAILED refunded wallet");
@@ -314,18 +334,11 @@ router.get("/:id", authMiddleware, async (req: AuthRequest, res) => {
           }
 
           // Re-fetch the updated transaction
-          const [updated] = await db
-            .select()
-            .from(transactionsTable)
-            .where(eq(transactionsTable.id, id))
-            .limit(1);
-          if (updated) {
-            res.json(formatTx(updated));
-            return;
-          }
+          const [updated] = await db.select().from(transactionsTable).where(eq(transactionsTable.id, id)).limit(1);
+          if (updated) { res.json(formatTx(updated)); return; }
         }
       } catch (syncErr) {
-        req.log.warn({ syncErr, txId: tx.id }, "PixPay auto-sync failed — returning current status");
+        req.log.warn({ syncErr, txId: tx.id }, "Auto-sync failed — returning current status");
       }
     }
 
@@ -410,6 +423,59 @@ async function getPlatformConfig(key: string): Promise<string | null> {
   return null;
 }
 
+// Helper: get Maviance service_id for operator+country+currency+type
+async function getMavianceServiceId(
+  operator: string,
+  currency: string,
+  type: "DEPOSIT" | "WITHDRAWAL" | "CARD",
+  country?: string,
+): Promise<number | null> {
+  try {
+    const result = await db.execute(
+      sql`SELECT service_id FROM maviance_services
+          WHERE operator = ${operator.toUpperCase()}
+            AND currency = ${currency.toUpperCase()}
+            AND type = ${type}
+            AND active = true
+            AND (country = ${country?.toUpperCase() ?? null} OR country IS NULL)
+          ORDER BY (country IS NOT NULL) DESC
+          LIMIT 1`,
+    );
+    if (result.rows.length > 0) {
+      const sid = parseInt(String((result.rows[0] as { service_id: unknown }).service_id));
+      return sid > 0 ? sid : null;
+    }
+  } catch {
+    // table may not exist yet - ignore
+  }
+  return null;
+}
+
+// Helper: get admin-configured provider preference for a route
+// Returns "MAVIANCE" or "PIXPAY" (default).
+async function getProviderForRoute(
+  country: string,
+  operator: string,
+  type: "DEPOSIT" | "WITHDRAWAL",
+): Promise<"PIXPAY" | "MAVIANCE"> {
+  try {
+    const result = await db.execute(
+      sql`SELECT provider FROM payment_provider_config
+          WHERE country = ${country.toUpperCase()}
+            AND operator = ${operator.toUpperCase()}
+            AND type = ${type}
+          LIMIT 1`,
+    );
+    if (result.rows.length > 0) {
+      const p = String((result.rows[0] as { provider: unknown }).provider).toUpperCase();
+      if (p === "MAVIANCE") return "MAVIANCE";
+    }
+  } catch {
+    // table may not exist yet → default PixPay
+  }
+  return "PIXPAY";
+}
+
 // Minimum amounts per country from PixPay documentation
 // https://docs.pixpay.sn/fr — "Gammes de montants par pays"
 const COUNTRY_MIN_AMOUNTS: Partial<Record<Country, number>> = {
@@ -469,8 +535,14 @@ router.post("/deposit", authMiddleware, transactionRateLimit, async (req: AuthRe
       : calculateFee(amount, country as Country, operator as Operator, "DEPOSIT");
     const yookpayMarginAmount = Math.round(amount * (opBreakdown?.margin ?? await getDefaultMargin()));
 
-    // Check service availability BEFORE creating the transaction
-    const serviceId = await getPixPayServiceId(operator, currency, "DEPOSIT", country);
+    // ─── Provider selection ──────────────────────────────────────────────────
+    const provider = await getProviderForRoute(country, operator, "DEPOSIT");
+
+    // Check service availability in the selected provider's table
+    const serviceId = provider === "MAVIANCE"
+      ? await getMavianceServiceId(operator, currency, "DEPOSIT", country)
+      : await getPixPayServiceId(operator, currency, "DEPOSIT", country);
+
     if (serviceId === null) {
       res.status(503).json({
         error: "ServiceNotAvailable",
@@ -478,12 +550,13 @@ router.post("/deposit", authMiddleware, transactionRateLimit, async (req: AuthRe
       });
       return;
     }
+    // ─────────────────────────────────────────────────────────────────────────
 
     // ─── Fee semantics based on feeBearer ───────────────────────────────────
     // SENDER pays   → user enters NET (wallet credit). Phone is charged net+fee.
     // RECIPIENT pays → user enters GROSS (phone charge). Wallet credits gross-fee.
     const feeAmt = feeBreakdown.feeAmount;
-    const pixPayAmount   = feeBearer === "SENDER" ? amount + feeAmt : amount;
+    const providerAmount  = feeBearer === "SENDER" ? amount + feeAmt : amount;
     const walletNetAmount = feeBearer === "SENDER" ? amount          : Math.max(amount - feeAmt, 0);
     // ─────────────────────────────────────────────────────────────────────────
 
@@ -503,19 +576,67 @@ router.post("/deposit", authMiddleware, transactionRateLimit, async (req: AuthRe
         reference,
         feeRate: feeBreakdown.feeRate.toString(),
         yookpayMargin: yookpayMarginAmount.toString(),
-        metadata: { initiatedAt: new Date().toISOString(), feeBearer, flow, pixPayAmount },
+        metadata: { initiatedAt: new Date().toISOString(), feeBearer, flow, providerAmount, provider },
       })
       .returning();
 
     req.log.info(
-      { txId: tx.id, reference, userId: req.userId, amount, pixPayAmount, walletNetAmount, currency, operator, country, flow, feeBearer },
-      "Deposit transaction created — calling PixPay"
+      { txId: tx.id, reference, userId: req.userId, amount, providerAmount, walletNetAmount, currency, operator, country, flow, feeBearer, provider },
+      `Deposit transaction created — calling ${provider}`
     );
 
+    // ─── Maviance deposit ───────────────────────────────────────────────────
+    if (provider === "MAVIANCE") {
+      const mavPhone = normalizeMaviancePhone(phone, country);
+      const mavResult = await mavInitDeposit({
+        serviceId,
+        amount: providerAmount,
+        currency,
+        phone: mavPhone,
+        trid: reference,
+      });
+
+      const isImmediatelyFailed = isMavianceFailed(mavResult.collect.status);
+
+      await db.update(transactionsTable).set({
+        providerReference: mavResult.payToken,
+        status: isImmediatelyFailed ? "FAILED" : "PENDING",
+        metadata: {
+          initiatedAt: new Date().toISOString(),
+          feeBearer, flow, providerAmount, provider: "MAVIANCE",
+          mavPayToken: mavResult.payToken,
+          mavCollectStatus: mavResult.collect.status,
+          mavQuoteFees: mavResult.quote.fees,
+        },
+        updatedAt: new Date(),
+      }).where(eq(transactionsTable.id, tx.id));
+
+      if (isImmediatelyFailed) {
+        req.log.warn({ txId: tx.id, payToken: mavResult.payToken, status: mavResult.collect.status }, "Maviance deposit immediately FAILED");
+        res.status(422).json({
+          error: "ProviderFailed",
+          message: `Le dépôt a été refusé par l'opérateur. Vérifiez votre numéro de téléphone et réessayez.`,
+        });
+        return;
+      }
+
+      req.log.info({ txId: tx.id, payToken: mavResult.payToken, status: mavResult.collect.status }, "Maviance deposit initiated — awaiting IPN/verify");
+      res.status(201).json({
+        transaction: formatTx(tx),
+        feeBreakdown, feeBearer, flow,
+        provider: "MAVIANCE",
+        status: mavResult.collect.status,
+        message: "Validez le paiement Mobile Money sur votre téléphone.",
+        pending: true,
+      });
+      return;
+    }
+
+    // ─── PixPay deposit (default) ────────────────────────────────────────────
     const pixParams: PixPayCallParams = {
       currency,
       serviceId,
-      amount: pixPayAmount,
+      amount: providerAmount,
       phone: normalizePhone(phone, country),
       customData: reference,
       omOtp,
@@ -543,8 +664,8 @@ router.post("/deposit", authMiddleware, transactionRateLimit, async (req: AuthRe
         status: isPixFailed ? "FAILED" : "PENDING",
         metadata: {
           initiatedAt: new Date().toISOString(),
-          feeBearer,
-          flow,
+          feeBearer, flow,
+          provider: "PIXPAY",
           pixState: pixResult.state,
           pixMessage: pixResult.message,
           smsLink: pixResult.smsLink,
@@ -555,17 +676,7 @@ router.post("/deposit", authMiddleware, transactionRateLimit, async (req: AuthRe
 
     if (isPixFailed) {
       req.log.warn(
-        {
-          txId: tx.id,
-          pixId: pixResult.pixTransactionId,
-          pixState: pixResult.state,
-          pixMessage: pixResult.message,
-          serviceId,
-          currency,
-          operator,
-          country,
-          normalizedPhone: normalizePhone(phone, country),
-        },
+        { txId: tx.id, pixId: pixResult.pixTransactionId, pixState: pixResult.state, pixMessage: pixResult.message, serviceId, currency, operator, country },
         "PixPay deposit immediately FAILED"
       );
       res.status(422).json({
@@ -577,16 +688,14 @@ router.post("/deposit", authMiddleware, transactionRateLimit, async (req: AuthRe
       return;
     }
 
-    req.log.info(
-      { txId: tx.id, pixId: pixResult.pixTransactionId, pixState: pixResult.state },
-      "PixPay deposit initiated — awaiting IPN"
-    );
+    req.log.info({ txId: tx.id, pixId: pixResult.pixTransactionId, pixState: pixResult.state }, "PixPay deposit initiated — awaiting IPN");
 
     res.status(201).json({
       transaction: formatTx(tx),
       feeBreakdown,
       feeBearer,
       flow,
+      provider: "PIXPAY",
       pixState: pixResult.state,
       smsLink: pixResult.smsLink,
       message: pixResult.message,
@@ -681,8 +790,13 @@ router.post("/withdraw", authMiddleware, transactionRateLimit, async (req: AuthR
 
     const flow = getOperatorFlow(operator);
 
-    // Check service availability BEFORE touching the wallet
-    const serviceId = await getPixPayServiceId(operator, currency, "WITHDRAWAL", country);
+    // ─── Provider selection ──────────────────────────────────────────────────
+    const provider = await getProviderForRoute(country, operator, "WITHDRAWAL");
+
+    const serviceId = provider === "MAVIANCE"
+      ? await getMavianceServiceId(operator, currency, "WITHDRAWAL", country)
+      : await getPixPayServiceId(operator, currency, "WITHDRAWAL", country);
+
     if (serviceId === null) {
       res.status(503).json({
         error: "ServiceNotAvailable",
@@ -690,8 +804,9 @@ router.post("/withdraw", authMiddleware, transactionRateLimit, async (req: AuthR
       });
       return;
     }
+    // ─────────────────────────────────────────────────────────────────────────
 
-    // Deduct wallet BEFORE calling PixPay (IPN/expiry will refund on FAILED)
+    // Deduct wallet BEFORE calling provider (IPN/expiry will refund on FAILED)
     const newBalance = parseFloat(wallet.balance) - walletDebit;
     await db
       .update(walletsTable)
@@ -706,7 +821,7 @@ router.post("/withdraw", authMiddleware, transactionRateLimit, async (req: AuthR
         status: "PENDING",
         amount: amount.toString(),
         fee: wdFeeAmt.toString(),
-        netAmount: phoneNetAmount.toString(), // what phone receives (refund = netAmount + fee = walletDebit)
+        netAmount: phoneNetAmount.toString(),
         currency,
         country,
         operator,
@@ -714,15 +829,90 @@ router.post("/withdraw", authMiddleware, transactionRateLimit, async (req: AuthR
         reference,
         feeRate: feeBreakdown.feeRate.toString(),
         yookpayMargin: yookpayMarginAmount.toString(),
-        metadata: { initiatedAt: new Date().toISOString(), feeBearer, flow, walletDebit, pixPayAmount },
+        metadata: { initiatedAt: new Date().toISOString(), feeBearer, flow, walletDebit, providerAmount: pixPayAmount, provider },
       })
       .returning();
 
     req.log.info(
-      { txId: tx.id, reference, userId: req.userId, amount, pixPayAmount, walletDebit, currency, operator, flow, feeBearer },
-      "Withdrawal transaction created — wallet reserved — calling PixPay"
+      { txId: tx.id, reference, userId: req.userId, amount, providerAmount: pixPayAmount, walletDebit, currency, operator, flow, feeBearer, provider },
+      `Withdrawal transaction created — wallet reserved — calling ${provider}`
     );
 
+    // ─── Maviance withdrawal ─────────────────────────────────────────────────
+    if (provider === "MAVIANCE") {
+      const mavPhone = normalizeMaviancePhone(phone, country);
+      let mavResult: Awaited<ReturnType<typeof mavInitWithdrawal>>;
+      try {
+        mavResult = await mavInitWithdrawal({
+          serviceId,
+          amount: pixPayAmount,
+          currency,
+          phone: mavPhone,
+          trid: reference,
+        });
+      } catch (mavErr) {
+        // Refund wallet immediately on provider call failure
+        const [cw] = await db.select().from(walletsTable)
+          .where(and(eq(walletsTable.userId, req.userId!), eq(walletsTable.currency, currency))).limit(1);
+        if (cw) {
+          await db.update(walletsTable).set({
+            balance: (parseFloat(cw.balance) + walletDebit).toFixed(2),
+            updatedAt: new Date(),
+          }).where(eq(walletsTable.id, cw.id));
+        }
+        await db.update(transactionsTable).set({ status: "FAILED", updatedAt: new Date() }).where(eq(transactionsTable.id, tx.id));
+        req.log.error({ err: mavErr, txId: tx.id }, "Maviance withdrawal call failed — wallet refunded");
+        const msg = mavErr instanceof Error ? mavErr.message : "Retrait Maviance échoué";
+        res.status(500).json({ error: "ProviderError", message: msg });
+        return;
+      }
+
+      const isImmediatelyFailed = isMavianceFailed(mavResult.collect.status);
+
+      await db.update(transactionsTable).set({
+        providerReference: mavResult.payToken,
+        status: isImmediatelyFailed ? "FAILED" : "PENDING",
+        metadata: {
+          initiatedAt: new Date().toISOString(),
+          feeBearer, flow, walletDebit, providerAmount: pixPayAmount, provider: "MAVIANCE",
+          mavPayToken: mavResult.payToken,
+          mavCollectStatus: mavResult.collect.status,
+          mavQuoteFees: mavResult.quote.fees,
+        },
+        updatedAt: new Date(),
+      }).where(eq(transactionsTable.id, tx.id));
+
+      if (isImmediatelyFailed) {
+        // Refund wallet
+        const [cw] = await db.select().from(walletsTable)
+          .where(and(eq(walletsTable.userId, req.userId!), eq(walletsTable.currency, currency))).limit(1);
+        if (cw) {
+          await db.update(walletsTable).set({
+            balance: (parseFloat(cw.balance) + walletDebit).toFixed(2),
+            updatedAt: new Date(),
+          }).where(eq(walletsTable.id, cw.id));
+        }
+        req.log.warn({ txId: tx.id, payToken: mavResult.payToken, status: mavResult.collect.status }, "Maviance withdrawal immediately FAILED — wallet refunded");
+        res.status(422).json({
+          error: "ProviderFailed",
+          message: "Le retrait a été refusé par l'opérateur. Votre solde a été remboursé.",
+        });
+        return;
+      }
+
+      req.log.info({ txId: tx.id, payToken: mavResult.payToken, status: mavResult.collect.status }, "Maviance withdrawal initiated — awaiting IPN");
+      res.status(201).json({
+        transaction: formatTx(tx),
+        feeBreakdown, feeBearer, flow,
+        provider: "MAVIANCE",
+        status: mavResult.collect.status,
+        message: "Retrait en cours — vous recevrez les fonds sur votre téléphone.",
+        pending: true,
+      });
+      return;
+    }
+
+    // ─── PixPay withdrawal (default) ─────────────────────────────────────────
     const pixParams: PixPayCallParams = {
       currency,
       serviceId,
@@ -755,6 +945,7 @@ router.post("/withdraw", authMiddleware, transactionRateLimit, async (req: AuthR
           initiatedAt: new Date().toISOString(),
           feeBearer,
           flow,
+          provider: "PIXPAY",
           pixState: pixResult.state,
           pixMessage: pixResult.message,
           smsLink: pixResult.smsLink,
@@ -796,6 +987,7 @@ router.post("/withdraw", authMiddleware, transactionRateLimit, async (req: AuthR
       feeBreakdown,
       feeBearer,
       flow,
+      provider: "PIXPAY",
       pixState: pixResult.state,
       smsLink: pixResult.smsLink,
       message: pixResult.message,
@@ -804,6 +996,114 @@ router.post("/withdraw", authMiddleware, transactionRateLimit, async (req: AuthR
   } catch (err) {
     req.log.error({ err, reference }, "Withdrawal error");
     const msg = err instanceof Error ? err.message : "Retrait échoué";
+    res.status(500).json({ error: "InternalError", message: msg });
+  }
+});
+
+// POST /transactions/card-deposit — collect via Visa/Mastercard (Maviance e-nkap)
+router.post("/card-deposit", authMiddleware, transactionRateLimit, async (req: AuthRequest, res) => {
+  const schema = z.object({
+    amount:      z.number().min(100),
+    currency:    z.enum(["XAF", "XOF", "CDF"]),
+    country:     z.string().min(2),
+    redirectUrl: z.string().url().optional(),
+    cancelUrl:   z.string().url().optional(),
+  });
+
+  const parse = schema.safeParse(req.body);
+  if (!parse.success) {
+    res.status(400).json({ error: "ValidationError", message: "Paramètres invalides pour le dépôt par carte" });
+    return;
+  }
+
+  const { amount, currency, country, redirectUrl, cancelUrl } = parse.data;
+  const reference = generateReference();
+
+  try {
+    // Look up the Maviance CARD service for this currency
+    const serviceId = await getMavianceServiceId("CARD", currency, "CARD", country);
+    if (serviceId === null) {
+      res.status(503).json({
+        error: "ServiceNotAvailable",
+        message: `Le paiement par carte (${currency}) n'est pas encore disponible. Contactez le support YookPay.`,
+      });
+      return;
+    }
+
+    // Fee for card deposits — use default margin as fee (no PixPay operator table for cards)
+    const defMargin = await getDefaultMargin();
+    const feeAmt    = Math.round(amount * defMargin);
+    const netAmount = amount - feeAmt;
+
+    // IPN callback URL for e-nkap to notify us
+    const ipnBase = getMavianceIpnUrl("/api/ipn/enkap");
+    // Use provided redirectUrl or fall back to APP_URL
+    const successUrl = redirectUrl ?? (process.env["APP_URL"] ? `${process.env["APP_URL"]}/dashboard?ref=${reference}` : `http://localhost:5000/dashboard?ref=${reference}`);
+    const failUrl    = cancelUrl ?? successUrl;
+
+    const [tx] = await db.insert(transactionsTable).values({
+      userId: req.userId!,
+      type: "DEPOSIT",
+      status: "PENDING",
+      amount: amount.toString(),
+      fee: feeAmt.toString(),
+      netAmount: netAmount.toString(),
+      currency,
+      country,
+      operator: "CARD",
+      phone: null,
+      reference,
+      feeRate: defMargin.toString(),
+      yookpayMargin: feeAmt.toString(),
+      metadata: {
+        initiatedAt: new Date().toISOString(),
+        provider: "MAVIANCE_ENKAP",
+        paymentMethod: "CARD",
+        successUrl,
+        failUrl,
+        ipnBase,
+      },
+    }).returning();
+
+    req.log.info({ txId: tx.id, reference, amount, currency, country, serviceId }, "Card deposit created — calling Maviance e-nkap");
+
+    const mavResult = await mavInitCard({
+      serviceId,
+      amount,
+      currency,
+      trid: reference,
+      redirectUrl: successUrl,
+      cancelUrl:   failUrl,
+    });
+
+    await db.update(transactionsTable).set({
+      providerReference: mavResult.payToken,
+      metadata: {
+        initiatedAt: new Date().toISOString(),
+        provider: "MAVIANCE_ENKAP",
+        paymentMethod: "CARD",
+        mavPayToken: mavResult.payToken,
+        mavQuoteFees: mavResult.quote.fees,
+        enkapRedirectUrl: mavResult.redirectUrl,
+        successUrl,
+        failUrl,
+      },
+      updatedAt: new Date(),
+    }).where(eq(transactionsTable.id, tx.id));
+
+    req.log.info({ txId: tx.id, payToken: mavResult.payToken, redirectUrl: mavResult.redirectUrl }, "Maviance e-nkap card deposit initiated");
+
+    res.status(201).json({
+      transaction: formatTx(tx),
+      provider: "MAVIANCE_ENKAP",
+      redirectUrl: mavResult.redirectUrl,
+      payToken: mavResult.payToken,
+      message: "Redirigez l'utilisateur vers redirectUrl pour compléter le paiement par carte.",
+      pending: true,
+    });
+  } catch (err) {
+    req.log.error({ err, reference }, "Card deposit error");
+    const msg = err instanceof Error ? err.message : "Dépôt par carte échoué";
     res.status(500).json({ error: "InternalError", message: msg });
   }
 });

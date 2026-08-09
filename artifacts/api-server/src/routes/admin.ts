@@ -946,6 +946,132 @@ router.put("/users/:id/wallets/:currency", async (req: AuthRequest, res) => {
 
 // ─── PixPay Services Configuration ─────────────────────────────────────────────
 
+// ─── Maviance Services Configuration ────────────────────────────────────────
+
+// GET /admin/maviance/services — list all maviance_services rows
+router.get("/maviance/services", async (_req, res) => {
+  try {
+    const result = await db.execute(sql`
+      SELECT id, operator, country, currency, type, service_id, active, notes, updated_at
+      FROM maviance_services
+      ORDER BY currency, country, operator, type
+    `);
+    res.json({ services: result.rows });
+  } catch (err) {
+    res.status(500).json({ error: "InternalError", message: "Impossible de charger les services Maviance" });
+  }
+});
+
+// PUT /admin/maviance/services — upsert a row
+router.put("/maviance/services", async (req: AuthRequest, res) => {
+  const schema = z.object({
+    operator:  z.string().min(2).toUpperCase(),
+    country:   z.string().length(2).toUpperCase().optional().nullable(),
+    currency:  z.enum(["XAF", "XOF", "CDF"]),
+    type:      z.enum(["DEPOSIT", "WITHDRAWAL", "CARD"]),
+    serviceId: z.number().int().min(0),
+    active:    z.boolean().default(true),
+    notes:     z.string().optional(),
+  });
+
+  const parse = schema.safeParse(req.body);
+  if (!parse.success) {
+    res.status(400).json({ error: "ValidationError", message: "Paramètres invalides" });
+    return;
+  }
+
+  const { operator, country, currency, type, serviceId, active, notes } = parse.data;
+  try {
+    await db.execute(sql`
+      INSERT INTO maviance_services (operator, country, currency, type, service_id, active, notes, updated_at)
+      VALUES (${operator}, ${country ?? null}, ${currency}, ${type}, ${serviceId}, ${active}, ${notes ?? null}, NOW())
+      ON CONFLICT ON CONSTRAINT maviance_services_uq
+      DO UPDATE SET service_id = ${serviceId}, active = ${active}, notes = ${notes ?? null}, updated_at = NOW()
+    `);
+    req.log.info({ adminId: req.userId, operator, country, currency, type, serviceId, active }, "Maviance service upserted");
+    res.json({ success: true, message: `Service Maviance ${operator} (${country ?? "global"}) ${currency} ${type} mis à jour` });
+  } catch (err) {
+    req.log.error({ err }, "Admin upsert maviance service error");
+    res.status(500).json({ error: "InternalError", message: "Impossible de mettre à jour le service Maviance" });
+  }
+});
+
+// ─── Provider preference config ──────────────────────────────────────────────
+
+// GET /admin/provider-config — list all provider preferences
+router.get("/provider-config", async (_req, res) => {
+  try {
+    const result = await db.execute(sql`
+      SELECT id, country, operator, type, provider, updated_at
+      FROM payment_provider_config
+      ORDER BY country, operator, type
+    `);
+    res.json({ config: result.rows });
+  } catch (err) {
+    res.status(500).json({ error: "InternalError", message: "Impossible de charger la configuration des fournisseurs" });
+  }
+});
+
+// PUT /admin/provider-config — set provider for a country/operator/type route
+router.put("/provider-config", async (req: AuthRequest, res) => {
+  const schema = z.object({
+    country:  z.string().length(2).toUpperCase(),
+    operator: z.string().min(2).toUpperCase(),
+    type:     z.enum(["DEPOSIT", "WITHDRAWAL"]),
+    provider: z.enum(["PIXPAY", "MAVIANCE"]),
+  });
+
+  const parse = schema.safeParse(req.body);
+  if (!parse.success) {
+    res.status(400).json({ error: "ValidationError", message: "Paramètres invalides (country, operator, type, provider requis)" });
+    return;
+  }
+
+  const { country, operator, type, provider } = parse.data;
+  try {
+    await db.execute(sql`
+      INSERT INTO payment_provider_config (country, operator, type, provider, updated_at)
+      VALUES (${country}, ${operator}, ${type}, ${provider}, NOW())
+      ON CONFLICT ON CONSTRAINT provider_config_uq
+      DO UPDATE SET provider = ${provider}, updated_at = NOW()
+    `);
+    req.log.info({ adminId: req.userId, country, operator, type, provider }, "Provider config updated");
+    res.json({ success: true, message: `Fournisseur pour ${operator} ${country} ${type} → ${provider}` });
+  } catch (err) {
+    req.log.error({ err }, "Admin update provider config error");
+    res.status(500).json({ error: "InternalError", message: "Impossible de mettre à jour la configuration" });
+  }
+});
+
+// DELETE /admin/provider-config — reset to default (PIXPAY)
+router.delete("/provider-config", async (req: AuthRequest, res) => {
+  const schema = z.object({
+    country:  z.string().length(2).toUpperCase(),
+    operator: z.string().min(2).toUpperCase(),
+    type:     z.enum(["DEPOSIT", "WITHDRAWAL"]),
+  });
+
+  const parse = schema.safeParse(req.body);
+  if (!parse.success) {
+    res.status(400).json({ error: "ValidationError", message: "Paramètres invalides" });
+    return;
+  }
+
+  const { country, operator, type } = parse.data;
+  try {
+    await db.execute(sql`
+      DELETE FROM payment_provider_config
+      WHERE country = ${country} AND operator = ${operator} AND type = ${type}
+    `);
+    req.log.info({ adminId: req.userId, country, operator, type }, "Provider config reset to PIXPAY (default)");
+    res.json({ success: true, message: `Réinitialisé à PIXPAY pour ${operator} ${country} ${type}` });
+  } catch (err) {
+    res.status(500).json({ error: "InternalError", message: "Impossible de réinitialiser la configuration" });
+  }
+});
+
+// ─── PixPay Services Configuration ─────────────────────────────────────────────
+
 // GET /admin/pixpay/services — list all pixpay_services rows
 router.get("/pixpay/services", async (_req, res) => {
   try {
@@ -1623,11 +1749,14 @@ router.get("/env-check", (req: AuthRequest, res) => {
     { name: "SESSION_SECRET",         value: process.env.SESSION_SECRET,         required: true  },
     { name: "SUPABASE_DATABASE_URL",  value: process.env.SUPABASE_DATABASE_URL,  required: false },
     { name: "DATABASE_URL",           value: process.env.DATABASE_URL,           required: false },
-    { name: "PIXPAY_API_KEY_XAF",     value: process.env.PIXPAY_API_KEY_XAF,     required: true  },
-    { name: "PIXPAY_API_KEY_XOF",     value: process.env.PIXPAY_API_KEY_XOF,     required: true  },
-    { name: "PIXPAY_API_KEY_CDF",     value: process.env.PIXPAY_API_KEY_CDF,     required: true  },
+    { name: "PIXPAY_API_KEY_XAF",     value: process.env.PIXPAY_API_KEY_XAF,     required: false },
+    { name: "PIXPAY_API_KEY_XOF",     value: process.env.PIXPAY_API_KEY_XOF,     required: false },
+    { name: "PIXPAY_API_KEY_CDF",     value: process.env.PIXPAY_API_KEY_CDF,     required: false },
     { name: "PIXPAY_API_KEY",         value: process.env.PIXPAY_API_KEY,         required: false },
     { name: "PIXPAY_ENV",             value: process.env.PIXPAY_ENV,             required: false },
+    { name: "MAVIANCE_PUBLIC_KEY",    value: process.env.MAVIANCE_PUBLIC_KEY,    required: false },
+    { name: "MAVIANCE_SECRET",        value: process.env.MAVIANCE_SECRET,        required: false },
+    { name: "MAVIANCE_ENV",           value: process.env.MAVIANCE_ENV,           required: false },
     { name: "NOWPAYMENTS_API_KEY",    value: process.env.NOWPAYMENTS_API_KEY,    required: false },
     { name: "NOWPAYMENTS_IPN_SECRET", value: process.env.NOWPAYMENTS_IPN_SECRET, required: false },
     { name: "APP_URL",                value: process.env.APP_URL,                required: false },
