@@ -7,11 +7,11 @@
  *   CARD    service  + POST /collectcard = card collection          = YookPay CARD_DEPOSIT
  */
 
-import { createHmac, randomBytes } from "crypto";
+import { createHmac } from "crypto";
 import { logger } from "./logger";
 
 const STAGING_BASE = "https://s3p.smobilpay.staging.maviance.info/v2";
-const PROD_BASE    = "https://s3p.smobilpay.maviance.info/v2";
+const PROD_BASE    = "https://s3pv2cm.smobilpay.com/v2";
 
 export function getMavianceBaseUrl(): string {
   return process.env["MAVIANCE_ENV"] === "production" ? PROD_BASE : STAGING_BASE;
@@ -29,22 +29,47 @@ function getCredentials(): { publicKey: string; secret: string } {
 }
 
 /**
- * Build HMAC-SHA256 signed headers for Maviance S3P v2.
- * Signature = HMAC-SHA256(secret, nonce + timestamp + body_or_empty) → hex
+ * Build the s3pAuth header used by the Maviance Postman collection.
+ * Signature = Base64(HMAC-SHA1(secret, METHOD & encoded URL & encoded sorted params)).
  */
-function buildHeaders(body: string = ""): Record<string, string> {
+function buildHeaders(
+  method: "GET" | "POST",
+  endpoint: string,
+  body?: Record<string, unknown>,
+): Record<string, string> {
   const { publicKey, secret } = getCredentials();
-  const timestamp = new Date().toISOString();
-  const nonce     = randomBytes(16).toString("hex");
-  const message   = nonce + timestamp + body;
-  const signature = createHmac("sha256", secret).update(message).digest("hex");
+  const url = new URL(`${getMavianceBaseUrl()}${endpoint}`);
+  const query: Record<string, unknown> = {};
+  for (const [key, value] of url.searchParams.entries()) query[key] = value;
+
+  // This is the signing algorithm from Maviance's supplied Postman collection.
+  // The request body fields and query fields are signed together with the auth
+  // fields, sorted lexicographically.
+  const timestamp = Date.now();
+  const nonce = Date.now() + 1;
+  const authParams: Record<string, unknown> = {
+    s3pAuth_nonce: nonce,
+    s3pAuth_timestamp: timestamp,
+    s3pAuth_signature_method: "HMAC-SHA1",
+    s3pAuth_token: publicKey,
+  };
+  const params = { ...query, ...(body ?? {}), ...authParams };
+  const parameterString = Object.keys(params)
+    .sort()
+    .map((key) => `${key}=${typeof params[key] === "string" ? String(params[key]).trim() : params[key]}`)
+    .join("&");
+  const baseString = `${method}&${encodeURIComponent(`${getMavianceBaseUrl()}${url.pathname}`)}&${encodeURIComponent(parameterString)}`;
+  const encodedSignature = createHmac("sha1", secret).update(baseString).digest("base64");
+  const separator = ", ";
 
   return {
-    "Content-Type":  "application/json",
-    "X-Api-Key":     publicKey,
-    "X-HS-Date":     timestamp,
-    "X-Nonce":       nonce,
-    "Authorization": `HMAC ${signature}`,
+    "Content-Type": "application/json",
+    Authorization:
+      `s3pAuth s3pAuth_timestamp="${timestamp}"${separator}` +
+      `s3pAuth_signature="${encodedSignature}"${separator}` +
+      `s3pAuth_nonce="${nonce}"${separator}` +
+      `s3pAuth_signature_method="HMAC-SHA1"${separator}` +
+      `s3pAuth_token="${publicKey}"`,
   };
 }
 
@@ -57,7 +82,7 @@ async function s3pRequest<T>(
   const base    = getMavianceBaseUrl();
   const url     = `${base}${endpoint}`;
   const bodyStr = body ? JSON.stringify(body) : "";
-  const headers = buildHeaders(method === "POST" ? bodyStr : "");
+  const headers = buildHeaders(method, endpoint, body);
 
   logger.debug({ method, url, bodyLen: bodyStr.length }, "Maviance S3P request");
 
@@ -83,9 +108,25 @@ async function s3pRequest<T>(
   );
 
   if (!res.ok) {
-    const err = json as { message?: string; description?: string; errorCode?: string };
-    const msg = err.message ?? err.description ?? `Erreur Maviance HTTP ${res.status}`;
-    throw new MavianceApiError(msg, res.status, (err as any).errorCode);
+    const err = json as {
+      message?: string;
+      description?: string;
+      usrMsg?: string;
+      devMsg?: string;
+      errorCode?: string;
+      respCode?: string | number;
+    };
+    const msg =
+      err.message ??
+      err.description ??
+      err.usrMsg ??
+      err.devMsg ??
+      `Erreur Maviance HTTP ${res.status}`;
+    throw new MavianceApiError(
+      msg,
+      res.status,
+      err.errorCode ?? (err.respCode != null ? String(err.respCode) : undefined),
+    );
   }
 
   return json as T;
@@ -189,19 +230,51 @@ export function normalizeMaviancePhone(phone: string, country: string): string {
 
 // ─── S3P API calls ────────────────────────────────────────────────────────────
 
-export async function getServiceList(type: string): Promise<MavianceService[]> {
-  return s3pRequest<MavianceService[]>("GET", `/servicelist?type=${type}`);
+export async function getServiceList(type?: string): Promise<MavianceService[]> {
+  const response = await s3pRequest<unknown>("GET", "/service");
+  const raw = Array.isArray(response)
+    ? response
+    : ((response as any)?.data ?? (response as any)?.services ?? (response as any)?.result ?? []);
+  const services = Array.isArray(raw) ? raw : [];
+  if (!type) return services as MavianceService[];
+  return services.filter((service: any) =>
+    String(service.type ?? service.serviceType ?? "").toUpperCase() === type.toUpperCase()
+  ) as MavianceService[];
+}
+
+type MavianceOperation = "CASHIN" | "CASHOUT";
+
+async function getPayItemId(serviceId: number, operation: MavianceOperation): Promise<string> {
+  const response = await s3pRequest<unknown>(
+    "GET",
+    `/${operation.toLowerCase()}?serviceid=${encodeURIComponent(serviceId)}`,
+  );
+  const raw = Array.isArray(response)
+    ? response
+    : ((response as any)?.data ?? (response as any)?.services ?? (response as any)?.result ?? response);
+  const items = Array.isArray(raw) ? raw : [raw];
+  const item = items.find((candidate: any) =>
+    candidate && (candidate.payItemId || candidate.payitemid || candidate.payItemValue)
+  );
+  const payItemId = item?.payItemId ?? item?.payitemid ?? item?.payItemValue;
+  if (!payItemId) {
+    throw new MavianceApiError(
+      `Aucun payItemId retourné pour le service Maviance ${serviceId} (${operation})`,
+      502,
+    );
+  }
+  return String(payItemId);
 }
 
 export async function createQuote(
   serviceId: number,
   amount: number,
   currency: string,
+  operation: MavianceOperation = "CASHOUT",
 ): Promise<MavianceQuote> {
   return s3pRequest<MavianceQuote>("POST", "/quotestd", {
-    serviceid: serviceId,
+    payItemId: await getPayItemId(serviceId, operation),
     amount,
-    currency:  currency.toUpperCase(),
   });
 }
 
@@ -271,7 +344,7 @@ export async function initiateDeposit(params: {
     { ...params, phone: params.phone.replace(/\d(?=\d{4})/g, "*"), env: process.env["MAVIANCE_ENV"] ?? "staging", hint },
     "Maviance DEPOSIT: quote → collectstd"
   );
-  const quote   = await createQuote(params.serviceId, params.amount, params.currency);
+  const quote   = await createQuote(params.serviceId, params.amount, params.currency, "CASHOUT");
   const collect = await collectStd(quote.payToken, params.phone, params.trid);
   logger.info({ payToken: quote.payToken, status: collect.status, trid: params.trid }, "Maviance DEPOSIT done");
   return { payToken: quote.payToken, quote, collect };
@@ -288,7 +361,7 @@ export async function initiateWithdrawal(params: {
     { ...params, phone: params.phone.replace(/\d(?=\d{4})/g, "*") },
     "Maviance WITHDRAWAL: quote → cashin"
   );
-  const quote   = await createQuote(params.serviceId, params.amount, params.currency);
+  const quote   = await createQuote(params.serviceId, params.amount, params.currency, "CASHIN");
   const collect = await cashin(quote.payToken, params.phone, params.trid);
   logger.info({ payToken: quote.payToken, status: collect.status, trid: params.trid }, "Maviance WITHDRAWAL done");
   return { payToken: quote.payToken, quote, collect };
@@ -303,7 +376,7 @@ export async function initiateCardDeposit(params: {
   cancelUrl?:  string;
 }): Promise<{ payToken: string; quote: MavianceQuote; redirectUrl: string }> {
   logger.info(params, "Maviance CARD DEPOSIT: quote → collectcard");
-  const quote  = await createQuote(params.serviceId, params.amount, params.currency);
+  const quote  = await createQuote(params.serviceId, params.amount, params.currency, "CASHOUT");
   const result = await collectCard(quote.payToken, params.redirectUrl, params.cancelUrl);
   logger.info({ payToken: quote.payToken, redirectUrl: result.redirectUrl }, "Maviance CARD done");
   return { payToken: quote.payToken, quote, redirectUrl: result.redirectUrl };

@@ -16,10 +16,11 @@ description: Architecture and key decisions for the Maviance S3P v2 + e-nkap int
 - ORANGE CM WITHDRAWAL (CASHIN) → service_id 30052
 Stored in `maviance_services` table.
 
-## HMAC auth
-- Headers: X-Api-Key, X-HS-Date, X-Nonce, Authorization: HMAC {hex}
-- Signature = HMAC-SHA256(secret, nonce + timestamp + body_or_empty) → hex
-- Implemented in `artifacts/api-server/src/lib/maviance.ts`
+## S3P authentication
+- The supplied Postman collections use `Authorization: s3pAuth ...` with timestamp, nonce, signature method and token fields.
+- Signature = Base64(HMAC-SHA1(secret, METHOD + encoded URL + encoded sorted parameters)).
+- Production base URL from the supplied collection: `https://s3pv2cm.smobilpay.com/v2`; staging remains `https://s3p.smobilpay.staging.maviance.info/v2`.
+- `GET /service` lists live services; `GET /cashout?serviceid=...` and `/cashin?serviceid=...` return payItemIds used by `/quotestd`.
 
 ## Provider selection
 - Table `payment_provider_config(country, operator, type, provider)`

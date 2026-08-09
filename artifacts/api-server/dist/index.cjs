@@ -29582,7 +29582,7 @@ var require_utils_webcrypto = __commonJS({
     var nodeCrypto2 = require("crypto");
     module2.exports = {
       postgresMd5PasswordHash,
-      randomBytes: randomBytes4,
+      randomBytes: randomBytes3,
       deriveKey,
       sha256,
       hashByName,
@@ -29592,7 +29592,7 @@ var require_utils_webcrypto = __commonJS({
     var webCrypto = nodeCrypto2.webcrypto || globalThis.crypto;
     var subtleCrypto = webCrypto.subtle;
     var textEncoder = new TextEncoder();
-    function randomBytes4(length) {
+    function randomBytes3(length) {
       return webCrypto.getRandomValues(Buffer.alloc(length));
     }
     async function md5(string4) {
@@ -67210,7 +67210,7 @@ async function getPixPayTransactionStatus(pixTransactionId, currency) {
 // src/lib/maviance.ts
 var import_crypto3 = require("crypto");
 var STAGING_BASE = "https://s3p.smobilpay.staging.maviance.info/v2";
-var PROD_BASE2 = "https://s3p.smobilpay.maviance.info/v2";
+var PROD_BASE2 = "https://s3pv2cm.smobilpay.com/v2";
 function getMavianceBaseUrl() {
   return process.env["MAVIANCE_ENV"] === "production" ? PROD_BASE2 : STAGING_BASE;
 }
@@ -67224,25 +67224,34 @@ function getCredentials() {
   }
   return { publicKey: publicKey.trim(), secret: secret.trim() };
 }
-function buildHeaders(body = "") {
+function buildHeaders(method, endpoint, body) {
   const { publicKey, secret } = getCredentials();
-  const timestamp2 = (/* @__PURE__ */ new Date()).toISOString();
-  const nonce = (0, import_crypto3.randomBytes)(16).toString("hex");
-  const message = nonce + timestamp2 + body;
-  const signature = (0, import_crypto3.createHmac)("sha256", secret).update(message).digest("hex");
+  const url2 = new URL(`${getMavianceBaseUrl()}${endpoint}`);
+  const query = {};
+  for (const [key, value] of url2.searchParams.entries()) query[key] = value;
+  const timestamp2 = Date.now();
+  const nonce = Date.now() + 1;
+  const authParams = {
+    s3pAuth_nonce: nonce,
+    s3pAuth_timestamp: timestamp2,
+    s3pAuth_signature_method: "HMAC-SHA1",
+    s3pAuth_token: publicKey
+  };
+  const params = { ...query, ...body ?? {}, ...authParams };
+  const parameterString = Object.keys(params).sort().map((key) => `${key}=${typeof params[key] === "string" ? String(params[key]).trim() : params[key]}`).join("&");
+  const baseString = `${method}&${encodeURIComponent(`${getMavianceBaseUrl()}${url2.pathname}`)}&${encodeURIComponent(parameterString)}`;
+  const encodedSignature = (0, import_crypto3.createHmac)("sha1", secret).update(baseString).digest("base64");
+  const separator = ", ";
   return {
     "Content-Type": "application/json",
-    "X-Api-Key": publicKey,
-    "X-HS-Date": timestamp2,
-    "X-Nonce": nonce,
-    "Authorization": `HMAC ${signature}`
+    Authorization: `s3pAuth s3pAuth_timestamp="${timestamp2}"${separator}s3pAuth_signature="${encodedSignature}"${separator}s3pAuth_nonce="${nonce}"${separator}s3pAuth_signature_method="HMAC-SHA1"${separator}s3pAuth_token="${publicKey}"`
   };
 }
 async function s3pRequest(method, endpoint, body) {
   const base = getMavianceBaseUrl();
   const url2 = `${base}${endpoint}`;
   const bodyStr = body ? JSON.stringify(body) : "";
-  const headers = buildHeaders(method === "POST" ? bodyStr : "");
+  const headers = buildHeaders(method, endpoint, body);
   logger.debug({ method, url: url2, bodyLen: bodyStr.length }, "Maviance S3P request");
   const res = await fetch(url2, {
     method,
@@ -67264,8 +67273,12 @@ async function s3pRequest(method, endpoint, body) {
   );
   if (!res.ok) {
     const err = json3;
-    const msg = err.message ?? err.description ?? `Erreur Maviance HTTP ${res.status}`;
-    throw new MavianceApiError(msg, res.status, err.errorCode);
+    const msg = err.message ?? err.description ?? err.usrMsg ?? err.devMsg ?? `Erreur Maviance HTTP ${res.status}`;
+    throw new MavianceApiError(
+      msg,
+      res.status,
+      err.errorCode ?? (err.respCode != null ? String(err.respCode) : void 0)
+    );
   }
   return json3;
 }
@@ -67307,11 +67320,38 @@ function normalizeMaviancePhone(phone, country) {
   if (digits.startsWith(dialCode)) return digits;
   return dialCode + digits.replace(/^0+/, "");
 }
-async function createQuote(serviceId, amount, currency) {
+async function getServiceList(type) {
+  const response = await s3pRequest("GET", "/service");
+  const raw = Array.isArray(response) ? response : response?.data ?? response?.services ?? response?.result ?? [];
+  const services = Array.isArray(raw) ? raw : [];
+  if (!type) return services;
+  return services.filter(
+    (service) => String(service.type ?? service.serviceType ?? "").toUpperCase() === type.toUpperCase()
+  );
+}
+async function getPayItemId(serviceId, operation) {
+  const response = await s3pRequest(
+    "GET",
+    `/${operation.toLowerCase()}?serviceid=${encodeURIComponent(serviceId)}`
+  );
+  const raw = Array.isArray(response) ? response : response?.data ?? response?.services ?? response?.result ?? response;
+  const items = Array.isArray(raw) ? raw : [raw];
+  const item = items.find(
+    (candidate) => candidate && (candidate.payItemId || candidate.payitemid || candidate.payItemValue)
+  );
+  const payItemId = item?.payItemId ?? item?.payitemid ?? item?.payItemValue;
+  if (!payItemId) {
+    throw new MavianceApiError(
+      `Aucun payItemId retourn\xE9 pour le service Maviance ${serviceId} (${operation})`,
+      502
+    );
+  }
+  return String(payItemId);
+}
+async function createQuote(serviceId, amount, currency, operation = "CASHOUT") {
   return s3pRequest("POST", "/quotestd", {
-    serviceid: serviceId,
-    amount,
-    currency: currency.toUpperCase()
+    payItemId: await getPayItemId(serviceId, operation),
+    amount
   });
 }
 async function collectStd(payToken, phone, trid) {
@@ -67353,7 +67393,7 @@ async function initiateDeposit(params) {
     { ...params, phone: params.phone.replace(/\d(?=\d{4})/g, "*"), env: process.env["MAVIANCE_ENV"] ?? "staging", hint },
     "Maviance DEPOSIT: quote \u2192 collectstd"
   );
-  const quote = await createQuote(params.serviceId, params.amount, params.currency);
+  const quote = await createQuote(params.serviceId, params.amount, params.currency, "CASHOUT");
   const collect = await collectStd(quote.payToken, params.phone, params.trid);
   logger.info({ payToken: quote.payToken, status: collect.status, trid: params.trid }, "Maviance DEPOSIT done");
   return { payToken: quote.payToken, quote, collect };
@@ -67363,14 +67403,14 @@ async function initiateWithdrawal(params) {
     { ...params, phone: params.phone.replace(/\d(?=\d{4})/g, "*") },
     "Maviance WITHDRAWAL: quote \u2192 cashin"
   );
-  const quote = await createQuote(params.serviceId, params.amount, params.currency);
+  const quote = await createQuote(params.serviceId, params.amount, params.currency, "CASHIN");
   const collect = await cashin(quote.payToken, params.phone, params.trid);
   logger.info({ payToken: quote.payToken, status: collect.status, trid: params.trid }, "Maviance WITHDRAWAL done");
   return { payToken: quote.payToken, quote, collect };
 }
 async function initiateCardDeposit(params) {
   logger.info(params, "Maviance CARD DEPOSIT: quote \u2192 collectcard");
-  const quote = await createQuote(params.serviceId, params.amount, params.currency);
+  const quote = await createQuote(params.serviceId, params.amount, params.currency, "CASHOUT");
   const result = await collectCard(quote.payToken, params.redirectUrl, params.cancelUrl);
   logger.info({ payToken: quote.payToken, redirectUrl: result.redirectUrl }, "Maviance CARD done");
   return { payToken: quote.payToken, quote, redirectUrl: result.redirectUrl };
@@ -68951,6 +68991,100 @@ var dashboard_default = router5;
 var import_express6 = __toESM(require_express2(), 1);
 init_drizzle_orm();
 var router6 = (0, import_express6.Router)();
+router6.get("/maviance", async (_req, res) => {
+  try {
+    const result = await db.execute(sql`
+      SELECT country, currency, operator, type, service_id, active, notes
+      FROM maviance_services
+      WHERE active = true
+      ORDER BY country, currency, operator, type
+    `);
+    const countries = {};
+    for (const row of result.rows) {
+      const country = row.country?.toUpperCase();
+      if (!country) continue;
+      const operator = row.operator.toUpperCase();
+      countries[country] ??= { currency: row.currency.toUpperCase(), operators: {} };
+      countries[country].operators[operator] ??= {};
+      const service = {
+        serviceId: Number(row.service_id),
+        notes: row.notes
+      };
+      if (row.type === "DEPOSIT") countries[country].operators[operator].deposit = service;
+      if (row.type === "WITHDRAWAL") countries[country].operators[operator].withdrawal = service;
+      if (row.type === "CARD") countries[country].operators[operator].card = service;
+    }
+    res.json({
+      provider: "MAVIANCE",
+      source: "configured_services",
+      fees: {
+        mode: "dynamic_quote",
+        quoteEndpoint: "/api/services/maviance/quote",
+        message: "Les frais Maviance sont retourn\xE9s par le devis selon le montant, le service et la devise."
+      },
+      countries
+    });
+  } catch (err) {
+    _req.log?.error({ err }, "Get Maviance catalogue error");
+    res.status(500).json({ error: "InternalError", message: "Impossible de charger le catalogue Maviance" });
+  }
+});
+router6.get("/maviance/live", async (req, res) => {
+  const type = typeof req.query.type === "string" ? req.query.type.toUpperCase() : void 0;
+  if (type && !["CASHIN", "CASHOUT", "CARD", "TOPUP", "PRODUCT", "SUBSCRIPTION", "SEARCHABLE_BILL"].includes(type)) {
+    res.status(400).json({ error: "ValidationError", message: "Type de service Maviance invalide" });
+    return;
+  }
+  try {
+    const services = await getServiceList(type);
+    res.json({ provider: "MAVIANCE", source: "live_api", type: type ?? null, services });
+  } catch (err) {
+    req.log.error({ err, type }, "Get live Maviance services error");
+    const message = err instanceof Error ? err.message : "Maviance service list unavailable";
+    res.status(502).json({ error: "ProviderError", message });
+  }
+});
+router6.post("/maviance/quote", async (req, res) => {
+  const schema = external_exports.object({
+    serviceId: external_exports.number().int().positive(),
+    amount: external_exports.number().positive(),
+    currency: external_exports.enum(["XAF", "XOF", "CDF"]),
+    operation: external_exports.enum(["DEPOSIT", "WITHDRAWAL"]).default("DEPOSIT")
+  });
+  const parsed = schema.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({
+      error: "ValidationError",
+      message: "serviceId, amount et currency (XAF/XOF/CDF) sont requis"
+    });
+    return;
+  }
+  try {
+    const quote = await createQuote(
+      parsed.data.serviceId,
+      parsed.data.amount,
+      parsed.data.currency,
+      parsed.data.operation === "WITHDRAWAL" ? "CASHIN" : "CASHOUT"
+    );
+    res.json({
+      provider: "MAVIANCE",
+      serviceId: parsed.data.serviceId,
+      requestedAmount: parsed.data.amount,
+      currency: parsed.data.currency,
+      operation: parsed.data.operation,
+      quoteId: quote.quoteId ?? null,
+      payToken: quote.payToken,
+      providerFee: Number(quote.fees ?? 0),
+      providerAmount: Number(quote.amount ?? parsed.data.amount),
+      expiresAt: quote.expiry ?? null,
+      quote
+    });
+  } catch (err) {
+    req.log.error({ err, body: parsed.data }, "Maviance quote error");
+    const message = err instanceof Error ? err.message : "Maviance quote unavailable";
+    res.status(502).json({ error: "ProviderError", message });
+  }
+});
 router6.get("/fees", authMiddleware, async (req, res) => {
   try {
     const overrideRows = await db.execute(sql`

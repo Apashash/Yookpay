@@ -4,8 +4,133 @@ import { FEE_TABLE, CURRENCY_MAP } from "../services/feeService";
 import { getDefaultMargin } from "../lib/marginCache";
 import { db } from "@workspace/db";
 import { sql } from "drizzle-orm";
+import { createQuote, getServiceList } from "../lib/maviance";
+import { z } from "zod";
 
 const router = Router();
+
+// GET /services/maviance — configured Maviance countries, operators and services.
+// This is the local catalogue. Fees are not included because Maviance calculates
+// them dynamically for each amount; use /maviance/quote for the exact fee.
+router.get("/maviance", async (_req, res) => {
+  try {
+    const result = await db.execute<{
+      country: string | null;
+      currency: string;
+      operator: string;
+      type: string;
+      service_id: number;
+      active: boolean;
+      notes: string | null;
+    }>(sql`
+      SELECT country, currency, operator, type, service_id, active, notes
+      FROM maviance_services
+      WHERE active = true
+      ORDER BY country, currency, operator, type
+    `);
+
+    const countries: Record<string, {
+      currency: string;
+      operators: Record<string, {
+        deposit?: { serviceId: number; notes: string | null };
+        withdrawal?: { serviceId: number; notes: string | null };
+        card?: { serviceId: number; notes: string | null };
+      }>;
+    }> = {};
+
+    for (const row of result.rows) {
+      const country = row.country?.toUpperCase();
+      if (!country) continue;
+      const operator = row.operator.toUpperCase();
+      countries[country] ??= { currency: row.currency.toUpperCase(), operators: {} };
+      countries[country].operators[operator] ??= {};
+      const service = {
+        serviceId: Number(row.service_id),
+        notes: row.notes,
+      };
+      if (row.type === "DEPOSIT") countries[country].operators[operator].deposit = service;
+      if (row.type === "WITHDRAWAL") countries[country].operators[operator].withdrawal = service;
+      if (row.type === "CARD") countries[country].operators[operator].card = service;
+    }
+
+    res.json({
+      provider: "MAVIANCE",
+      source: "configured_services",
+      fees: {
+        mode: "dynamic_quote",
+        quoteEndpoint: "/api/services/maviance/quote",
+        message: "Les frais Maviance sont retournés par le devis selon le montant, le service et la devise.",
+      },
+      countries,
+    });
+  } catch (err) {
+    _req.log?.error({ err }, "Get Maviance catalogue error");
+    res.status(500).json({ error: "InternalError", message: "Impossible de charger le catalogue Maviance" });
+  }
+});
+
+// GET /services/maviance/live — services currently exposed by the Maviance API.
+// Requires Maviance credentials and calls the provider at request time.
+router.get("/maviance/live", async (req, res) => {
+  const type = typeof req.query.type === "string" ? req.query.type.toUpperCase() : undefined;
+  if (type && !["CASHIN", "CASHOUT", "CARD", "TOPUP", "PRODUCT", "SUBSCRIPTION", "SEARCHABLE_BILL"].includes(type)) {
+    res.status(400).json({ error: "ValidationError", message: "Type de service Maviance invalide" });
+    return;
+  }
+  try {
+    const services = await getServiceList(type);
+    res.json({ provider: "MAVIANCE", source: "live_api", type: type ?? null, services });
+  } catch (err) {
+    req.log.error({ err, type }, "Get live Maviance services error");
+    const message = err instanceof Error ? err.message : "Maviance service list unavailable";
+    res.status(502).json({ error: "ProviderError", message });
+  }
+});
+
+// POST /services/maviance/quote — exact Maviance provider fee for a transaction.
+// The amount is the amount sent to Maviance, before YookPay's own margin.
+router.post("/maviance/quote", async (req, res) => {
+  const schema = z.object({
+    serviceId: z.number().int().positive(),
+    amount: z.number().positive(),
+    currency: z.enum(["XAF", "XOF", "CDF"]),
+    operation: z.enum(["DEPOSIT", "WITHDRAWAL"]).default("DEPOSIT"),
+  });
+  const parsed = schema.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({
+      error: "ValidationError",
+      message: "serviceId, amount et currency (XAF/XOF/CDF) sont requis",
+    });
+    return;
+  }
+
+  try {
+    const quote = await createQuote(
+      parsed.data.serviceId,
+      parsed.data.amount,
+      parsed.data.currency,
+      parsed.data.operation === "WITHDRAWAL" ? "CASHIN" : "CASHOUT",
+    );
+    res.json({
+      provider: "MAVIANCE",
+      serviceId: parsed.data.serviceId,
+      requestedAmount: parsed.data.amount,
+      currency: parsed.data.currency,
+      operation: parsed.data.operation,
+      quoteId: quote.quoteId ?? null,
+      payToken: quote.payToken,
+      providerFee: Number(quote.fees ?? 0),
+      providerAmount: Number(quote.amount ?? parsed.data.amount),
+      expiresAt: quote.expiry ?? null,
+      quote,
+    });
+  } catch (err) {
+    req.log.error({ err, body: parsed.data }, "Maviance quote error");
+    const message = err instanceof Error ? err.message : "Maviance quote unavailable";
+    res.status(502).json({ error: "ProviderError", message });
+  }
+});
 
 // GET /services/fees — fee table for the authenticated user
 // Shows total rate = pixpay_base + yookpay_margin (as configured by admin)
