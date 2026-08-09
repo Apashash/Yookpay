@@ -50,3 +50,12 @@ Stored in `maviance_services` table.
 ## Runtime diagnostics
 - The admin ENV diagnostic reports the Maviance environment, selected API base URL, callback URL, and whether the two credentials are present in the running Node process.
 - On Plesk, adding variables is not enough: the Node application must be restarted before `process.env` reflects the new values.
+
+## Environment and payload compatibility
+- The supplied credentials authenticate successfully against the staging API, not the production API. Production returns S3P error `4009` ("Access token invalid") with those credentials.
+- The staging `POST /quotestd` response uses `quoteId`; execution calls use that `quoteId` plus `customerPhonenumber`, `customerEmailaddress`, `customerName`, `customerAddress`, `serviceNumber`, and `trid`.
+- Maviance status verification uses the integrator `trid` query parameter. Do not treat the quote identifier as the transaction status identifier.
+
+**Why:** A production/staging mismatch and assuming a `payToken` response shape caused authentication and execution failures during the first live deposit test.
+
+**How to apply:** Keep test deployments on `MAVIANCE_ENV=staging` until production credentials are issued, and validate the complete quote → execution → `verifytx?trid=...` flow against the current Postman collection.
