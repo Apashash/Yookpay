@@ -4,10 +4,10 @@ description: Architecture and key decisions for the Maviance S3P v2 + e-nkap int
 ---
 
 ## S3P API flow (Mobile Money)
-- 2-step: `POST /quotestd` (get payToken) → `POST /collectstd` (DEPOSIT) or `POST /cashin` (WITHDRAWAL)
+- 2-step: `POST /quotestd` (get quoteId) → `POST /collectstd` (DEPOSIT) or `POST /cashin` (WITHDRAWAL)
 - CASHOUT services = collect from customer = YookPay DEPOSIT → `/collectstd`
 - CASHIN services  = disburse to customer = YookPay WITHDRAWAL → `/cashin`
-- Status check: `GET /verifytx?payToken=...`
+- Status check: `GET /verifytx?trid=...`
 
 ## Maviance staging service IDs (Cameroon XAF)
 - MTN CM DEPOSIT (CASHOUT)    → service_id 20053
@@ -42,6 +42,7 @@ Stored in `maviance_services` table.
 
 ## Phone format
 - Maviance expects international format without +: "237677389120" for Cameroon MTN
+- Maviance `serviceNumber` expects the local subscriber number without country code or leading zero: "677389120"
 - PixPay expects local format with leading 0: "0677389120"
 - `normalizeMaviancePhone()` in maviance.ts handles conversion
 

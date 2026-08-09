@@ -27,6 +27,7 @@ import {
   initiateCardDeposit as mavInitCard,
   verifyTx as mavVerifyTx,
   normalizeMaviancePhone,
+  normalizeMavianceServiceNumber,
   getMavianceIpnUrl,
   isMavianceSuccess,
   isMavianceFailed,
@@ -595,6 +596,7 @@ router.post("/deposit", authMiddleware, transactionRateLimit, async (req: AuthRe
           amount: providerAmount,
           currency,
           phone: mavPhone,
+          serviceNumber: normalizeMavianceServiceNumber(phone, country),
           trid: reference,
         });
       } catch (mavErr) {
@@ -866,6 +868,7 @@ router.post("/withdraw", authMiddleware, transactionRateLimit, async (req: AuthR
           amount: pixPayAmount,
           currency,
           phone: mavPhone,
+          serviceNumber: normalizeMavianceServiceNumber(phone, country),
           trid: reference,
         });
       } catch (mavErr) {

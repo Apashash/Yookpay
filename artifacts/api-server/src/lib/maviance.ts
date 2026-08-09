@@ -235,6 +235,25 @@ export function normalizeMaviancePhone(phone: string, country: string): string {
   return dialCode + digits.replace(/^0+/, "");
 }
 
+/**
+ * Maviance's serviceNumber is the operator-local subscriber number.
+ * Unlike customerPhonenumber, it must not include the country dial code
+ * or a leading local zero (e.g. 677389120, not 237677389120 or 0677389120).
+ */
+export function normalizeMavianceServiceNumber(phone: string, country: string): string {
+  const international = normalizeMaviancePhone(phone, country);
+  const DIAL_CODES: Record<string, string> = {
+    BJ: "229", BF: "226", CM: "237", CD: "243", CG: "242",
+    CI: "225", GA: "241", GM: "220", GN: "224", ML: "223",
+    SN: "221", TG: "228",
+  };
+  const dialCode = DIAL_CODES[country.toUpperCase()] ?? "";
+  const local = dialCode && international.startsWith(dialCode)
+    ? international.slice(dialCode.length)
+    : international;
+  return local.replace(/^0+/, "");
+}
+
 // ─── S3P API calls ────────────────────────────────────────────────────────────
 
 export async function getServiceList(type?: string): Promise<MavianceService[]> {
@@ -308,6 +327,7 @@ export async function collectStd(
   quoteId: string,
   phone: string,
   trid: string,
+  serviceNumber: string,
 ): Promise<MavianceCollectResult> {
   return s3pRequest<MavianceCollectResult>("POST", "/collectstd", {
     quoteId,
@@ -315,7 +335,7 @@ export async function collectStd(
     customerEmailaddress: "support@yookpay.com",
     customerName: "YookPay Customer",
     customerAddress: "YookPay",
-    serviceNumber: phone,
+    serviceNumber,
     trid,
   });
 }
@@ -325,6 +345,7 @@ export async function cashin(
   quoteId: string,
   phone: string,
   trid: string,
+  serviceNumber: string,
 ): Promise<MavianceCollectResult> {
   return s3pRequest<MavianceCollectResult>("POST", "/cashin", {
     quoteId,
@@ -332,7 +353,7 @@ export async function cashin(
     customerEmailaddress: "support@yookpay.com",
     customerName: "YookPay Customer",
     customerAddress: "YookPay",
-    serviceNumber: phone,
+    serviceNumber,
     trid,
   });
 }
@@ -369,6 +390,7 @@ export async function initiateDeposit(params: {
   amount:    number;
   currency:  string;
   phone:     string;
+  serviceNumber?: string;
   trid:      string;
 }): Promise<{ payToken: string; quote: MavianceQuote; collect: MavianceCollectResult }> {
   const hint = (process.env["MAVIANCE_PUBLIC_KEY"] ?? "").slice(0, 6) + "...";
@@ -377,7 +399,12 @@ export async function initiateDeposit(params: {
     "Maviance DEPOSIT: quote → collectstd"
   );
   const quote   = await createQuote(params.serviceId, params.amount, params.currency, "CASHOUT");
-  const collect = await collectStd(quote.quoteId, params.phone, params.trid);
+  const collect = await collectStd(
+    quote.quoteId,
+    params.phone,
+    params.trid,
+    params.serviceNumber ?? params.phone.replace(/^0+/, ""),
+  );
   logger.info({ quoteId: quote.quoteId, status: collect.status, trid: params.trid }, "Maviance DEPOSIT done");
   return { payToken: quote.quoteId, quote, collect };
 }
@@ -387,6 +414,7 @@ export async function initiateWithdrawal(params: {
   amount:    number;
   currency:  string;
   phone:     string;
+  serviceNumber?: string;
   trid:      string;
 }): Promise<{ payToken: string; quote: MavianceQuote; collect: MavianceCollectResult }> {
   logger.info(
@@ -394,7 +422,12 @@ export async function initiateWithdrawal(params: {
     "Maviance WITHDRAWAL: quote → cashin"
   );
   const quote   = await createQuote(params.serviceId, params.amount, params.currency, "CASHIN");
-  const collect = await cashin(quote.quoteId, params.phone, params.trid);
+  const collect = await cashin(
+    quote.quoteId,
+    params.phone,
+    params.trid,
+    params.serviceNumber ?? params.phone.replace(/^0+/, ""),
+  );
   logger.info({ quoteId: quote.quoteId, status: collect.status, trid: params.trid }, "Maviance WITHDRAWAL done");
   return { payToken: quote.quoteId, quote, collect };
 }

@@ -67321,6 +67321,26 @@ function normalizeMaviancePhone(phone, country) {
   if (digits.startsWith(dialCode)) return digits;
   return dialCode + digits.replace(/^0+/, "");
 }
+function normalizeMavianceServiceNumber(phone, country) {
+  const international = normalizeMaviancePhone(phone, country);
+  const DIAL_CODES3 = {
+    BJ: "229",
+    BF: "226",
+    CM: "237",
+    CD: "243",
+    CG: "242",
+    CI: "225",
+    GA: "241",
+    GM: "220",
+    GN: "224",
+    ML: "223",
+    SN: "221",
+    TG: "228"
+  };
+  const dialCode = DIAL_CODES3[country.toUpperCase()] ?? "";
+  const local = dialCode && international.startsWith(dialCode) ? international.slice(dialCode.length) : international;
+  return local.replace(/^0+/, "");
+}
 async function getServiceList(type) {
   const response = await s3pRequest("GET", "/service");
   const raw = Array.isArray(response) ? response : response?.data ?? response?.services ?? response?.result ?? [];
@@ -67368,25 +67388,25 @@ async function createQuote(serviceId, amount, currency, operation = "CASHOUT") {
     expiry: response.expiry ? String(response.expiry) : response.expiresAt ? String(response.expiresAt) : void 0
   };
 }
-async function collectStd(quoteId, phone, trid) {
+async function collectStd(quoteId, phone, trid, serviceNumber) {
   return s3pRequest("POST", "/collectstd", {
     quoteId,
     customerPhonenumber: phone,
     customerEmailaddress: "support@yookpay.com",
     customerName: "YookPay Customer",
     customerAddress: "YookPay",
-    serviceNumber: phone,
+    serviceNumber,
     trid
   });
 }
-async function cashin(quoteId, phone, trid) {
+async function cashin(quoteId, phone, trid, serviceNumber) {
   return s3pRequest("POST", "/cashin", {
     quoteId,
     customerPhonenumber: phone,
     customerEmailaddress: "support@yookpay.com",
     customerName: "YookPay Customer",
     customerAddress: "YookPay",
-    serviceNumber: phone,
+    serviceNumber,
     trid
   });
 }
@@ -67415,7 +67435,12 @@ async function initiateDeposit(params) {
     "Maviance DEPOSIT: quote \u2192 collectstd"
   );
   const quote = await createQuote(params.serviceId, params.amount, params.currency, "CASHOUT");
-  const collect = await collectStd(quote.quoteId, params.phone, params.trid);
+  const collect = await collectStd(
+    quote.quoteId,
+    params.phone,
+    params.trid,
+    params.serviceNumber ?? params.phone.replace(/^0+/, "")
+  );
   logger.info({ quoteId: quote.quoteId, status: collect.status, trid: params.trid }, "Maviance DEPOSIT done");
   return { payToken: quote.quoteId, quote, collect };
 }
@@ -67425,7 +67450,12 @@ async function initiateWithdrawal(params) {
     "Maviance WITHDRAWAL: quote \u2192 cashin"
   );
   const quote = await createQuote(params.serviceId, params.amount, params.currency, "CASHIN");
-  const collect = await cashin(quote.quoteId, params.phone, params.trid);
+  const collect = await cashin(
+    quote.quoteId,
+    params.phone,
+    params.trid,
+    params.serviceNumber ?? params.phone.replace(/^0+/, "")
+  );
   logger.info({ quoteId: quote.quoteId, status: collect.status, trid: params.trid }, "Maviance WITHDRAWAL done");
   return { payToken: quote.quoteId, quote, collect };
 }
@@ -67858,6 +67888,7 @@ router4.post("/deposit", authMiddleware, transactionRateLimit, async (req, res) 
           amount: providerAmount,
           currency,
           phone: mavPhone,
+          serviceNumber: normalizeMavianceServiceNumber(phone, country),
           trid: reference
         });
       } catch (mavErr) {
@@ -68077,6 +68108,7 @@ router4.post("/withdraw", authMiddleware, transactionRateLimit, async (req, res)
           amount: pixPayAmount,
           currency,
           phone: mavPhone,
+          serviceNumber: normalizeMavianceServiceNumber(phone, country),
           trid: reference
         });
       } catch (mavErr) {
@@ -71910,6 +71942,7 @@ router12.post("/public/:token/pay", async (req, res) => {
           amount: providerAmount,
           currency,
           phone: normalizeMaviancePhone(phone, country),
+          serviceNumber: normalizeMavianceServiceNumber(phone, country),
           trid: reference
         });
       } catch (err) {

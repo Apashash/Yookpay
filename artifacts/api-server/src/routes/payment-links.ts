@@ -16,6 +16,7 @@ import { callPixPayAirtime, getOperatorFlow, type PixPayCallParams } from "../li
 import {
   initiateDeposit as mavInitDeposit,
   normalizeMaviancePhone,
+  normalizeMavianceServiceNumber,
   verifyTx as mavVerifyTx,
   isMavianceSuccess,
   isMavianceFailed,
@@ -445,6 +446,7 @@ router.post("/public/:token/pay", async (req, res) => {
           amount: providerAmount,
           currency,
           phone: normalizeMaviancePhone(phone, country),
+          serviceNumber: normalizeMavianceServiceNumber(phone, country),
           trid: reference,
         });
       } catch (err) {
