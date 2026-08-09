@@ -597,10 +597,15 @@ router.get("/public/tx/:txId", async (req, res) => {
     let status = row.status;
     let failureReason =
       typeof meta.pixMessage === "string" ? meta.pixMessage :
-      typeof meta.providerError === "string" ? meta.providerError : null;
+      typeof meta.providerError === "string" ? meta.providerError :
+      typeof meta.mavMessage === "string" ? meta.mavMessage :
+      typeof meta.mavErrorCode === "string" ? meta.mavErrorCode :
+      typeof meta.expireReason === "string" ? meta.expireReason : null;
 
     if (status === "PENDING" && meta.provider === "MAVIANCE") {
       try {
+        // The supplied Mobile Money collection verifies CASHIN/CASHOUT
+        // transactions with the integrator trid.
         const mavStatus = await mavVerifyTx(row.reference);
         if (mavStatus) {
           const isSuccess = isMavianceSuccess(mavStatus.status);

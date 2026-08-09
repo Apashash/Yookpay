@@ -412,13 +412,13 @@ export async function runStartupMigrations(): Promise<void> {
 
     // M2. Seed Cameroon (XAF) staging service IDs from Maviance test data
     // CASHOUT type → collect from customer → YookPay DEPOSIT  (/collectstd)
-    // CASHIN  type → disburse to customer → YookPay WITHDRAWAL (/cashin)
+    // CASHIN  type → disburse to customer → YookPay WITHDRAWAL (/collectstd)
     await client.query(`
       INSERT INTO maviance_services (operator, country, currency, type, service_id, active, notes) VALUES
         ('MTN',    'CM', 'XAF', 'DEPOSIT',    20053, true, 'MTN MoMo CM Cash-Out/Depot (CASHOUT) → collectstd'),
-        ('MTN',    'CM', 'XAF', 'WITHDRAWAL', 20052, true, 'MTN MoMo CM Cash-In/Retrait (CASHIN) → cashin'),
+        ('MTN',    'CM', 'XAF', 'WITHDRAWAL', 20052, true, 'MTN MoMo CM Cash-In/Retrait (CASHIN) → collectstd'),
         ('ORANGE', 'CM', 'XAF', 'DEPOSIT',    30053, true, 'Orange Money CM Cash-Out (CASHOUT) → collectstd'),
-        ('ORANGE', 'CM', 'XAF', 'WITHDRAWAL', 30052, true, 'Orange Money CM Cash-In (CASHIN) → cashin')
+        ('ORANGE', 'CM', 'XAF', 'WITHDRAWAL', 30052, true, 'Orange Money CM Cash-In (CASHIN) → collectstd')
       ON CONFLICT ON CONSTRAINT maviance_services_uq DO NOTHING
     `);
 

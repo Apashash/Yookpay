@@ -212,7 +212,9 @@ export default function Deposit() {
           clearInterval(interval);
         }
       } catch { /* silent — network hiccup, retry next tick */ }
-    }, 3000);
+    // Maviance recommends at most one verifytx call every 10 seconds per
+    // transaction. This endpoint may perform that provider check.
+    }, 10_000);
     return () => clearInterval(interval);
   }, [pendingResult, refreshWallet]);
 

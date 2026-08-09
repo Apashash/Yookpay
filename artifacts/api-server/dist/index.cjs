@@ -67295,7 +67295,7 @@ function isMavianceSuccess(status) {
   return ["SUCCESS", "SUCCESSFUL", "SUCCESSFULL", "COMPLETED"].includes(status.toUpperCase());
 }
 function isMavianceFailed(status) {
-  return ["FAILED", "CANCELLED", "EXPIRED", "REJECTED", "ERROR"].includes(status.toUpperCase());
+  return ["FAILED", "CANCELLED", "EXPIRED", "REJECTED", "ERROR", "ERRORED", "REVERSED"].includes(status.toUpperCase());
 }
 function getMavianceIpnUrl(path3) {
   const base = process.env["MAVIANCE_IPN_BASE_URL"] || (process.env["REPLIT_DOMAINS"] ? `https://${process.env["REPLIT_DOMAINS"].split(",")[0]}` : "http://localhost:8080");
@@ -67400,7 +67400,7 @@ async function collectStd(quoteId, phone, trid, serviceNumber) {
   });
 }
 async function cashin(quoteId, phone, trid, serviceNumber) {
-  return s3pRequest("POST", "/cashin", {
+  return s3pRequest("POST", "/collectstd", {
     quoteId,
     customerPhonenumber: phone,
     customerEmailaddress: "support@yookpay.com",
@@ -67447,7 +67447,7 @@ async function initiateDeposit(params) {
 async function initiateWithdrawal(params) {
   logger.info(
     { ...params, phone: params.phone.replace(/\d(?=\d{4})/g, "*") },
-    "Maviance WITHDRAWAL: quote \u2192 cashin"
+    "Maviance WITHDRAWAL: quote \u2192 collectstd"
   );
   const quote = await createQuote(params.serviceId, params.amount, params.currency, "CASHIN");
   const collect = await cashin(
@@ -67650,8 +67650,13 @@ router4.get("/:id", authMiddleware, async (req, res) => {
             } else if (isMavianceFailed(mavStatus.status)) {
               newStatus = "FAILED";
             }
-            syncMeta = { mavStatusSynced: mavStatus.status, syncedAt: (/* @__PURE__ */ new Date()).toISOString() };
-            req.log.info({ txId: tx.id, mavStatus: mavStatus.status, newStatus }, "Auto-sync from Maviance verifyTx");
+            syncMeta = {
+              mavStatusSynced: mavStatus.status,
+              mavErrorCode: mavStatus.errorCode,
+              mavMessage: mavStatus.message,
+              syncedAt: (/* @__PURE__ */ new Date()).toISOString()
+            };
+            req.log.info({ txId: tx.id, mavStatus: mavStatus.status, trid: tx.reference, newStatus }, "Auto-sync from Maviance verifyTx");
           }
         } else {
           const pixStatus = await getPixPayTransactionStatus(tx.providerReference, tx.currency);
@@ -67922,6 +67927,8 @@ router4.post("/deposit", authMiddleware, transactionRateLimit, async (req, res) 
           mavPayToken: mavResult.payToken,
           mavQuoteId: mavResult.quote.quoteId,
           mavCollectStatus: mavResult.collect.status,
+          mavErrorCode: mavResult.collect.errorCode,
+          mavMessage: mavResult.collect.message,
           mavQuoteFees: mavResult.quote.fees
         },
         updatedAt: /* @__PURE__ */ new Date()
@@ -68137,7 +68144,10 @@ router4.post("/withdraw", authMiddleware, transactionRateLimit, async (req, res)
           providerAmount: pixPayAmount,
           provider: "MAVIANCE",
           mavPayToken: mavResult.payToken,
+          mavQuoteId: mavResult.quote.quoteId,
           mavCollectStatus: mavResult.collect.status,
+          mavErrorCode: mavResult.collect.errorCode,
+          mavMessage: mavResult.collect.message,
           mavQuoteFees: mavResult.quote.fees
         },
         updatedAt: /* @__PURE__ */ new Date()
@@ -72078,7 +72088,7 @@ router12.get("/public/tx/:txId", async (req, res) => {
     const row = r.rows[0];
     const meta = row.metadata ?? {};
     let status = row.status;
-    let failureReason = typeof meta.pixMessage === "string" ? meta.pixMessage : typeof meta.providerError === "string" ? meta.providerError : null;
+    let failureReason = typeof meta.pixMessage === "string" ? meta.pixMessage : typeof meta.providerError === "string" ? meta.providerError : typeof meta.mavMessage === "string" ? meta.mavMessage : typeof meta.mavErrorCode === "string" ? meta.mavErrorCode : typeof meta.expireReason === "string" ? meta.expireReason : null;
     if (status === "PENDING" && meta.provider === "MAVIANCE") {
       try {
         const mavStatus = await verifyTx(row.reference);
@@ -73041,9 +73051,9 @@ async function runStartupMigrations() {
     await client.query(`
       INSERT INTO maviance_services (operator, country, currency, type, service_id, active, notes) VALUES
         ('MTN',    'CM', 'XAF', 'DEPOSIT',    20053, true, 'MTN MoMo CM Cash-Out/Depot (CASHOUT) \u2192 collectstd'),
-        ('MTN',    'CM', 'XAF', 'WITHDRAWAL', 20052, true, 'MTN MoMo CM Cash-In/Retrait (CASHIN) \u2192 cashin'),
+        ('MTN',    'CM', 'XAF', 'WITHDRAWAL', 20052, true, 'MTN MoMo CM Cash-In/Retrait (CASHIN) \u2192 collectstd'),
         ('ORANGE', 'CM', 'XAF', 'DEPOSIT',    30053, true, 'Orange Money CM Cash-Out (CASHOUT) \u2192 collectstd'),
-        ('ORANGE', 'CM', 'XAF', 'WITHDRAWAL', 30052, true, 'Orange Money CM Cash-In (CASHIN) \u2192 cashin')
+        ('ORANGE', 'CM', 'XAF', 'WITHDRAWAL', 30052, true, 'Orange Money CM Cash-In (CASHIN) \u2192 collectstd')
       ON CONFLICT ON CONSTRAINT maviance_services_uq DO NOTHING
     `);
     await client.query(`

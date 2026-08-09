@@ -3,7 +3,7 @@
  *
  * Terminology (Maviance vs YookPay):
  *   CASHOUT service  + POST /collectstd  = collect from customer   = YookPay DEPOSIT
- *   CASHIN  service  + POST /cashin      = disburse to customer    = YookPay WITHDRAWAL
+ *   CASHIN  service  + POST /collectstd = disburse to customer    = YookPay WITHDRAWAL
  *   CARD    service  + POST /collectcard = card collection          = YookPay CARD_DEPOSIT
  */
 
@@ -175,10 +175,13 @@ export interface MavianceQuote {
 export interface MavianceCollectResult {
   payToken?:          string;
   quoteId?:           string;
+  ptn?:               string;
   status:             string;
   trid?:              string;
-  processingNumber?:  string;
-  message?:           string;
+  processingNumber?:   string;
+  transactionId?:      string;
+  errorCode?:          string;
+  message?:            string;
   [key: string]: unknown;
 }
 
@@ -206,7 +209,7 @@ export function isMavianceSuccess(status: string): boolean {
 }
 
 export function isMavianceFailed(status: string): boolean {
-  return ["FAILED", "CANCELLED", "EXPIRED", "REJECTED", "ERROR"].includes(status.toUpperCase());
+  return ["FAILED", "CANCELLED", "EXPIRED", "REJECTED", "ERROR", "ERRORED", "REVERSED"].includes(status.toUpperCase());
 }
 
 export function getMavianceIpnUrl(path: string): string {
@@ -340,14 +343,19 @@ export async function collectStd(
   });
 }
 
-/** Cash-in to customer phone (CASHIN service) → YookPay WITHDRAWAL */
+/**
+ * Cash-in to customer phone (CASHIN service) → YookPay WITHDRAWAL.
+ *
+ * The supplied Maviance Postman collection uses GET /cashin only to retrieve
+ * the payItemId. Execution is POST /collectstd for both CASHOUT and CASHIN.
+ */
 export async function cashin(
   quoteId: string,
   phone: string,
   trid: string,
   serviceNumber: string,
 ): Promise<MavianceCollectResult> {
-  return s3pRequest<MavianceCollectResult>("POST", "/cashin", {
+  return s3pRequest<MavianceCollectResult>("POST", "/collectstd", {
     quoteId,
     customerPhonenumber: phone,
     customerEmailaddress: "support@yookpay.com",
@@ -419,7 +427,7 @@ export async function initiateWithdrawal(params: {
 }): Promise<{ payToken: string; quote: MavianceQuote; collect: MavianceCollectResult }> {
   logger.info(
     { ...params, phone: params.phone.replace(/\d(?=\d{4})/g, "*") },
-    "Maviance WITHDRAWAL: quote → cashin"
+    "Maviance WITHDRAWAL: quote → collectstd"
   );
   const quote   = await createQuote(params.serviceId, params.amount, params.currency, "CASHIN");
   const collect = await cashin(

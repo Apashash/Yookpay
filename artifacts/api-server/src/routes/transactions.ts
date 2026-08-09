@@ -280,13 +280,19 @@ router.get("/:id", authMiddleware, async (req: AuthRequest, res) => {
         let   syncMeta: Record<string, unknown> = {};
 
         if (txProv === "MAVIANCE") {
-          // Maviance verifies by our integration reference (trid), not quoteId.
+          // The supplied Mobile Money collection verifies CASHIN/CASHOUT
+          // transactions with the integrator trid.
           const mavStatus = await mavVerifyTx(tx.reference);
           if (mavStatus) {
             if (isMavianceSuccess(mavStatus.status)) { newStatus = "SUCCESS"; }
             else if (isMavianceFailed(mavStatus.status))  { newStatus = "FAILED";  }
-            syncMeta = { mavStatusSynced: mavStatus.status, syncedAt: new Date().toISOString() };
-            req.log.info({ txId: tx.id, mavStatus: mavStatus.status, newStatus }, "Auto-sync from Maviance verifyTx");
+            syncMeta = {
+              mavStatusSynced: mavStatus.status,
+              mavErrorCode: mavStatus.errorCode,
+              mavMessage: mavStatus.message,
+              syncedAt: new Date().toISOString(),
+            };
+            req.log.info({ txId: tx.id, mavStatus: mavStatus.status, trid: tx.reference, newStatus }, "Auto-sync from Maviance verifyTx");
           }
         } else {
           // PixPay: verify by transaction ID
@@ -624,8 +630,10 @@ router.post("/deposit", authMiddleware, transactionRateLimit, async (req: AuthRe
           initiatedAt: new Date().toISOString(),
           feeBearer, flow, providerAmount, provider: "MAVIANCE",
           mavPayToken: mavResult.payToken,
-           mavQuoteId: mavResult.quote.quoteId,
+          mavQuoteId: mavResult.quote.quoteId,
           mavCollectStatus: mavResult.collect.status,
+          mavErrorCode: mavResult.collect.errorCode,
+          mavMessage: mavResult.collect.message,
           mavQuoteFees: mavResult.quote.fees,
         },
         updatedAt: new Date(),
@@ -897,7 +905,10 @@ router.post("/withdraw", authMiddleware, transactionRateLimit, async (req: AuthR
           initiatedAt: new Date().toISOString(),
           feeBearer, flow, walletDebit, providerAmount: pixPayAmount, provider: "MAVIANCE",
           mavPayToken: mavResult.payToken,
+          mavQuoteId: mavResult.quote.quoteId,
           mavCollectStatus: mavResult.collect.status,
+          mavErrorCode: mavResult.collect.errorCode,
+          mavMessage: mavResult.collect.message,
           mavQuoteFees: mavResult.quote.fees,
         },
         updatedAt: new Date(),

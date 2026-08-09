@@ -4,10 +4,15 @@ description: Architecture and key decisions for the Maviance S3P v2 + e-nkap int
 ---
 
 ## S3P API flow (Mobile Money)
-- 2-step: `POST /quotestd` (get quoteId) → `POST /collectstd` (DEPOSIT) or `POST /cashin` (WITHDRAWAL)
+- 2-step: `POST /quotestd` (get quoteId) → `POST /collectstd` for both CASHOUT/DEPOSIT and CASHIN/WITHDRAWAL.
+- `GET /cashout?serviceid=...` and `GET /cashin?serviceid=...` retrieve the operation-specific payItemId; `/cashin` is not the execution endpoint in the supplied collection.
 - CASHOUT services = collect from customer = YookPay DEPOSIT → `/collectstd`
-- CASHIN services  = disburse to customer = YookPay WITHDRAWAL → `/cashin`
-- Status check: `GET /verifytx?trid=...`
+- CASHIN services  = disburse to customer = YookPay WITHDRAWAL → `/collectstd`
+- For the supplied Mobile Money examples, status check: `GET /verifytx?trid=...`; generic docs may call the returned identifier PTN for other service categories.
+
+**Why:** The supplied production Postman collection places both CASHOUT and CASHIN execution under `POST /collectstd`; using `POST /cashin` for withdrawals was a real integration mismatch.
+
+**How to apply:** Keep operation selection in the GET endpoint used to obtain `payItemId`, then execute both mobile-money directions through `/collectstd` and verify with the integrator `trid`.
 
 ## Maviance staging service IDs (Cameroon XAF)
 - MTN CM DEPOSIT (CASHOUT)    → service_id 20053

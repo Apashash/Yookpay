@@ -174,7 +174,9 @@ export default function Pay() {
           clearInterval(timer);
         }
       } catch { /* silent */ }
-    }, 3000);
+    // Maviance recommends at most one verifytx call every 10 seconds per
+    // transaction. This endpoint may perform that provider check.
+    }, 10_000);
 
     return () => { clearInterval(timer); clearInterval(poll); };
   }, [mobileResult]);
