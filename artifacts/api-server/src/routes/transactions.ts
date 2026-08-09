@@ -279,8 +279,8 @@ router.get("/:id", authMiddleware, async (req: AuthRequest, res) => {
         let   syncMeta: Record<string, unknown> = {};
 
         if (txProv === "MAVIANCE") {
-          // Maviance: verify by payToken (= providerReference)
-          const mavStatus = await mavVerifyTx(tx.providerReference);
+          // Maviance verifies by our integration reference (trid), not quoteId.
+          const mavStatus = await mavVerifyTx(tx.reference);
           if (mavStatus) {
             if (isMavianceSuccess(mavStatus.status)) { newStatus = "SUCCESS"; }
             else if (isMavianceFailed(mavStatus.status))  { newStatus = "FAILED";  }
@@ -588,13 +588,30 @@ router.post("/deposit", authMiddleware, transactionRateLimit, async (req: AuthRe
     // ─── Maviance deposit ───────────────────────────────────────────────────
     if (provider === "MAVIANCE") {
       const mavPhone = normalizeMaviancePhone(phone, country);
-      const mavResult = await mavInitDeposit({
-        serviceId,
-        amount: providerAmount,
-        currency,
-        phone: mavPhone,
-        trid: reference,
-      });
+      let mavResult: Awaited<ReturnType<typeof mavInitDeposit>>;
+      try {
+        mavResult = await mavInitDeposit({
+          serviceId,
+          amount: providerAmount,
+          currency,
+          phone: mavPhone,
+          trid: reference,
+        });
+      } catch (mavErr) {
+        await db.update(transactionsTable).set({
+          status: "FAILED",
+          metadata: {
+            initiatedAt: new Date().toISOString(),
+            feeBearer, flow, providerAmount, provider: "MAVIANCE",
+            providerError: mavErr instanceof Error ? mavErr.message : String(mavErr),
+          },
+          updatedAt: new Date(),
+        }).where(eq(transactionsTable.id, tx.id));
+        req.log.error({ err: mavErr, txId: tx.id }, "Maviance deposit call failed");
+        const msg = mavErr instanceof Error ? mavErr.message : "Dépôt Maviance échoué";
+        res.status(502).json({ error: "ProviderError", message: msg });
+        return;
+      }
 
       const isImmediatelyFailed = isMavianceFailed(mavResult.collect.status);
 
@@ -605,6 +622,7 @@ router.post("/deposit", authMiddleware, transactionRateLimit, async (req: AuthRe
           initiatedAt: new Date().toISOString(),
           feeBearer, flow, providerAmount, provider: "MAVIANCE",
           mavPayToken: mavResult.payToken,
+           mavQuoteId: mavResult.quote.quoteId,
           mavCollectStatus: mavResult.collect.status,
           mavQuoteFees: mavResult.quote.fees,
         },

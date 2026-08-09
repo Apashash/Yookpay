@@ -67230,7 +67230,7 @@ function buildHeaders(method, endpoint, body) {
   const query = {};
   for (const [key, value] of url2.searchParams.entries()) query[key] = value;
   const timestamp2 = Date.now();
-  const nonce = Date.now() + 1;
+  const nonce = Date.now();
   const authParams = {
     s3pAuth_nonce: nonce,
     s3pAuth_timestamp: timestamp2,
@@ -67239,7 +67239,8 @@ function buildHeaders(method, endpoint, body) {
   };
   const params = { ...query, ...body ?? {}, ...authParams };
   const parameterString = Object.keys(params).sort().map((key) => `${key}=${typeof params[key] === "string" ? String(params[key]).trim() : params[key]}`).join("&");
-  const baseString = `${method}&${encodeURIComponent(`${getMavianceBaseUrl()}${url2.pathname}`)}&${encodeURIComponent(parameterString)}`;
+  const signingUrl = `${url2.origin}${url2.pathname}`;
+  const baseString = `${method}&${encodeURIComponent(signingUrl)}&${encodeURIComponent(parameterString)}`;
   const encodedSignature = (0, import_crypto3.createHmac)("sha1", secret).update(baseString).digest("base64");
   const separator = ", ";
   return {
@@ -67349,23 +67350,43 @@ async function getPayItemId(serviceId, operation) {
   return String(payItemId);
 }
 async function createQuote(serviceId, amount, currency, operation = "CASHOUT") {
-  return s3pRequest("POST", "/quotestd", {
+  const response = await s3pRequest("POST", "/quotestd", {
     payItemId: await getPayItemId(serviceId, operation),
     amount
   });
+  const quoteId = String(response.quoteId ?? response.payToken ?? response.ptn ?? "");
+  if (!quoteId) {
+    throw new MavianceApiError("Maviance n'a pas retourn\xE9 de quoteId", 502);
+  }
+  return {
+    ...response,
+    quoteId,
+    payToken: response.payToken ? String(response.payToken) : void 0,
+    amount: Number(response.amount ?? response.amountLocalCur ?? response.priceLocalCur ?? amount),
+    fees: Number(response.fees ?? response.fee ?? 0),
+    currency: String(response.currency ?? response.localCur ?? currency),
+    expiry: response.expiry ? String(response.expiry) : response.expiresAt ? String(response.expiresAt) : void 0
+  };
 }
-async function collectStd(payToken, phone, trid) {
+async function collectStd(quoteId, phone, trid) {
   return s3pRequest("POST", "/collectstd", {
-    payToken,
-    phonenumber: phone,
-    trid,
-    processing_number: phone
+    quoteId,
+    customerPhonenumber: phone,
+    customerEmailaddress: "support@yookpay.com",
+    customerName: "YookPay Customer",
+    customerAddress: "YookPay",
+    serviceNumber: phone,
+    trid
   });
 }
-async function cashin(payToken, phone, trid) {
+async function cashin(quoteId, phone, trid) {
   return s3pRequest("POST", "/cashin", {
-    payToken,
-    phonenumber: phone,
+    quoteId,
+    customerPhonenumber: phone,
+    customerEmailaddress: "support@yookpay.com",
+    customerName: "YookPay Customer",
+    customerAddress: "YookPay",
+    serviceNumber: phone,
     trid
   });
 }
@@ -67376,14 +67397,14 @@ async function collectCard(payToken, redirectUrl, cancelUrl) {
     cancelUrl: cancelUrl ?? redirectUrl
   });
 }
-async function verifyTx(payToken) {
+async function verifyTx(trid) {
   try {
     return await s3pRequest(
       "GET",
-      `/verifytx?payToken=${encodeURIComponent(payToken)}`
+      `/verifytx?trid=${encodeURIComponent(trid)}`
     );
   } catch (err) {
-    logger.warn({ err, payToken }, "Maviance verifyTx error");
+    logger.warn({ err, trid }, "Maviance verifyTx error");
     return null;
   }
 }
@@ -67394,9 +67415,9 @@ async function initiateDeposit(params) {
     "Maviance DEPOSIT: quote \u2192 collectstd"
   );
   const quote = await createQuote(params.serviceId, params.amount, params.currency, "CASHOUT");
-  const collect = await collectStd(quote.payToken, params.phone, params.trid);
-  logger.info({ payToken: quote.payToken, status: collect.status, trid: params.trid }, "Maviance DEPOSIT done");
-  return { payToken: quote.payToken, quote, collect };
+  const collect = await collectStd(quote.quoteId, params.phone, params.trid);
+  logger.info({ quoteId: quote.quoteId, status: collect.status, trid: params.trid }, "Maviance DEPOSIT done");
+  return { payToken: quote.quoteId, quote, collect };
 }
 async function initiateWithdrawal(params) {
   logger.info(
@@ -67404,16 +67425,16 @@ async function initiateWithdrawal(params) {
     "Maviance WITHDRAWAL: quote \u2192 cashin"
   );
   const quote = await createQuote(params.serviceId, params.amount, params.currency, "CASHIN");
-  const collect = await cashin(quote.payToken, params.phone, params.trid);
-  logger.info({ payToken: quote.payToken, status: collect.status, trid: params.trid }, "Maviance WITHDRAWAL done");
-  return { payToken: quote.payToken, quote, collect };
+  const collect = await cashin(quote.quoteId, params.phone, params.trid);
+  logger.info({ quoteId: quote.quoteId, status: collect.status, trid: params.trid }, "Maviance WITHDRAWAL done");
+  return { payToken: quote.quoteId, quote, collect };
 }
 async function initiateCardDeposit(params) {
   logger.info(params, "Maviance CARD DEPOSIT: quote \u2192 collectcard");
   const quote = await createQuote(params.serviceId, params.amount, params.currency, "CASHOUT");
-  const result = await collectCard(quote.payToken, params.redirectUrl, params.cancelUrl);
-  logger.info({ payToken: quote.payToken, redirectUrl: result.redirectUrl }, "Maviance CARD done");
-  return { payToken: quote.payToken, quote, redirectUrl: result.redirectUrl };
+  const result = await collectCard(quote.quoteId, params.redirectUrl, params.cancelUrl);
+  logger.info({ quoteId: quote.quoteId, redirectUrl: result.redirectUrl }, "Maviance CARD done");
+  return { payToken: quote.quoteId, quote, redirectUrl: result.redirectUrl };
 }
 
 // src/routes/transactions.ts
@@ -67592,7 +67613,7 @@ router4.get("/:id", authMiddleware, async (req, res) => {
         let newStatus = null;
         let syncMeta = {};
         if (txProv === "MAVIANCE") {
-          const mavStatus = await verifyTx(tx.providerReference);
+          const mavStatus = await verifyTx(tx.reference);
           if (mavStatus) {
             if (isMavianceSuccess(mavStatus.status)) {
               newStatus = "SUCCESS";
@@ -67830,13 +67851,33 @@ router4.post("/deposit", authMiddleware, transactionRateLimit, async (req, res) 
     );
     if (provider === "MAVIANCE") {
       const mavPhone = normalizeMaviancePhone(phone, country);
-      const mavResult = await initiateDeposit({
-        serviceId,
-        amount: providerAmount,
-        currency,
-        phone: mavPhone,
-        trid: reference
-      });
+      let mavResult;
+      try {
+        mavResult = await initiateDeposit({
+          serviceId,
+          amount: providerAmount,
+          currency,
+          phone: mavPhone,
+          trid: reference
+        });
+      } catch (mavErr) {
+        await db.update(transactionsTable).set({
+          status: "FAILED",
+          metadata: {
+            initiatedAt: (/* @__PURE__ */ new Date()).toISOString(),
+            feeBearer,
+            flow,
+            providerAmount,
+            provider: "MAVIANCE",
+            providerError: mavErr instanceof Error ? mavErr.message : String(mavErr)
+          },
+          updatedAt: /* @__PURE__ */ new Date()
+        }).where(eq(transactionsTable.id, tx.id));
+        req.log.error({ err: mavErr, txId: tx.id }, "Maviance deposit call failed");
+        const msg = mavErr instanceof Error ? mavErr.message : "D\xE9p\xF4t Maviance \xE9chou\xE9";
+        res.status(502).json({ error: "ProviderError", message: msg });
+        return;
+      }
       const isImmediatelyFailed = isMavianceFailed(mavResult.collect.status);
       await db.update(transactionsTable).set({
         providerReference: mavResult.payToken,
@@ -67848,6 +67889,7 @@ router4.post("/deposit", authMiddleware, transactionRateLimit, async (req, res) 
           providerAmount,
           provider: "MAVIANCE",
           mavPayToken: mavResult.payToken,
+          mavQuoteId: mavResult.quote.quoteId,
           mavCollectStatus: mavResult.collect.status,
           mavQuoteFees: mavResult.quote.fees
         },
@@ -69072,8 +69114,8 @@ router6.post("/maviance/quote", async (req, res) => {
       requestedAmount: parsed.data.amount,
       currency: parsed.data.currency,
       operation: parsed.data.operation,
-      quoteId: quote.quoteId ?? null,
-      payToken: quote.payToken,
+      quoteId: quote.quoteId,
+      payToken: quote.quoteId,
       providerFee: Number(quote.fees ?? 0),
       providerAmount: Number(quote.amount ?? parsed.data.amount),
       expiresAt: quote.expiry ?? null,

@@ -1,5 +1,5 @@
 /**
- * Maviance SmobilPay S3P v2 — client with HMAC-SHA256 authentication
+ * Maviance SmobilPay S3P v2 — client with HMAC-SHA1 authentication
  *
  * Terminology (Maviance vs YookPay):
  *   CASHOUT service  + POST /collectstd  = collect from customer   = YookPay DEPOSIT
@@ -46,7 +46,7 @@ function buildHeaders(
   // The request body fields and query fields are signed together with the auth
   // fields, sorted lexicographically.
   const timestamp = Date.now();
-  const nonce = Date.now() + 1;
+  const nonce = Date.now();
   const authParams: Record<string, unknown> = {
     s3pAuth_nonce: nonce,
     s3pAuth_timestamp: timestamp,
@@ -58,7 +58,11 @@ function buildHeaders(
     .sort()
     .map((key) => `${key}=${typeof params[key] === "string" ? String(params[key]).trim() : params[key]}`)
     .join("&");
-  const baseString = `${method}&${encodeURIComponent(`${getMavianceBaseUrl()}${url.pathname}`)}&${encodeURIComponent(parameterString)}`;
+  // Postman signs the API URL including /v2 exactly once, without the query
+  // string. `url.pathname` already contains /v2, so do not prepend `base`
+  // here or the signature becomes invalid (`/v2/v2/...`).
+  const signingUrl = `${url.origin}${url.pathname}`;
+  const baseString = `${method}&${encodeURIComponent(signingUrl)}&${encodeURIComponent(parameterString)}`;
   const encodedSignature = createHmac("sha1", secret).update(baseString).digest("base64");
   const separator = ", ";
 
@@ -158,21 +162,24 @@ export interface MavianceService {
 }
 
 export interface MavianceQuote {
-  quoteId?:  string;
-  payToken:  string;
+  quoteId:   string;
+  payToken?: string;
   amount:    number;
   fees:      number;
   currency:  string;
   service?:  string;
   expiry?:   string;
+  [key: string]: unknown;
 }
 
 export interface MavianceCollectResult {
-  payToken:           string;
+  payToken?:          string;
+  quoteId?:           string;
   status:             string;
   trid?:              string;
   processingNumber?:  string;
   message?:           string;
+  [key: string]: unknown;
 }
 
 export interface MavianceVerifyResult {
@@ -272,35 +279,60 @@ export async function createQuote(
   currency: string,
   operation: MavianceOperation = "CASHOUT",
 ): Promise<MavianceQuote> {
-  return s3pRequest<MavianceQuote>("POST", "/quotestd", {
+  const response = await s3pRequest<Record<string, unknown>>("POST", "/quotestd", {
     payItemId: await getPayItemId(serviceId, operation),
     amount,
   });
+  const quoteId = String(response.quoteId ?? response.payToken ?? response.ptn ?? "");
+  if (!quoteId) {
+    throw new MavianceApiError("Maviance n'a pas retourné de quoteId", 502);
+  }
+
+  return {
+    ...response,
+    quoteId,
+    payToken: response.payToken ? String(response.payToken) : undefined,
+    amount: Number(response.amount ?? response.amountLocalCur ?? response.priceLocalCur ?? amount),
+    fees: Number(response.fees ?? response.fee ?? 0),
+    currency: String(response.currency ?? response.localCur ?? currency),
+    expiry: response.expiry
+      ? String(response.expiry)
+      : response.expiresAt
+        ? String(response.expiresAt)
+        : undefined,
+  };
 }
 
 /** Collect cash from customer (CASHOUT service) → YookPay DEPOSIT */
 export async function collectStd(
-  payToken: string,
+  quoteId: string,
   phone: string,
   trid: string,
 ): Promise<MavianceCollectResult> {
   return s3pRequest<MavianceCollectResult>("POST", "/collectstd", {
-    payToken,
-    phonenumber:       phone,
+    quoteId,
+    customerPhonenumber: phone,
+    customerEmailaddress: "support@yookpay.com",
+    customerName: "YookPay Customer",
+    customerAddress: "YookPay",
+    serviceNumber: phone,
     trid,
-    processing_number: phone,
   });
 }
 
 /** Cash-in to customer phone (CASHIN service) → YookPay WITHDRAWAL */
 export async function cashin(
-  payToken: string,
+  quoteId: string,
   phone: string,
   trid: string,
 ): Promise<MavianceCollectResult> {
   return s3pRequest<MavianceCollectResult>("POST", "/cashin", {
-    payToken,
-    phonenumber: phone,
+    quoteId,
+    customerPhonenumber: phone,
+    customerEmailaddress: "support@yookpay.com",
+    customerName: "YookPay Customer",
+    customerAddress: "YookPay",
+    serviceNumber: phone,
     trid,
   });
 }
@@ -318,14 +350,14 @@ export async function collectCard(
   });
 }
 
-export async function verifyTx(payToken: string): Promise<MavianceVerifyResult | null> {
+export async function verifyTx(trid: string): Promise<MavianceVerifyResult | null> {
   try {
     return await s3pRequest<MavianceVerifyResult>(
       "GET",
-      `/verifytx?payToken=${encodeURIComponent(payToken)}`,
+      `/verifytx?trid=${encodeURIComponent(trid)}`,
     );
   } catch (err) {
-    logger.warn({ err, payToken }, "Maviance verifyTx error");
+    logger.warn({ err, trid }, "Maviance verifyTx error");
     return null;
   }
 }
@@ -345,9 +377,9 @@ export async function initiateDeposit(params: {
     "Maviance DEPOSIT: quote → collectstd"
   );
   const quote   = await createQuote(params.serviceId, params.amount, params.currency, "CASHOUT");
-  const collect = await collectStd(quote.payToken, params.phone, params.trid);
-  logger.info({ payToken: quote.payToken, status: collect.status, trid: params.trid }, "Maviance DEPOSIT done");
-  return { payToken: quote.payToken, quote, collect };
+  const collect = await collectStd(quote.quoteId, params.phone, params.trid);
+  logger.info({ quoteId: quote.quoteId, status: collect.status, trid: params.trid }, "Maviance DEPOSIT done");
+  return { payToken: quote.quoteId, quote, collect };
 }
 
 export async function initiateWithdrawal(params: {
@@ -362,9 +394,9 @@ export async function initiateWithdrawal(params: {
     "Maviance WITHDRAWAL: quote → cashin"
   );
   const quote   = await createQuote(params.serviceId, params.amount, params.currency, "CASHIN");
-  const collect = await cashin(quote.payToken, params.phone, params.trid);
-  logger.info({ payToken: quote.payToken, status: collect.status, trid: params.trid }, "Maviance WITHDRAWAL done");
-  return { payToken: quote.payToken, quote, collect };
+  const collect = await cashin(quote.quoteId, params.phone, params.trid);
+  logger.info({ quoteId: quote.quoteId, status: collect.status, trid: params.trid }, "Maviance WITHDRAWAL done");
+  return { payToken: quote.quoteId, quote, collect };
 }
 
 export async function initiateCardDeposit(params: {
@@ -377,7 +409,7 @@ export async function initiateCardDeposit(params: {
 }): Promise<{ payToken: string; quote: MavianceQuote; redirectUrl: string }> {
   logger.info(params, "Maviance CARD DEPOSIT: quote → collectcard");
   const quote  = await createQuote(params.serviceId, params.amount, params.currency, "CASHOUT");
-  const result = await collectCard(quote.payToken, params.redirectUrl, params.cancelUrl);
-  logger.info({ payToken: quote.payToken, redirectUrl: result.redirectUrl }, "Maviance CARD done");
-  return { payToken: quote.payToken, quote, redirectUrl: result.redirectUrl };
+  const result = await collectCard(quote.quoteId, params.redirectUrl, params.cancelUrl);
+  logger.info({ quoteId: quote.quoteId, redirectUrl: result.redirectUrl }, "Maviance CARD done");
+  return { payToken: quote.quoteId, quote, redirectUrl: result.redirectUrl };
 }
