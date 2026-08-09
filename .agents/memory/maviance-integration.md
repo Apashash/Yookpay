@@ -59,3 +59,10 @@ Stored in `maviance_services` table.
 **Why:** A production/staging mismatch and assuming a `payToken` response shape caused authentication and execution failures during the first live deposit test.
 
 **How to apply:** Keep test deployments on `MAVIANCE_ENV=staging` until production credentials are issued, and validate the complete quote → execution → `verifytx?trid=...` flow against the current Postman collection.
+
+## Payment links
+- Public payment-link mobile payments must use the same `payment_provider_config` route selection as authenticated deposits; they must not call PixPay directly.
+
+**Why:** The public payment-link endpoint originally bypassed provider configuration, so switching an operator to Maviance affected standard deposits but not payment links.
+
+**How to apply:** For payment-link deposits, select the provider by country/operator/DEPOSIT, store it in transaction metadata, and poll Maviance with the transaction `trid`.
