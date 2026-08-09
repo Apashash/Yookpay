@@ -67285,7 +67285,7 @@ async function s3pRequest(method, endpoint, body) {
 }
 var MavianceApiError = class extends Error {
   constructor(message, httpStatus, errorCode) {
-    super(message);
+    super(errorCode ? `${message} (code Maviance: ${errorCode})` : message);
     this.httpStatus = httpStatus;
     this.errorCode = errorCode;
     this.name = "MavianceApiError";

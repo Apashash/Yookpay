@@ -144,7 +144,7 @@ export class MavianceApiError extends Error {
     public readonly httpStatus: number,
     public readonly errorCode?: string,
   ) {
-    super(message);
+    super(errorCode ? `${message} (code Maviance: ${errorCode})` : message);
     this.name = "MavianceApiError";
   }
 }
