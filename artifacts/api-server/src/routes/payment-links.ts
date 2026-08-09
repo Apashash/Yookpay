@@ -13,6 +13,13 @@ import {
   type Operator,
 } from "../services/feeService";
 import { callPixPayAirtime, getOperatorFlow, type PixPayCallParams } from "../lib/pixpay";
+import {
+  initiateDeposit as mavInitDeposit,
+  normalizeMaviancePhone,
+  verifyTx as mavVerifyTx,
+  isMavianceSuccess,
+  isMavianceFailed,
+} from "../lib/maviance";
 import { createNpPayment, getNpMinAmount } from "../lib/nowpayments";
 import { getDefaultMargin } from "../lib/marginCache";
 
@@ -55,6 +62,40 @@ async function getPixPayServiceId(
   );
   if (!r.rows.length) return null;
   return r.rows[0].service_id;
+}
+
+async function getMavianceServiceId(
+  operator: string,
+  currency: string,
+  type: "DEPOSIT" | "WITHDRAWAL",
+  country: string,
+): Promise<number | null> {
+  const r = await pool.query<{ service_id: number }>(
+    `SELECT service_id FROM maviance_services
+     WHERE operator = $1 AND currency = $2 AND type = $3
+       AND (country = $4 OR country IS NULL) AND active = true
+     ORDER BY (country IS NOT NULL) DESC LIMIT 1`,
+    [operator.toUpperCase(), currency.toUpperCase(), type, country.toUpperCase()],
+  );
+  if (!r.rows.length) return null;
+  return r.rows[0].service_id;
+}
+
+async function getProviderForRoute(
+  country: string,
+  operator: string,
+  type: "DEPOSIT" | "WITHDRAWAL",
+): Promise<"PIXPAY" | "MAVIANCE"> {
+  try {
+    const r = await pool.query<{ provider: string }>(
+      `SELECT provider FROM payment_provider_config
+       WHERE country = $1 AND operator = $2 AND type = $3 LIMIT 1`,
+      [country.toUpperCase(), operator.toUpperCase(), type],
+    );
+    return r.rows[0]?.provider?.toUpperCase() === "MAVIANCE" ? "MAVIANCE" : "PIXPAY";
+  } catch {
+    return "PIXPAY";
+  }
 }
 
 async function getUserOperatorFeeRate(
@@ -348,9 +389,15 @@ router.post("/public/:token/pay", async (req, res) => {
     return;
   }
 
-  const serviceId = await getPixPayServiceId(operator, currency, "DEPOSIT", country);
+  const provider = await getProviderForRoute(country, operator, "DEPOSIT");
+  const serviceId = provider === "MAVIANCE"
+    ? await getMavianceServiceId(operator, currency, "DEPOSIT", country)
+    : await getPixPayServiceId(operator, currency, "DEPOSIT", country);
   if (serviceId === null) {
-    res.status(503).json({ error: "ServiceNotAvailable", message: `Le paiement via ${operator} (${currency}) n'est pas disponible pour l'instant.` });
+    res.status(503).json({
+      error: "ServiceNotAvailable",
+      message: `Le paiement via ${operator} (${currency}) n'est pas disponible pour ${provider}.`,
+    });
     return;
   }
 
@@ -363,7 +410,7 @@ router.post("/public/:token/pay", async (req, res) => {
     : calculateFee(amount, country as Country, operator as Operator, "DEPOSIT");
 
   const feeAmt = feeBreakdown.feeAmount;
-  const pixPayAmount    = feeBearer === "SENDER" ? amount + feeAmt : amount;
+  const providerAmount  = feeBearer === "SENDER" ? amount + feeAmt : amount;
   const walletNetAmount = feeBearer === "SENDER" ? amount          : Math.max(amount - feeAmt, 0);
 
   const reference = generateReference();
@@ -378,14 +425,85 @@ router.post("/public/:token/pay", async (req, res) => {
       [merchantId, amount.toString(), feeAmt.toString(), walletNetAmount.toString(),
        currency, country, operator, phone, reference,
        feeBreakdown.feeRate.toString(), yookpayMarginAmount.toString(),
-       JSON.stringify({ initiatedAt: new Date().toISOString(), feeBearer, flow, pixPayAmount, paymentLinkId: link.id, paymentLinkToken: token, paymentLinkTitle: link.title })]
+       JSON.stringify({
+         initiatedAt: new Date().toISOString(),
+         feeBearer,
+         provider,
+         providerAmount,
+         paymentLinkId: link.id,
+         paymentLinkToken: token,
+         paymentLinkTitle: link.title,
+       })]
     );
     const tx = txRes.rows[0];
+
+    if (provider === "MAVIANCE") {
+      let mavResult: Awaited<ReturnType<typeof mavInitDeposit>>;
+      try {
+        mavResult = await mavInitDeposit({
+          serviceId,
+          amount: providerAmount,
+          currency,
+          phone: normalizeMaviancePhone(phone, country),
+          trid: reference,
+        });
+      } catch (err) {
+        await pool.query(
+          `UPDATE transactions
+           SET status = 'FAILED',
+               metadata = metadata || $1::jsonb,
+               updated_at = NOW()
+           WHERE id = $2`,
+          [
+            JSON.stringify({
+              providerError: err instanceof Error ? err.message : String(err),
+            }),
+            tx.id,
+          ],
+        );
+        res.status(502).json({
+          error: "MavianceError",
+          message: err instanceof Error ? err.message : "Erreur lors de la connexion à Maviance",
+        });
+        return;
+      }
+      const immediatelyFailed = isMavianceFailed(mavResult.collect.status);
+      await pool.query(
+        `UPDATE transactions
+         SET provider_reference = $1, status = $2,
+             metadata = metadata || $3::jsonb, updated_at = NOW()
+         WHERE id = $4`,
+        [
+          mavResult.payToken,
+          immediatelyFailed ? "FAILED" : "PENDING",
+          JSON.stringify({
+            mavQuoteId: mavResult.quote.quoteId,
+            mavCollectStatus: mavResult.collect.status,
+          }),
+          tx.id,
+        ],
+      );
+      if (immediatelyFailed) {
+        res.status(422).json({
+          error: "MavianceError",
+          message: mavResult.collect.message ?? "Transaction échouée côté Maviance",
+        });
+        return;
+      }
+      res.status(201).json({
+        transaction: { id: tx.id, amount: parseFloat(tx.amount), currency: tx.currency, status: "PENDING" },
+        provider: "MAVIANCE",
+        flow,
+        pending: true,
+        message: "Validez le paiement Mobile Money sur votre téléphone.",
+      });
+      return;
+    }
 
     const pixParams: PixPayCallParams = {
       currency,
       serviceId,
-      amount: pixPayAmount,
+      amount: providerAmount,
       phone: normalizePhone(phone, country),
       customData: reference,
       omOtp,
@@ -400,13 +518,10 @@ router.post("/public/:token/pay", async (req, res) => {
       return;
     }
 
-    // Update transaction with PixPay ID
     if (pixTxId) {
       await pool.query("UPDATE transactions SET pix_transaction_id = $1 WHERE id = $2", [String(pixTxId), tx.id]);
     }
 
-    // Return same shape as deposit
-    // pending = true for all flows that require user action (OTP, STANDARD, WAVE)
     const finalStatus = pixResult?.status ?? "PENDING";
     const pending = finalStatus !== "SUCCESS" && finalStatus !== "FAILED";
     let smsLink: string | null = null;
@@ -415,6 +530,7 @@ router.post("/public/:token/pay", async (req, res) => {
 
     res.status(201).json({
       transaction: { id: tx.id, amount: parseFloat(tx.amount), currency: tx.currency, status: tx.status },
+      provider: "PIXPAY",
       flow,
       smsLink,
       pending,
@@ -456,16 +572,86 @@ router.get("/public/tx/:txId", async (req, res) => {
   const txId = parseInt(req.params.txId);
   if (isNaN(txId)) { res.status(400).json({ error: "Invalid ID" }); return; }
   try {
-    const r = await pool.query<{ status: string; amount: string; currency: string; metadata: unknown }>(
-      `SELECT status, amount, currency, metadata FROM transactions WHERE id = $1
+    const r = await pool.query<{
+      id: number;
+      user_id: number;
+      status: string;
+      amount: string;
+      net_amount: string;
+      currency: string;
+      reference: string;
+      provider_reference: string | null;
+      metadata: unknown;
+    }>(
+      `SELECT id, user_id, status, amount, net_amount, currency, reference,
+              provider_reference, metadata
+       FROM transactions WHERE id = $1
        AND metadata->>'paymentLinkId' IS NOT NULL`,
       [txId]
     );
     if (!r.rows.length) { res.status(404).json({ error: "NotFound" }); return; }
     const row = r.rows[0];
     const meta = (row.metadata ?? {}) as Record<string, unknown>;
-    const pixMessage = typeof meta.pixMessage === "string" ? meta.pixMessage : null;
-    res.json({ status: row.status, amount: parseFloat(row.amount), currency: row.currency, failureReason: pixMessage });
+    let status = row.status;
+    let failureReason =
+      typeof meta.pixMessage === "string" ? meta.pixMessage :
+      typeof meta.providerError === "string" ? meta.providerError : null;
+
+    if (status === "PENDING" && meta.provider === "MAVIANCE") {
+      try {
+        const mavStatus = await mavVerifyTx(row.reference);
+        if (mavStatus) {
+          const isSuccess = isMavianceSuccess(mavStatus.status);
+          const isFailed = isMavianceFailed(mavStatus.status);
+          if (isSuccess || isFailed) {
+            const nextStatus = isSuccess ? "SUCCESS" : "FAILED";
+            const update = await pool.query(
+              `UPDATE transactions
+               SET status = $1,
+                   provider_reference = COALESCE($2, provider_reference),
+                   metadata = metadata || $3::jsonb,
+                   updated_at = NOW()
+               WHERE id = $4 AND status = 'PENDING'
+               RETURNING id`,
+              [
+                nextStatus,
+                mavStatus.payToken ?? null,
+                JSON.stringify({
+                  mavStatus: mavStatus.status,
+                  mavErrorCode: mavStatus.errorCode,
+                  mavMessage: mavStatus.message,
+                  statusSyncedAt: new Date().toISOString(),
+                }),
+                row.id,
+              ],
+            );
+            status = nextStatus;
+            failureReason = isFailed ? (mavStatus.message ?? mavStatus.errorCode ?? null) : null;
+
+            // Only the request that claims the pending row may credit the
+            // merchant wallet. This prevents duplicate credits from polling.
+            if (isSuccess && update.rowCount > 0) {
+              await pool.query(
+                `UPDATE wallets
+                 SET balance = (balance::numeric + $1::numeric)::text,
+                     updated_at = NOW()
+                 WHERE user_id = $2 AND currency = $3`,
+                [row.net_amount, row.user_id, row.currency],
+              );
+            }
+          }
+        }
+      } catch (err) {
+        req.log?.warn({ err, txId }, "Payment-link Maviance status check failed");
+      }
+    }
+
+    res.json({
+      status,
+      amount: parseFloat(row.amount),
+      currency: row.currency,
+      failureReason,
+    });
   } catch (err) {
     res.status(500).json({ error: "InternalError" });
   }
