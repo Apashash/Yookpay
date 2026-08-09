@@ -17,6 +17,19 @@ type EnvCheckResult = {
   timestamp: string;
   nodeEnv: string;
   pixpayEnv: string;
+  mavianceEnv: string;
+  providers: {
+    maviance: {
+      ready: boolean;
+      publicKeySet: boolean;
+      secretSet: boolean;
+      baseUrl: string;
+      callbackUrl: string | null;
+    };
+    pixpay: {
+      callbackUrl: string | null;
+    };
+  };
   keys: EnvKey[];
 };
 
@@ -63,12 +76,84 @@ export default function EnvCheck() {
                   : `${missing.length} clé(s) manquante(s) · ${withWarnings.length} avertissement(s)`}
               </p>
               <p className="text-xs text-muted-foreground mt-0.5">
-                NODE_ENV : <strong>{data.nodeEnv}</strong> · PixPay env : <strong>{data.pixpayEnv}</strong>
+                 NODE_ENV : <strong>{data.nodeEnv}</strong> · PixPay env : <strong>{data.pixpayEnv}</strong> · Maviance env : <strong>{data.mavianceEnv}</strong>
                 {dataUpdatedAt ? ` · vérifié à ${new Date(dataUpdatedAt).toLocaleTimeString("fr-FR")}` : ""}
               </p>
             </div>
           </CardContent>
         </Card>
+      )}
+
+      {!isLoading && data && (
+        <div className="grid gap-4 md:grid-cols-2">
+          <Card className={data.providers.maviance.ready ? "border-green-500/40 bg-green-500/5" : "border-amber-500/40 bg-amber-500/5"}>
+            <CardHeader className="pb-3">
+              <CardTitle className="flex items-center gap-2 text-base">
+                {data.providers.maviance.ready ? (
+                  <CheckCircle2 className="h-5 w-5 text-green-600" />
+                ) : (
+                  <AlertTriangle className="h-5 w-5 text-amber-600" />
+                )}
+                Maviance / SmobilPay
+              </CardTitle>
+              <CardDescription>
+                État des variables reçues par le processus Node actuel.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-3 text-sm">
+              <div className="flex items-center justify-between gap-3">
+                <span className="text-muted-foreground">Identifiants S3P</span>
+                <Badge variant={data.providers.maviance.ready ? "default" : "outline"}>
+                  {data.providers.maviance.ready ? "Détectés" : "Manquants"}
+                </Badge>
+              </div>
+              <div className="flex items-center justify-between gap-3">
+                <span className="text-muted-foreground">Environnement</span>
+                <code className="text-xs">{data.mavianceEnv}</code>
+              </div>
+              <div className="space-y-1">
+                <span className="text-xs text-muted-foreground">API utilisée</span>
+                <code className="block break-all rounded bg-muted px-2 py-1 text-[11px]">{data.providers.maviance.baseUrl}</code>
+              </div>
+              <div className="space-y-1">
+                <span className="text-xs text-muted-foreground">Callback</span>
+                <code className="block break-all rounded bg-muted px-2 py-1 text-[11px]">
+                  {data.providers.maviance.callbackUrl ?? "MAVIANCE_IPN_BASE_URL non défini"}
+                </code>
+              </div>
+              {!data.providers.maviance.ready && (
+                <p className="rounded-md border border-amber-300/70 bg-amber-100/60 p-2 text-xs leading-5 text-amber-900">
+                  Les secrets ajoutés dans Plesk doivent être définis comme variables d’environnement de cette application Node,
+                  puis l’application doit être redémarrée. Cette page vérifie uniquement ce que le processus reçoit dans <code>process.env</code>.
+                </p>
+              )}
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-base">Callbacks fournisseurs</CardTitle>
+              <CardDescription>URLs calculées à partir des variables runtime.</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-3 text-sm">
+              <div className="space-y-1">
+                <span className="text-xs text-muted-foreground">Maviance</span>
+                <code className="block break-all rounded bg-muted px-2 py-1 text-[11px]">
+                  {data.providers.maviance.callbackUrl ?? "Non configuré"}
+                </code>
+              </div>
+              <div className="space-y-1">
+                <span className="text-xs text-muted-foreground">PixPay</span>
+                <code className="block break-all rounded bg-muted px-2 py-1 text-[11px]">
+                  {data.providers.pixpay.callbackUrl ?? "Non configuré"}
+                </code>
+              </div>
+              <p className="text-xs leading-5 text-muted-foreground">
+                Les valeurs secrètes ne sont jamais affichées. Seuls leur présence et les paramètres non sensibles sont vérifiés.
+              </p>
+            </CardContent>
+          </Card>
+        </div>
       )}
 
       {/* Table des clés */}
@@ -79,7 +164,7 @@ export default function EnvCheck() {
             Clés détectées par le serveur
           </CardTitle>
           <CardDescription>
-            Les valeurs affichées sont partiellement masquées (6 premiers + 4 derniers caractères).
+             Les secrets sont masqués. Les valeurs non sensibles servent uniquement à confirmer la configuration runtime.
           </CardDescription>
         </CardHeader>
         <CardContent className="p-0">

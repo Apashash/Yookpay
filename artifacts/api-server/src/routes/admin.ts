@@ -1757,6 +1757,8 @@ router.get("/env-check", (req: AuthRequest, res) => {
     { name: "MAVIANCE_PUBLIC_KEY",    value: process.env.MAVIANCE_PUBLIC_KEY,    required: false },
     { name: "MAVIANCE_SECRET",        value: process.env.MAVIANCE_SECRET,        required: false },
     { name: "MAVIANCE_ENV",           value: process.env.MAVIANCE_ENV,           required: false },
+    { name: "MAVIANCE_IPN_BASE_URL",  value: process.env.MAVIANCE_IPN_BASE_URL,  required: false },
+    { name: "PIXPAY_IPN_BASE_URL",    value: process.env.PIXPAY_IPN_BASE_URL,    required: false },
     { name: "NOWPAYMENTS_API_KEY",    value: process.env.NOWPAYMENTS_API_KEY,    required: false },
     { name: "NOWPAYMENTS_IPN_SECRET", value: process.env.NOWPAYMENTS_IPN_SECRET, required: false },
     { name: "APP_URL",                value: process.env.APP_URL,                required: false },
@@ -1777,10 +1779,34 @@ router.get("/env-check", (req: AuthRequest, res) => {
 
   req.log.info({ check: result.map(r => ({ name: r.name, set: r.set })) }, "Admin env-check");
 
+  const mavianceReady = Boolean(
+    process.env.MAVIANCE_PUBLIC_KEY?.trim() && process.env.MAVIANCE_SECRET?.trim()
+  );
+  const mavianceBaseUrl = process.env.MAVIANCE_ENV === "production"
+    ? "https://s3pv2cm.smobilpay.com/v2"
+    : "https://s3p.smobilpay.staging.maviance.info/v2";
+
   res.json({
     timestamp: new Date().toISOString(),
     nodeEnv: process.env.NODE_ENV ?? "non défini",
     pixpayEnv: process.env.PIXPAY_ENV ?? "sandbox (défaut)",
+    mavianceEnv: process.env.MAVIANCE_ENV ?? "staging (défaut)",
+    providers: {
+      maviance: {
+        ready: mavianceReady,
+        publicKeySet: Boolean(process.env.MAVIANCE_PUBLIC_KEY?.trim()),
+        secretSet: Boolean(process.env.MAVIANCE_SECRET?.trim()),
+        baseUrl: mavianceBaseUrl,
+        callbackUrl: process.env.MAVIANCE_IPN_BASE_URL
+          ? `${process.env.MAVIANCE_IPN_BASE_URL}/api/ipn/maviance`
+          : null,
+      },
+      pixpay: {
+        callbackUrl: process.env.PIXPAY_IPN_BASE_URL
+          ? `${process.env.PIXPAY_IPN_BASE_URL}/api/ipn/pixpay`
+          : null,
+      },
+    },
     keys: result,
   });
 });

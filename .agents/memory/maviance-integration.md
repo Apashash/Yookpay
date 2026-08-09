@@ -46,3 +46,7 @@ Stored in `maviance_services` table.
 - `normalizeMaviancePhone()` in maviance.ts handles conversion
 
 **Why provider-in-metadata:** Status polling (GET /transactions/:id) uses `metadata.provider` to decide whether to call PixPay or Maviance verifyTx — avoids needing a separate DB column.
+
+## Runtime diagnostics
+- The admin ENV diagnostic reports the Maviance environment, selected API base URL, callback URL, and whether the two credentials are present in the running Node process.
+- On Plesk, adding variables is not enough: the Node application must be restarted before `process.env` reflects the new values.

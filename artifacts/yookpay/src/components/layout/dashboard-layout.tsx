@@ -25,6 +25,7 @@ import {
   Link2,
   Headphones,
   ServerCog,
+  Route,
 } from "lucide-react";
 import { YookPayLogo } from "@/components/yookpay-logo";
 import { Button } from "@/components/ui/button";
@@ -91,6 +92,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
     { href: "/admin",               label: "Vue d'ensemble", icon: LayoutDashboard },
     { href: "/admin/users",         label: "Utilisateurs",   icon: Users },
     { href: "/admin/kyc",           label: "File KYC",       icon: FileCheck },
+    { href: "/admin/provider-config", label: "Fournisseurs",  icon: Route },
     { href: "/admin/pixpay-config", label: "PixPay",         icon: Zap },
     { href: "/admin/transactions",  label: "Transactions",   icon: History },
     { href: "/admin/exchanges",     label: "Échanges",       icon: Coins },
