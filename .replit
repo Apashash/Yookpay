@@ -57,8 +57,6 @@ channel = "stable-25_05"
 APP_URL = "https://yookpay.replit.app"
 PIXPAY_ENV = "production"
 MAVIANCE_ENV = "production"
-MAVIANCE_PUBLIC_KEY = "73cf144d-8fe2-438e-af71-f26de790a51f"
-MAVIANCE_SECRET = "be5b2a0f-54f7-41aa-8bae-d71dd66e7e3b"
 
 [userenv.development]
 
