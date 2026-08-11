@@ -81123,7 +81123,7 @@ router2.post("/register", authRateLimit, async (req, res) => {
     }
     const passwordHash = await bcryptjs_default.hash(password, 10);
     const userInsert = await db.insert(usersTable).values({ email: email3, passwordHash, name, phone, country });
-    const [user] = await db.select().from(usersTable).where(eq2(usersTable.id, userInsert[0].insertId)).limit(1);
+    const [user] = await db.select().from(usersTable).where(eq2(usersTable.id, userInsert.insertId)).limit(1);
     await db.insert(walletsTable).values([
       { userId: user.id, currency: "XAF", balance: "0", country: "CM" },
       { userId: user.id, currency: "XOF", balance: "0", country: "SN" },
@@ -82491,7 +82491,7 @@ router4.post("/deposit", authMiddleware, transactionRateLimit, async (req, res) 
       yookpayMargin: yookpayMarginAmount.toString(),
       metadata: { initiatedAt: (/* @__PURE__ */ new Date()).toISOString(), feeBearer, flow, providerAmount, provider }
     });
-    const [tx] = await db.select().from(transactionsTable).where(eq2(transactionsTable.id, txDepInsert[0].insertId)).limit(1);
+    const [tx] = await db.select().from(transactionsTable).where(eq2(transactionsTable.id, txDepInsert.insertId)).limit(1);
     req.log.info(
       { txId: tx.id, reference, userId: req.userId, amount, providerAmount, walletNetAmount, currency, operator, country, flow, feeBearer, provider },
       `Deposit transaction created \u2014 calling ${provider}`
@@ -82714,7 +82714,7 @@ router4.post("/withdraw", authMiddleware, transactionRateLimit, async (req, res)
       yookpayMargin: yookpayMarginAmount.toString(),
       metadata: { initiatedAt: (/* @__PURE__ */ new Date()).toISOString(), feeBearer, flow, walletDebit, providerAmount: pixPayAmount, provider }
     });
-    const [tx] = await db.select().from(transactionsTable).where(eq2(transactionsTable.id, txWdInsert[0].insertId)).limit(1);
+    const [tx] = await db.select().from(transactionsTable).where(eq2(transactionsTable.id, txWdInsert.insertId)).limit(1);
     req.log.info(
       { txId: tx.id, reference, userId: req.userId, amount, providerAmount: pixPayAmount, walletDebit, currency, operator, flow, feeBearer, provider },
       `Withdrawal transaction created \u2014 wallet reserved \u2014 calling ${provider}`
@@ -82918,7 +82918,7 @@ router4.post("/card-deposit", authMiddleware, transactionRateLimit, async (req, 
         ipnBase
       }
     });
-    const [tx] = await db.select().from(transactionsTable).where(eq2(transactionsTable.id, txCardInsert[0].insertId)).limit(1);
+    const [tx] = await db.select().from(transactionsTable).where(eq2(transactionsTable.id, txCardInsert.insertId)).limit(1);
     req.log.info({ txId: tx.id, reference, amount, currency, country, serviceId }, "Card deposit created \u2014 calling Maviance e-nkap");
     const mavResult = await initiateCardDeposit({
       serviceId,
@@ -83012,7 +83012,7 @@ router4.post("/transfer", authMiddleware, transactionRateLimit, async (req, res)
       feeRate: globalTransferRate.toString(),
       metadata: { fromCurrency, toCurrency, initiatedAt: (/* @__PURE__ */ new Date()).toISOString() }
     });
-    const [tx] = await db.select().from(transactionsTable).where(eq2(transactionsTable.id, txTrfInsert[0].insertId)).limit(1);
+    const [tx] = await db.select().from(transactionsTable).where(eq2(transactionsTable.id, txTrfInsert.insertId)).limit(1);
     await db.update(walletsTable).set({
       balance: (parseFloat(fromWallet.balance) - amount).toString(),
       updatedAt: /* @__PURE__ */ new Date()
@@ -83095,7 +83095,7 @@ router4.post("/crypto-deposit", authMiddleware, transactionRateLimit, async (req
       feeRate: depositFeeRate.toString(),
       metadata: { provider: "NOWPAYMENTS", initiatedAt: (/* @__PURE__ */ new Date()).toISOString() }
     });
-    const [tx] = await db.select().from(transactionsTable).where(eq2(transactionsTable.id, txUsdtDepInsert[0].insertId)).limit(1);
+    const [tx] = await db.select().from(transactionsTable).where(eq2(transactionsTable.id, txUsdtDepInsert.insertId)).limit(1);
     let payAddress = null;
     let npPaymentId = null;
     let payAmount = amountUsdt;
@@ -83193,7 +83193,7 @@ router4.post("/crypto-withdraw", authMiddleware, transactionRateLimit, async (re
         initiatedAt: (/* @__PURE__ */ new Date()).toISOString()
       }
     });
-    const [tx] = await db.select().from(transactionsTable).where(eq2(transactionsTable.id, txUsdtWdInsert[0].insertId)).limit(1);
+    const [tx] = await db.select().from(transactionsTable).where(eq2(transactionsTable.id, txUsdtWdInsert.insertId)).limit(1);
     let npPayoutId = null;
     try {
       const payCurrency = network === "TRC20" ? "usdttrc20" : "usdterc20";
@@ -83322,7 +83322,7 @@ router4.post("/exchange-step1", authMiddleware, transactionRateLimit, async (req
         completedAt: (/* @__PURE__ */ new Date()).toISOString()
       }
     });
-    const [tx] = await db.select().from(transactionsTable).where(eq2(transactionsTable.id, txEx1Insert[0].insertId)).limit(1);
+    const [tx] = await db.select().from(transactionsTable).where(eq2(transactionsTable.id, txEx1Insert.insertId)).limit(1);
     await db.execute(sql2`
       INSERT INTO crypto_exchanges (user_id, from_currency, to_currency, from_amount, usdt_amount, exchange_rate, fee_amount, status, tx_step1_id)
       VALUES (${req.userId}, ${fromCurrency}, 'USDT', ${amount}, ${usdtAmount}, ${rate}, ${fee}, 'STEP1_DONE', ${tx.id})
@@ -83395,7 +83395,7 @@ router4.post("/exchange-step2", authMiddleware, transactionRateLimit, async (req
         pendingSince: (/* @__PURE__ */ new Date()).toISOString()
       }
     });
-    const [tx] = await db.select().from(transactionsTable).where(eq2(transactionsTable.id, txEx2Insert[0].insertId)).limit(1);
+    const [tx] = await db.select().from(transactionsTable).where(eq2(transactionsTable.id, txEx2Insert.insertId)).limit(1);
     await db.execute(sql2`
       INSERT INTO crypto_exchanges (user_id, from_currency, to_currency, from_amount, usdt_amount, to_amount, exchange_rate, fee_amount, status, tx_step2_id)
       VALUES (${req.userId}, 'USDT', ${toCurrency}, ${amountUsdt}, ${amountUsdt}, ${estimatedFiat}, ${rate}, ${fee}, 'PENDING_ADMIN', ${tx.id})
@@ -83965,7 +83965,7 @@ router7.post("/", authMiddleware, async (req, res) => {
     }
     const { raw, hash: hash2, prefix } = generateKey(type);
     const keyInsert = await db.insert(apiKeysTable).values({ userId: req.userId, keyHash: hash2, keyPrefix: prefix, name, keyType: type });
-    const [key] = await db.select().from(apiKeysTable).where(eq2(apiKeysTable.id, keyInsert[0].insertId)).limit(1);
+    const [key] = await db.select().from(apiKeysTable).where(eq2(apiKeysTable.id, keyInsert.insertId)).limit(1);
     req.log.info({ userId: req.userId, keyId: key.id, type }, "API key created");
     res.status(201).json({
       id: key.id,
@@ -84015,7 +84015,7 @@ router7.post("/:id/regenerate", authMiddleware, async (req, res) => {
     const type = key.keyType ?? "payin";
     const { raw, hash: hash2, prefix } = generateKey(type);
     const newKeyInsert = await db.insert(apiKeysTable).values({ userId: req.userId, keyHash: hash2, keyPrefix: prefix, name: key.name, keyType: type });
-    const [newKey] = await db.select().from(apiKeysTable).where(eq2(apiKeysTable.id, newKeyInsert[0].insertId)).limit(1);
+    const [newKey] = await db.select().from(apiKeysTable).where(eq2(apiKeysTable.id, newKeyInsert.insertId)).limit(1);
     req.log.info({ userId: req.userId, oldKeyId: id, newKeyId: newKey.id }, "API key regenerated");
     res.status(201).json({
       id: newKey.id,
@@ -87039,7 +87039,7 @@ router15.post("/v1/payin", async (req, res) => {
       status: "PENDING",
       metadata: { ...metadata ?? {}, ...notificationUrl ? { notificationUrl } : {} }
     });
-    const [tx] = await db.select().from(transactionsTable).where(eq2(transactionsTable.id, txInsert1[0].insertId)).limit(1);
+    const [tx] = await db.select().from(transactionsTable).where(eq2(transactionsTable.id, txInsert1.insertId)).limit(1);
     logger.info({ merchantUserId: merchant.userId, ref: reference, amount, flow }, "Merchant payin initiated");
     const resp = {
       success: true,
@@ -87140,7 +87140,7 @@ router15.post("/v1/payout", async (req, res) => {
       reference,
       metadata: { ...metadata ?? {}, ...notificationUrl ? { notificationUrl } : {} }
     });
-    const [tx] = await db.select().from(transactionsTable).where(eq2(transactionsTable.id, txInsert2[0].insertId)).limit(1);
+    const [tx] = await db.select().from(transactionsTable).where(eq2(transactionsTable.id, txInsert2.insertId)).limit(1);
     const pixResult = await callPixPayAirtime({
       currency,
       serviceId: 1,
