@@ -81111,7 +81111,9 @@ var loginSchema = external_exports.object({
 router2.post("/register", authRateLimit, async (req, res) => {
   const parse3 = registerSchema.safeParse(req.body);
   if (!parse3.success) {
-    res.status(400).json({ error: "ValidationError", message: "Invalid registration data" });
+    const issue2 = parse3.error.issues[0];
+    const detail = issue2 ? `${issue2.path.join(".")}: ${issue2.message}` : "Invalid registration data";
+    res.status(400).json({ error: "ValidationError", message: detail });
     return;
   }
   const { email: email3, password, name, phone, country } = parse3.data;
@@ -81146,7 +81148,8 @@ router2.post("/register", authRateLimit, async (req, res) => {
     });
   } catch (err) {
     req.log.error({ err }, "Registration error");
-    res.status(500).json({ error: "InternalError", message: "Registration failed" });
+    const detail = err instanceof Error ? err.message : String(err);
+    res.status(500).json({ error: "InternalError", message: `Registration failed: ${detail}` });
   }
 });
 router2.post("/login", authRateLimit, async (req, res) => {

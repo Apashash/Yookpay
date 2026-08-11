@@ -25,7 +25,9 @@ const loginSchema = z.object({
 router.post("/register", authRateLimit, async (req, res) => {
   const parse = registerSchema.safeParse(req.body);
   if (!parse.success) {
-    res.status(400).json({ error: "ValidationError", message: "Invalid registration data" });
+    const issue = parse.error.issues[0];
+    const detail = issue ? `${issue.path.join(".")}: ${issue.message}` : "Invalid registration data";
+    res.status(400).json({ error: "ValidationError", message: detail });
     return;
   }
 
@@ -69,7 +71,8 @@ router.post("/register", authRateLimit, async (req, res) => {
     });
   } catch (err) {
     req.log.error({ err }, "Registration error");
-    res.status(500).json({ error: "InternalError", message: "Registration failed" });
+    const detail = err instanceof Error ? err.message : String(err);
+    res.status(500).json({ error: "InternalError", message: `Registration failed: ${detail}` });
   }
 });
 
