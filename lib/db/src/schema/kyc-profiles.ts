@@ -1,11 +1,11 @@
-import { pgTable, serial, integer, varchar, text, date, timestamp } from "drizzle-orm/pg-core";
+import { mysqlTable, int, varchar, text, date, timestamp } from "drizzle-orm/mysql-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
 import { usersTable } from "./users";
 
-export const kycProfilesTable = pgTable("kyc_profiles", {
-  id: serial("id").primaryKey(),
-  userId: integer("user_id").notNull().unique().references(() => usersTable.id, { onDelete: "cascade" }),
+export const kycProfilesTable = mysqlTable("kyc_profiles", {
+  id: int("id").autoincrement().primaryKey(),
+  userId: int("user_id").notNull().unique().references(() => usersTable.id, { onDelete: "cascade" }),
   fullName: varchar("full_name", { length: 255 }),
   dateOfBirth: date("date_of_birth"),
   docType: varchar("doc_type", { length: 30 }),

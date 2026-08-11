@@ -1,9 +1,9 @@
-import { pgTable, integer, text, timestamp } from "drizzle-orm/pg-core";
+import { mysqlTable, int, text, timestamp } from "drizzle-orm/mysql-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
 
-export const supportLinksTable = pgTable("support_links", {
-  id: integer("id").primaryKey().default(1),
+export const supportLinksTable = mysqlTable("support_links", {
+  id: int("id").primaryKey().default(1),
   whatsappUrl: text("whatsapp_url").notNull().default(""),
   facebookUrl: text("facebook_url").notNull().default(""),
   telegramUrl: text("telegram_url").notNull().default(""),

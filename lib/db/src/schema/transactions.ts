@@ -1,11 +1,11 @@
-import { pgTable, serial, integer, decimal, varchar, timestamp, text, jsonb } from "drizzle-orm/pg-core";
+import { mysqlTable, int, decimal, varchar, timestamp, text, json } from "drizzle-orm/mysql-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
 import { usersTable } from "./users";
 
-export const transactionsTable = pgTable("transactions", {
-  id: serial("id").primaryKey(),
-  userId: integer("user_id").notNull().references(() => usersTable.id, { onDelete: "cascade" }),
+export const transactionsTable = mysqlTable("transactions", {
+  id: int("id").autoincrement().primaryKey(),
+  userId: int("user_id").notNull().references(() => usersTable.id, { onDelete: "cascade" }),
   type: varchar("type", { length: 20 }).notNull(), // DEPOSIT | WITHDRAWAL | TRANSFER
   status: varchar("status", { length: 20 }).notNull().default("PENDING"), // PENDING | SUCCESS | FAILED
   amount: decimal("amount", { precision: 18, scale: 2 }).notNull(),
@@ -18,8 +18,9 @@ export const transactionsTable = pgTable("transactions", {
   reference: varchar("reference", { length: 100 }).notNull().unique(),
   feeRate: decimal("fee_rate", { precision: 6, scale: 4 }),
   yookpayMargin: decimal("yookpay_margin", { precision: 18, scale: 4 }).default("0"),
-  metadata: jsonb("metadata"),
+  metadata: json("metadata"),
   providerReference: text("provider_reference"),
+  pixTransactionId: varchar("pix_transaction_id", { length: 100 }),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });

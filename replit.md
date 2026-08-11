@@ -71,15 +71,17 @@ vite.config.ts    ← Vite config → dist/public/
 - **JWT auth**: Token in localStorage, `setAuthTokenGetter` wires all API calls
 - **French language interface**
 
-## Database (Supabase)
+## Database (MariaDB — Plesk)
 
-- **Project URL**: https://tcgvodxxtbipghukgifv.supabase.co
-- **Connection**: Transaction Pooler (port 6543)
-- **Tables**: users, wallets, transactions, api_keys, kyc_documents, kyc_profiles, user_fees, user_operator_fees, crypto_exchanges, conversion_fees, pixpay_services, platform_config, notifications, payment_links, support_links, usdt_rates
+- **Serveur** : localhost:3306 (MariaDB 11.4.12, Plesk)
+- **Base** : ashtechp_Ashtech237
+- **ORM** : Drizzle ORM + mysql2
+- **Tables** : users, wallets, transactions, api_keys, kyc_documents, kyc_profiles, user_fees, user_operator_fees, crypto_exchanges, conversion_fees, pixpay_services, platform_config, notifications, payment_links, support_links, usdt_rates, maviance_services, payment_provider_config
+- **Schéma SQL** : `yookpay_mysql.sql` (à importer via phpMyAdmin)
 
 ## Environment Variables (Secrets)
-- `SUPABASE_DATABASE_URL` — Supabase PostgreSQL connection string
-- `SESSION_SECRET` — JWT signing secret
+- `MYSQL_DATABASE_URL` — Connexion MySQL : `mysql://USER:PASSWORD@HOST:3306/DB_NAME`
+- `SESSION_SECRET` — Clé JWT (déjà configurée)
 - `PIXPAY_API_KEY_CDF` — PixPay API key for CDF
 - `PIXPAY_API_KEY_XAF` — PixPay API key for XAF
 - `PIXPAY_API_KEY_XOF` — PixPay API key for XOF

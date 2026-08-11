@@ -1,9 +1,9 @@
-import { pgTable, serial, integer, text, varchar, boolean, timestamp } from "drizzle-orm/pg-core";
+import { mysqlTable, int, text, varchar, boolean, timestamp } from "drizzle-orm/mysql-core";
 import { usersTable } from "./users";
 
-export const apiKeysTable = pgTable("api_keys", {
-  id: serial("id").primaryKey(),
-  userId: integer("user_id").notNull().references(() => usersTable.id, { onDelete: "cascade" }),
+export const apiKeysTable = mysqlTable("api_keys", {
+  id: int("id").autoincrement().primaryKey(),
+  userId: int("user_id").notNull().references(() => usersTable.id, { onDelete: "cascade" }),
   keyHash: text("key_hash").notNull(),
   keyPrefix: varchar("key_prefix", { length: 20 }).notNull(),
   name: varchar("name", { length: 100 }).notNull().default("Clé principale"),

@@ -1,9 +1,9 @@
-import { pgTable, serial, integer, text, varchar, timestamp } from "drizzle-orm/pg-core";
+import { mysqlTable, int, text, varchar, timestamp } from "drizzle-orm/mysql-core";
 import { usersTable } from "./users";
 
-export const kycDocumentsTable = pgTable("kyc_documents", {
-  id: serial("id").primaryKey(),
-  userId: integer("user_id").notNull().references(() => usersTable.id, { onDelete: "cascade" }),
+export const kycDocumentsTable = mysqlTable("kyc_documents", {
+  id: int("id").autoincrement().primaryKey(),
+  userId: int("user_id").notNull().references(() => usersTable.id, { onDelete: "cascade" }),
   type: varchar("type", { length: 50 }).notNull(),
   status: varchar("status", { length: 20 }).notNull().default("PENDING"),
   fileName: varchar("file_name", { length: 255 }),

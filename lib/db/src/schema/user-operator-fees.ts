@@ -1,21 +1,21 @@
-import { pgTable, serial, integer, varchar, numeric, timestamp, unique } from "drizzle-orm/pg-core";
+import { mysqlTable, int, varchar, decimal, timestamp, unique } from "drizzle-orm/mysql-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
 import { usersTable } from "./users";
 
-export const userOperatorFeesTable = pgTable("user_operator_fees", {
-  id: serial("id").primaryKey(),
-  userId: integer("user_id").notNull().references(() => usersTable.id, { onDelete: "cascade" }),
+export const userOperatorFeesTable = mysqlTable("user_operator_fees", {
+  id: int("id").autoincrement().primaryKey(),
+  userId: int("user_id").notNull().references(() => usersTable.id, { onDelete: "cascade" }),
   country: varchar("country", { length: 2 }).notNull(),
   operator: varchar("operator", { length: 20 }).notNull(),
-  pixpayDeposit: numeric("pixpay_deposit", { precision: 6, scale: 4 }).notNull(),
-  pixpayWithdrawal: numeric("pixpay_withdrawal", { precision: 6, scale: 4 }).notNull(),
-  marginDeposit: numeric("margin_deposit", { precision: 6, scale: 4 }).notNull().default("0.015"),
-  marginWithdrawal: numeric("margin_withdrawal", { precision: 6, scale: 4 }).notNull().default("0.015"),
+  pixpayDeposit: decimal("pixpay_deposit", { precision: 6, scale: 4 }).notNull(),
+  pixpayWithdrawal: decimal("pixpay_withdrawal", { precision: 6, scale: 4 }).notNull(),
+  marginDeposit: decimal("margin_deposit", { precision: 6, scale: 4 }).notNull().default("0.015"),
+  marginWithdrawal: decimal("margin_withdrawal", { precision: 6, scale: 4 }).notNull().default("0.015"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 }, (t) => [
-  unique().on(t.userId, t.country, t.operator),
+  unique("user_operator_fees_uq").on(t.userId, t.country, t.operator),
 ]);
 
 export const insertUserOperatorFeeSchema = createInsertSchema(userOperatorFeesTable).omit({
