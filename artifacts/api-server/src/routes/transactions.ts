@@ -585,7 +585,7 @@ router.post("/deposit", authMiddleware, transactionRateLimit, async (req: AuthRe
         yookpayMargin: yookpayMarginAmount.toString(),
         metadata: { initiatedAt: new Date().toISOString(), feeBearer, flow, providerAmount, provider },
       });
-    const [tx] = await db.select().from(transactionsTable).where(eq(transactionsTable.id, txDepInsert.insertId)).limit(1);
+    const [tx] = await db.select().from(transactionsTable).where(eq(transactionsTable.id, txDepInsert[0].insertId)).limit(1);
 
     req.log.info(
       { txId: tx.id, reference, userId: req.userId, amount, providerAmount, walletNetAmount, currency, operator, country, flow, feeBearer, provider },
@@ -859,7 +859,7 @@ router.post("/withdraw", authMiddleware, transactionRateLimit, async (req: AuthR
         yookpayMargin: yookpayMarginAmount.toString(),
         metadata: { initiatedAt: new Date().toISOString(), feeBearer, flow, walletDebit, providerAmount: pixPayAmount, provider },
       });
-    const [tx] = await db.select().from(transactionsTable).where(eq(transactionsTable.id, txWdInsert.insertId)).limit(1);
+    const [tx] = await db.select().from(transactionsTable).where(eq(transactionsTable.id, txWdInsert[0].insertId)).limit(1);
 
     req.log.info(
       { txId: tx.id, reference, userId: req.userId, amount, providerAmount: pixPayAmount, walletDebit, currency, operator, flow, feeBearer, provider },
@@ -1096,7 +1096,7 @@ router.post("/card-deposit", authMiddleware, transactionRateLimit, async (req: A
         ipnBase,
       },
     });
-    const [tx] = await db.select().from(transactionsTable).where(eq(transactionsTable.id, txCardInsert.insertId)).limit(1);
+    const [tx] = await db.select().from(transactionsTable).where(eq(transactionsTable.id, txCardInsert[0].insertId)).limit(1);
 
     req.log.info({ txId: tx.id, reference, amount, currency, country, serviceId }, "Card deposit created — calling Maviance e-nkap");
 
@@ -1216,7 +1216,7 @@ router.post("/transfer", authMiddleware, transactionRateLimit, async (req: AuthR
         feeRate: globalTransferRate.toString(),
         metadata: { fromCurrency, toCurrency, initiatedAt: new Date().toISOString() },
       });
-    const [tx] = await db.select().from(transactionsTable).where(eq(transactionsTable.id, txTrfInsert.insertId)).limit(1);
+    const [tx] = await db.select().from(transactionsTable).where(eq(transactionsTable.id, txTrfInsert[0].insertId)).limit(1);
 
     // Deduct from source wallet
     await db
@@ -1328,7 +1328,7 @@ router.post("/crypto-deposit", authMiddleware, transactionRateLimit, async (req:
         feeRate: depositFeeRate.toString(),
         metadata: { provider: "NOWPAYMENTS", initiatedAt: new Date().toISOString() },
       });
-    const [tx] = await db.select().from(transactionsTable).where(eq(transactionsTable.id, txUsdtDepInsert.insertId)).limit(1);
+    const [tx] = await db.select().from(transactionsTable).where(eq(transactionsTable.id, txUsdtDepInsert[0].insertId)).limit(1);
 
     let payAddress = null;
     let npPaymentId = null;
@@ -1452,7 +1452,7 @@ router.post("/crypto-withdraw", authMiddleware, transactionRateLimit, async (req
           initiatedAt: new Date().toISOString(),
         },
       });
-    const [tx] = await db.select().from(transactionsTable).where(eq(transactionsTable.id, txUsdtWdInsert.insertId)).limit(1);
+    const [tx] = await db.select().from(transactionsTable).where(eq(transactionsTable.id, txUsdtWdInsert[0].insertId)).limit(1);
 
     let npPayoutId = null;
     try {
@@ -1615,7 +1615,7 @@ router.post("/exchange-step1", authMiddleware, transactionRateLimit, async (req:
           completedAt: new Date().toISOString(),
         },
       });
-    const [tx] = await db.select().from(transactionsTable).where(eq(transactionsTable.id, txEx1Insert.insertId)).limit(1);
+    const [tx] = await db.select().from(transactionsTable).where(eq(transactionsTable.id, txEx1Insert[0].insertId)).limit(1);
 
     // Create crypto_exchange record (status: STEP1_DONE = USDT credited, can optionally do step 2)
     await db.execute(sql`
@@ -1713,7 +1713,7 @@ router.post("/exchange-step2", authMiddleware, transactionRateLimit, async (req:
           pendingSince: new Date().toISOString(),
         },
       });
-    const [tx] = await db.select().from(transactionsTable).where(eq(transactionsTable.id, txEx2Insert.insertId)).limit(1);
+    const [tx] = await db.select().from(transactionsTable).where(eq(transactionsTable.id, txEx2Insert[0].insertId)).limit(1);
 
     // Create crypto_exchange record with PENDING_ADMIN status
     await db.execute(sql`

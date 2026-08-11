@@ -127,7 +127,7 @@ router.post("/v1/payin", async (req, res) => {
       status: "PENDING",
       metadata: { ...(metadata ?? {}), ...(notificationUrl ? { notificationUrl } : {}) },
     });
-    const [tx] = await db.select().from(transactionsTable).where(eq(transactionsTable.id, txInsert1.insertId)).limit(1);
+    const [tx] = await db.select().from(transactionsTable).where(eq(transactionsTable.id, txInsert1[0].insertId)).limit(1);
 
     logger.info({ merchantUserId: merchant.userId, ref: reference, amount, flow }, "Merchant payin initiated");
 
@@ -268,7 +268,7 @@ router.post("/v1/payout", async (req, res) => {
       reference,
       metadata: { ...(metadata ?? {}), ...(notificationUrl ? { notificationUrl } : {}) },
     });
-    const [tx] = await db.select().from(transactionsTable).where(eq(transactionsTable.id, txInsert2.insertId)).limit(1);
+    const [tx] = await db.select().from(transactionsTable).where(eq(transactionsTable.id, txInsert2[0].insertId)).limit(1);
 
     const pixResult = await callPixPayAirtime({
       currency,
