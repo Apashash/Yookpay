@@ -81122,7 +81122,8 @@ router2.post("/register", authRateLimit, async (req, res) => {
       return;
     }
     const passwordHash = await bcryptjs_default.hash(password, 10);
-    const [user] = await db.insert(usersTable).values({ email: email3, passwordHash, name, phone, country }).returning();
+    const userInsert = await db.insert(usersTable).values({ email: email3, passwordHash, name, phone, country });
+    const [user] = await db.select().from(usersTable).where(eq2(usersTable.id, userInsert[0].insertId)).limit(1);
     await db.insert(walletsTable).values([
       { userId: user.id, currency: "XAF", balance: "0", country: "CM" },
       { userId: user.id, currency: "XOF", balance: "0", country: "SN" },
@@ -82474,7 +82475,7 @@ router4.post("/deposit", authMiddleware, transactionRateLimit, async (req, res) 
     const feeAmt = feeBreakdown.feeAmount;
     const providerAmount = feeBearer === "SENDER" ? amount + feeAmt : amount;
     const walletNetAmount = feeBearer === "SENDER" ? amount : Math.max(amount - feeAmt, 0);
-    const [tx] = await db.insert(transactionsTable).values({
+    const txDepInsert = await db.insert(transactionsTable).values({
       userId: req.userId,
       type: "DEPOSIT",
       status: "PENDING",
@@ -82489,7 +82490,8 @@ router4.post("/deposit", authMiddleware, transactionRateLimit, async (req, res) 
       feeRate: feeBreakdown.feeRate.toString(),
       yookpayMargin: yookpayMarginAmount.toString(),
       metadata: { initiatedAt: (/* @__PURE__ */ new Date()).toISOString(), feeBearer, flow, providerAmount, provider }
-    }).returning();
+    });
+    const [tx] = await db.select().from(transactionsTable).where(eq2(transactionsTable.id, txDepInsert[0].insertId)).limit(1);
     req.log.info(
       { txId: tx.id, reference, userId: req.userId, amount, providerAmount, walletNetAmount, currency, operator, country, flow, feeBearer, provider },
       `Deposit transaction created \u2014 calling ${provider}`
@@ -82696,7 +82698,7 @@ router4.post("/withdraw", authMiddleware, transactionRateLimit, async (req, res)
     }
     const newBalance = parseFloat(wallet.balance) - walletDebit;
     await db.update(walletsTable).set({ balance: Math.max(newBalance, 0).toFixed(2), updatedAt: /* @__PURE__ */ new Date() }).where(eq2(walletsTable.id, wallet.id));
-    const [tx] = await db.insert(transactionsTable).values({
+    const txWdInsert = await db.insert(transactionsTable).values({
       userId: req.userId,
       type: "WITHDRAWAL",
       status: "PENDING",
@@ -82711,7 +82713,8 @@ router4.post("/withdraw", authMiddleware, transactionRateLimit, async (req, res)
       feeRate: feeBreakdown.feeRate.toString(),
       yookpayMargin: yookpayMarginAmount.toString(),
       metadata: { initiatedAt: (/* @__PURE__ */ new Date()).toISOString(), feeBearer, flow, walletDebit, providerAmount: pixPayAmount, provider }
-    }).returning();
+    });
+    const [tx] = await db.select().from(transactionsTable).where(eq2(transactionsTable.id, txWdInsert[0].insertId)).limit(1);
     req.log.info(
       { txId: tx.id, reference, userId: req.userId, amount, providerAmount: pixPayAmount, walletDebit, currency, operator, flow, feeBearer, provider },
       `Withdrawal transaction created \u2014 wallet reserved \u2014 calling ${provider}`
@@ -82892,7 +82895,7 @@ router4.post("/card-deposit", authMiddleware, transactionRateLimit, async (req, 
     const ipnBase = getMavianceIpnUrl("/api/ipn/enkap");
     const successUrl = redirectUrl ?? (process.env["APP_URL"] ? `${process.env["APP_URL"]}/dashboard?ref=${reference}` : `http://localhost:5000/dashboard?ref=${reference}`);
     const failUrl = cancelUrl ?? successUrl;
-    const [tx] = await db.insert(transactionsTable).values({
+    const txCardInsert = await db.insert(transactionsTable).values({
       userId: req.userId,
       type: "DEPOSIT",
       status: "PENDING",
@@ -82914,7 +82917,8 @@ router4.post("/card-deposit", authMiddleware, transactionRateLimit, async (req, 
         failUrl,
         ipnBase
       }
-    }).returning();
+    });
+    const [tx] = await db.select().from(transactionsTable).where(eq2(transactionsTable.id, txCardInsert[0].insertId)).limit(1);
     req.log.info({ txId: tx.id, reference, amount, currency, country, serviceId }, "Card deposit created \u2014 calling Maviance e-nkap");
     const mavResult = await initiateCardDeposit({
       serviceId,
@@ -82995,7 +82999,7 @@ router4.post("/transfer", authMiddleware, transactionRateLimit, async (req, res)
       res.status(404).json({ error: "NotFound", message: "Target wallet not found" });
       return;
     }
-    const [tx] = await db.insert(transactionsTable).values({
+    const txTrfInsert = await db.insert(transactionsTable).values({
       userId: req.userId,
       type: "TRANSFER",
       status: "PENDING",
@@ -83007,7 +83011,8 @@ router4.post("/transfer", authMiddleware, transactionRateLimit, async (req, res)
       reference,
       feeRate: globalTransferRate.toString(),
       metadata: { fromCurrency, toCurrency, initiatedAt: (/* @__PURE__ */ new Date()).toISOString() }
-    }).returning();
+    });
+    const [tx] = await db.select().from(transactionsTable).where(eq2(transactionsTable.id, txTrfInsert[0].insertId)).limit(1);
     await db.update(walletsTable).set({
       balance: (parseFloat(fromWallet.balance) - amount).toString(),
       updatedAt: /* @__PURE__ */ new Date()
@@ -83016,7 +83021,8 @@ router4.post("/transfer", authMiddleware, transactionRateLimit, async (req, res)
       balance: (parseFloat(toWallet.balance) + netAmount).toString(),
       updatedAt: /* @__PURE__ */ new Date()
     }).where(eq2(walletsTable.id, toWallet.id));
-    const [updatedTx] = await db.update(transactionsTable).set({ status: "SUCCESS", updatedAt: /* @__PURE__ */ new Date() }).where(eq2(transactionsTable.id, tx.id)).returning();
+    await db.update(transactionsTable).set({ status: "SUCCESS", updatedAt: /* @__PURE__ */ new Date() }).where(eq2(transactionsTable.id, tx.id));
+    const [updatedTx] = await db.select().from(transactionsTable).where(eq2(transactionsTable.id, tx.id)).limit(1);
     req.log.info(
       { txId: tx.id, reference, userId: req.userId, amount, fromCurrency, toCurrency, fee, netAmount },
       "Transfer SUCCESS"
@@ -83075,7 +83081,7 @@ router4.post("/crypto-deposit", authMiddleware, transactionRateLimit, async (req
   const reference = generateReference();
   try {
     const callbackUrl = `${process.env.APP_URL ?? ""}/api/nowpayments/ipn`;
-    const [tx] = await db.insert(transactionsTable).values({
+    const txUsdtDepInsert = await db.insert(transactionsTable).values({
       userId: req.userId,
       type: "DEPOSIT",
       status: "PENDING",
@@ -83088,7 +83094,8 @@ router4.post("/crypto-deposit", authMiddleware, transactionRateLimit, async (req
       reference,
       feeRate: depositFeeRate.toString(),
       metadata: { provider: "NOWPAYMENTS", initiatedAt: (/* @__PURE__ */ new Date()).toISOString() }
-    }).returning();
+    });
+    const [tx] = await db.select().from(transactionsTable).where(eq2(transactionsTable.id, txUsdtDepInsert[0].insertId)).limit(1);
     let payAddress = null;
     let npPaymentId = null;
     let payAmount = amountUsdt;
@@ -83167,7 +83174,7 @@ router4.post("/crypto-withdraw", authMiddleware, transactionRateLimit, async (re
       balance: (parseFloat(usdtWallet.balance) - amountUsdt).toFixed(8),
       updatedAt: /* @__PURE__ */ new Date()
     }).where(eq2(walletsTable.id, usdtWallet.id));
-    const [tx] = await db.insert(transactionsTable).values({
+    const txUsdtWdInsert = await db.insert(transactionsTable).values({
       userId: req.userId,
       type: "WITHDRAWAL",
       status: "PENDING",
@@ -83185,7 +83192,8 @@ router4.post("/crypto-withdraw", authMiddleware, transactionRateLimit, async (re
         network,
         initiatedAt: (/* @__PURE__ */ new Date()).toISOString()
       }
-    }).returning();
+    });
+    const [tx] = await db.select().from(transactionsTable).where(eq2(transactionsTable.id, txUsdtWdInsert[0].insertId)).limit(1);
     let npPayoutId = null;
     try {
       const payCurrency = network === "TRC20" ? "usdttrc20" : "usdterc20";
@@ -83292,7 +83300,7 @@ router4.post("/exchange-step1", authMiddleware, transactionRateLimit, async (req
       balance: (parseFloat(usdtWallet.balance) + usdtAmount).toFixed(8),
       updatedAt: /* @__PURE__ */ new Date()
     }).where(eq2(walletsTable.id, usdtWallet.id));
-    const [tx] = await db.insert(transactionsTable).values({
+    const txEx1Insert = await db.insert(transactionsTable).values({
       userId: req.userId,
       type: "TRANSFER",
       status: "SUCCESS",
@@ -83313,7 +83321,8 @@ router4.post("/exchange-step1", authMiddleware, transactionRateLimit, async (req
         rate,
         completedAt: (/* @__PURE__ */ new Date()).toISOString()
       }
-    }).returning();
+    });
+    const [tx] = await db.select().from(transactionsTable).where(eq2(transactionsTable.id, txEx1Insert[0].insertId)).limit(1);
     await db.execute(sql2`
       INSERT INTO crypto_exchanges (user_id, from_currency, to_currency, from_amount, usdt_amount, exchange_rate, fee_amount, status, tx_step1_id)
       VALUES (${req.userId}, ${fromCurrency}, 'USDT', ${amount}, ${usdtAmount}, ${rate}, ${fee}, 'STEP1_DONE', ${tx.id})
@@ -83364,7 +83373,7 @@ router4.post("/exchange-step2", authMiddleware, transactionRateLimit, async (req
       UPDATE wallets SET locked_balance = locked_balance + ${amountUsdt}, updated_at = NOW()
       WHERE user_id = ${req.userId} AND currency = 'USDT'
     `);
-    const [tx] = await db.insert(transactionsTable).values({
+    const txEx2Insert = await db.insert(transactionsTable).values({
       userId: req.userId,
       type: "TRANSFER",
       status: "PENDING",
@@ -83385,7 +83394,8 @@ router4.post("/exchange-step2", authMiddleware, transactionRateLimit, async (req
         rate,
         pendingSince: (/* @__PURE__ */ new Date()).toISOString()
       }
-    }).returning();
+    });
+    const [tx] = await db.select().from(transactionsTable).where(eq2(transactionsTable.id, txEx2Insert[0].insertId)).limit(1);
     await db.execute(sql2`
       INSERT INTO crypto_exchanges (user_id, from_currency, to_currency, from_amount, usdt_amount, to_amount, exchange_rate, fee_amount, status, tx_step2_id)
       VALUES (${req.userId}, 'USDT', ${toCurrency}, ${amountUsdt}, ${amountUsdt}, ${estimatedFiat}, ${rate}, ${fee}, 'PENDING_ADMIN', ${tx.id})
@@ -83954,7 +83964,8 @@ router7.post("/", authMiddleware, async (req, res) => {
       return;
     }
     const { raw, hash: hash2, prefix } = generateKey(type);
-    const [key] = await db.insert(apiKeysTable).values({ userId: req.userId, keyHash: hash2, keyPrefix: prefix, name, keyType: type }).returning();
+    const keyInsert = await db.insert(apiKeysTable).values({ userId: req.userId, keyHash: hash2, keyPrefix: prefix, name, keyType: type });
+    const [key] = await db.select().from(apiKeysTable).where(eq2(apiKeysTable.id, keyInsert[0].insertId)).limit(1);
     req.log.info({ userId: req.userId, keyId: key.id, type }, "API key created");
     res.status(201).json({
       id: key.id,
@@ -84003,7 +84014,8 @@ router7.post("/:id/regenerate", authMiddleware, async (req, res) => {
     await db.update(apiKeysTable).set({ active: false }).where(eq2(apiKeysTable.id, id));
     const type = key.keyType ?? "payin";
     const { raw, hash: hash2, prefix } = generateKey(type);
-    const [newKey] = await db.insert(apiKeysTable).values({ userId: req.userId, keyHash: hash2, keyPrefix: prefix, name: key.name, keyType: type }).returning();
+    const newKeyInsert = await db.insert(apiKeysTable).values({ userId: req.userId, keyHash: hash2, keyPrefix: prefix, name: key.name, keyType: type });
+    const [newKey] = await db.select().from(apiKeysTable).where(eq2(apiKeysTable.id, newKeyInsert[0].insertId)).limit(1);
     req.log.info({ userId: req.userId, oldKeyId: id, newKeyId: newKey.id }, "API key regenerated");
     res.status(201).json({
       id: newKey.id,
@@ -87011,7 +87023,7 @@ router15.post("/v1/payin", async (req, res) => {
     const fee = calculateFeeWithRate(amount, country, operator, "DEPOSIT", overrideRate);
     const reference = generateReference();
     const pixResult = await callPixPayAirtime({ currency, serviceId: 1, amount, phone, customData: reference, omOtp });
-    const [tx] = await db.insert(transactionsTable).values({
+    const txInsert1 = await db.insert(transactionsTable).values({
       userId: merchant.userId,
       type: "DEPOSIT",
       amount: String(amount),
@@ -87026,7 +87038,8 @@ router15.post("/v1/payin", async (req, res) => {
       providerReference: String(pixResult.pixTransactionId ?? ""),
       status: "PENDING",
       metadata: { ...metadata ?? {}, ...notificationUrl ? { notificationUrl } : {} }
-    }).returning();
+    });
+    const [tx] = await db.select().from(transactionsTable).where(eq2(transactionsTable.id, txInsert1[0].insertId)).limit(1);
     logger.info({ merchantUserId: merchant.userId, ref: reference, amount, flow }, "Merchant payin initiated");
     const resp = {
       success: true,
@@ -87112,7 +87125,7 @@ router15.post("/v1/payout", async (req, res) => {
     }
     await db.update(walletsTable).set({ balance: Math.max(balance - walletDebit, 0).toFixed(2), updatedAt: /* @__PURE__ */ new Date() }).where(eq2(walletsTable.id, wallet.id));
     const reference = generateReference();
-    const [tx] = await db.insert(transactionsTable).values({
+    const txInsert2 = await db.insert(transactionsTable).values({
       userId: merchantUserId,
       type: "WITHDRAWAL",
       status: "PENDING",
@@ -87126,7 +87139,8 @@ router15.post("/v1/payout", async (req, res) => {
       phone,
       reference,
       metadata: { ...metadata ?? {}, ...notificationUrl ? { notificationUrl } : {} }
-    }).returning();
+    });
+    const [tx] = await db.select().from(transactionsTable).where(eq2(transactionsTable.id, txInsert2[0].insertId)).limit(1);
     const pixResult = await callPixPayAirtime({
       currency,
       serviceId: 1,
