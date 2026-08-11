@@ -87782,28 +87782,30 @@ async function startServer() {
   logger.info(`[ENV CHECK] MAVIANCE_ENV = ${mavianceEnv}`);
   logger.info(`[ENV CHECK] MAVIANCE_PUBLIC_KEY = ${process.env["MAVIANCE_PUBLIC_KEY"] ? "SET \u2713" : "NOT SET \u2717"}`);
   logger.info(`[ENV CHECK] MAVIANCE_SECRET     = ${process.env["MAVIANCE_SECRET"] ? "SET \u2713" : "NOT SET \u2717"}`);
-  const dbUrl = process.env.SUPABASE_DATABASE_URL || process.env.DATABASE_URL;
+  const dbUrl = process.env.MYSQL_DATABASE_URL || process.env.DATABASE_URL;
   if (!dbUrl) {
-    logger.error(
-      "SUPABASE_DATABASE_URL is not set \u2014 database queries will fail. Add it to your environment variables (cPanel \u2192 Node.js \u2192 Environment Variables)."
+    logger.warn(
+      "MYSQL_DATABASE_URL is not set \u2014 using fallback localhost. Set MYSQL_DATABASE_URL=mysql://USER:PASS@localhost:3306/DB_NAME in your environment variables."
     );
   } else {
-    try {
-      await pool.query("select 1");
-      logger.info(
-        {
-          dbHost: new URL(dbUrl).hostname
-        },
-        "Database connection check passed"
-      );
-    } catch (err) {
-      logger.error({ err }, "Database connection check failed");
-    }
-    try {
-      await runStartupMigrations();
-    } catch (err) {
-      logger.error({ err }, "Startup migrations failed");
-    }
+    logger.info(`[ENV CHECK] MYSQL_DATABASE_URL host = ${(() => {
+      try {
+        return new URL(dbUrl).hostname;
+      } catch {
+        return "(parse error)";
+      }
+    })()}`);
+  }
+  try {
+    await pool.query("select 1");
+    logger.info("Database connection check passed \u2713");
+  } catch (err) {
+    logger.error({ err }, "Database connection check FAILED \u2014 check MYSQL_DATABASE_URL");
+  }
+  try {
+    await runStartupMigrations();
+  } catch (err) {
+    logger.error({ err }, "Startup migrations failed");
   }
   const server = app_default.listen(port, () => {
     logger.info({ port }, "Server listening");
