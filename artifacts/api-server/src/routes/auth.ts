@@ -39,10 +39,10 @@ router.post("/register", authRateLimit, async (req, res) => {
     }
 
     const passwordHash = await bcrypt.hash(password, 10);
-    const [user] = await db
+    const userInsert = await db
       .insert(usersTable)
-      .values({ email, passwordHash, name, phone, country })
-      .returning();
+      .values({ email, passwordHash, name, phone, country });
+    const [user] = await db.select().from(usersTable).where(eq(usersTable.id, userInsert[0].insertId)).limit(1);
 
     // Create wallets for all four currencies (including USDT)
     await db.insert(walletsTable).values([

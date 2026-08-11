@@ -82,10 +82,10 @@ router.post("/", authMiddleware, async (req: AuthRequest, res) => {
 
     const { raw, hash, prefix } = generateKey(type);
 
-    const [key] = await db
+    const keyInsert = await db
       .insert(apiKeysTable)
-      .values({ userId: req.userId!, keyHash: hash, keyPrefix: prefix, name, keyType: type })
-      .returning();
+      .values({ userId: req.userId!, keyHash: hash, keyPrefix: prefix, name, keyType: type });
+    const [key] = await db.select().from(apiKeysTable).where(eq(apiKeysTable.id, keyInsert[0].insertId)).limit(1);
 
     req.log.info({ userId: req.userId, keyId: key!.id, type }, "API key created");
 
@@ -152,10 +152,10 @@ router.post("/:id/regenerate", authMiddleware, async (req: AuthRequest, res) => 
 
     const type = (key.keyType ?? "payin") as KeyType;
     const { raw, hash, prefix } = generateKey(type);
-    const [newKey] = await db
+    const newKeyInsert = await db
       .insert(apiKeysTable)
-      .values({ userId: req.userId!, keyHash: hash, keyPrefix: prefix, name: key.name, keyType: type })
-      .returning();
+      .values({ userId: req.userId!, keyHash: hash, keyPrefix: prefix, name: key.name, keyType: type });
+    const [newKey] = await db.select().from(apiKeysTable).where(eq(apiKeysTable.id, newKeyInsert[0].insertId)).limit(1);
 
     req.log.info({ userId: req.userId, oldKeyId: id, newKeyId: newKey!.id }, "API key regenerated");
 
