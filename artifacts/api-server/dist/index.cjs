@@ -46822,9 +46822,9 @@ var require_pool_connection2 = __commonJS({
     "use strict";
     var Connection = require_connection3();
     var PoolConnection = class extends Connection {
-      constructor(pool2, options) {
+      constructor(pool3, options) {
         super(options);
-        this._pool = pool2;
+        this._pool = pool3;
         this._released = false;
         this.lastActiveTime = Date.now();
         this.once("end", () => {
@@ -46872,9 +46872,9 @@ var require_pool_connection2 = __commonJS({
         if (!this._pool || this._pool._closed) {
           return;
         }
-        const pool2 = this._pool;
+        const pool3 = this._pool;
         this._pool = null;
-        pool2._removeConnection(this);
+        pool3._removeConnection(this);
       }
       promise(promiseImpl) {
         const PromisePoolConnection = require_pool_connection();
@@ -47220,11 +47220,11 @@ var require_pool2 = __commonJS({
     var inheritEvents = require_inherit_events();
     var BasePool = require_pool();
     var PromisePool = class _PromisePool extends EventEmitter {
-      constructor(pool2, thePromise) {
+      constructor(pool3, thePromise) {
         super();
-        this.pool = pool2;
+        this.pool = pool3;
         this.Promise = thePromise || Promise;
-        inheritEvents(pool2, this, ["acquire", "connection", "enqueue", "release"]);
+        inheritEvents(pool3, this, ["acquire", "connection", "enqueue", "release"]);
       }
       getConnection() {
         const corePool = this.pool;
@@ -78945,6 +78945,28 @@ var pool = import_promise.default.createPool({
   connectionLimit: 10
 });
 var db = drizzle(pool, { schema: schema_exports, mode: "default" });
+var originalExecute = db.execute.bind(db);
+db.execute = async (query) => {
+  const result = await originalExecute(query);
+  if (Array.isArray(result)) {
+    const rows = result[0];
+    return { rows: Array.isArray(rows) ? rows : [], raw: result };
+  }
+  return result;
+};
+async function pgQuery(text2, params = []) {
+  const mapped = [];
+  const sqlText = text2.replace(/\$(\d+)/g, (_m, n) => {
+    mapped.push(params[Number(n) - 1]);
+    return "?";
+  });
+  const [result] = await pool.query(sqlText, mapped);
+  if (Array.isArray(result)) {
+    return { rows: result, insertId: 0, affectedRows: 0 };
+  }
+  const header = result;
+  return { rows: [], insertId: header.insertId ?? 0, affectedRows: header.affectedRows ?? 0 };
+}
 
 // src/routes/auth.ts
 init_schema2();
@@ -81508,7 +81530,7 @@ async function setUsdtRate(pair, rate) {
   await db.execute(sql2`
     INSERT INTO usdt_rates (pair, rate, updated_at)
     VALUES (${pair}, ${rate}, NOW())
-    ON CONFLICT (pair) DO UPDATE SET rate = ${rate}, updated_at = NOW()
+    ON DUPLICATE KEY UPDATE rate = ${rate}, updated_at = NOW()
   `);
 }
 async function convertWithAdminRate(amount, from, to) {
@@ -81660,8 +81682,8 @@ async function getDefaultMargin() {
     return cachedMargin;
   }
   try {
-    const result = await pool.query(
-      "SELECT value FROM platform_config WHERE key = 'default_margin' LIMIT 1"
+    const result = await pgQuery(
+      "SELECT value FROM platform_config WHERE `key` = 'default_margin' LIMIT 1"
     );
     if (result.rows.length && result.rows[0].value) {
       const val = parseFloat(result.rows[0].value);
@@ -82123,7 +82145,7 @@ var GLOBAL_COUNTRY = "ZZ";
 var GLOBAL_OPERATOR = "GLOBAL";
 async function getUserOperatorFeeRate(userId, country, operator, type) {
   try {
-    const result = await pool.query(
+    const result = await pgQuery(
       "SELECT pixpay_deposit, pixpay_withdrawal, margin_deposit, margin_withdrawal FROM user_operator_fees WHERE user_id = $1 AND country = $2 AND operator = $3",
       [userId, country, operator]
     );
@@ -84064,9 +84086,8 @@ var KYC_DOC_TYPES = ["ID_FRONT", "ID_BACK"];
 var KYB_DOC_TYPES = ["KYB_STATUTS", "KYB_RCCM", "KYB_NIU", "KYB_PLAN_LOC"];
 var ALL_DOC_TYPES = [...KYC_DOC_TYPES, ...KYB_DOC_TYPES];
 router8.get("/", authMiddleware, async (req, res) => {
-  const client = await pool.connect();
   try {
-    const profileRes = await client.query(
+    const profileRes = await pgQuery(
       `SELECT * FROM kyc_profiles WHERE user_id = $1 LIMIT 1`,
       [req.userId]
     );
@@ -84101,8 +84122,6 @@ router8.get("/", authMiddleware, async (req, res) => {
   } catch (err) {
     req.log.error({ err }, "Get KYC error");
     res.status(500).json({ error: "InternalError", message: "Erreur lors de la r\xE9cup\xE9ration KYC" });
-  } finally {
-    client.release();
   }
 });
 router8.post("/identity", authMiddleware, async (req, res) => {
@@ -84121,16 +84140,15 @@ router8.post("/identity", authMiddleware, async (req, res) => {
     return;
   }
   const { fullName, dateOfBirth, docType, docNumber, frontFile, backFile, selfieFile } = parse3.data;
-  const client = await pool.connect();
   try {
-    await client.query(`
+    await pgQuery(`
       INSERT INTO kyc_profiles (user_id, full_name, date_of_birth, doc_type, doc_number, kyc_status, updated_at)
       VALUES ($1, $2, $3, $4, $5, 'PENDING', NOW())
-      ON CONFLICT (user_id) DO UPDATE SET
-        full_name = EXCLUDED.full_name,
-        date_of_birth = EXCLUDED.date_of_birth,
-        doc_type = EXCLUDED.doc_type,
-        doc_number = EXCLUDED.doc_number,
+      ON DUPLICATE KEY UPDATE
+        full_name = VALUES(full_name),
+        date_of_birth = VALUES(date_of_birth),
+        doc_type = VALUES(doc_type),
+        doc_number = VALUES(doc_number),
         kyc_status = 'PENDING',
         updated_at = NOW()
     `, [req.userId, fullName, dateOfBirth, docType, docNumber]);
@@ -84148,8 +84166,6 @@ router8.post("/identity", authMiddleware, async (req, res) => {
   } catch (err) {
     req.log.error({ err }, "KYC identity error");
     res.status(500).json({ error: "InternalError", message: "Erreur lors de l'enregistrement" });
-  } finally {
-    client.release();
   }
 });
 router8.post("/kyb", authMiddleware, async (req, res) => {
@@ -84184,19 +84200,18 @@ router8.post("/kyb", authMiddleware, async (req, res) => {
     niuFile,
     planLocFile
   } = parse3.data;
-  const client = await pool.connect();
   try {
-    await client.query(`
+    await pgQuery(`
       INSERT INTO kyc_profiles (user_id, business_description, business_website, business_category, business_type, niu_number, rccm_number, signature_data, kyb_status, updated_at)
       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 'PENDING', NOW())
-      ON CONFLICT (user_id) DO UPDATE SET
-        business_description = EXCLUDED.business_description,
-        business_website = EXCLUDED.business_website,
-        business_category = EXCLUDED.business_category,
-        business_type = EXCLUDED.business_type,
-        niu_number = EXCLUDED.niu_number,
-        rccm_number = EXCLUDED.rccm_number,
-        signature_data = EXCLUDED.signature_data,
+      ON DUPLICATE KEY UPDATE
+        business_description = VALUES(business_description),
+        business_website = VALUES(business_website),
+        business_category = VALUES(business_category),
+        business_type = VALUES(business_type),
+        niu_number = VALUES(niu_number),
+        rccm_number = VALUES(rccm_number),
+        signature_data = VALUES(signature_data),
         kyb_status = 'PENDING',
         updated_at = NOW()
     `, [req.userId, businessDescription, businessWebsite, businessCategory, businessType, niuNumber, rccmNumber, signatureData]);
@@ -84220,8 +84235,6 @@ router8.post("/kyb", authMiddleware, async (req, res) => {
   } catch (err) {
     req.log.error({ err }, "KYB error");
     res.status(500).json({ error: "InternalError", message: "Erreur lors de l'enregistrement" });
-  } finally {
-    client.release();
   }
 });
 router8.delete("/:id", authMiddleware, async (req, res) => {
@@ -84295,35 +84308,35 @@ router9.get("/stats", async (req, res) => {
       kycProfileStats,
       txByCurrency
     ] = await Promise.all([
-      db.select({ totalUsers: sql2`count(*)::int` }).from(usersTable),
-      db.select({ pendingKyc: sql2`count(*)::int` }).from(kycDocumentsTable).where(eq2(kycDocumentsTable.status, "PENDING")),
-      db.select({ totalTx: sql2`count(*)::int` }).from(transactionsTable),
-      db.select({ customFees: sql2`count(distinct user_id)::int` }).from(userFeesTable),
+      db.select({ totalUsers: sql2`count(*)` }).from(usersTable),
+      db.select({ pendingKyc: sql2`count(*)` }).from(kycDocumentsTable).where(eq2(kycDocumentsTable.status, "PENDING")),
+      db.select({ totalTx: sql2`count(*)` }).from(transactionsTable),
+      db.select({ customFees: sql2`count(distinct user_id)` }).from(userFeesTable),
       db.select({
-        totalVolume: sql2`coalesce(sum(amount::numeric), 0)`,
-        totalMargin: sql2`coalesce(sum(yookpay_margin::numeric), 0)`,
-        totalFees: sql2`coalesce(sum(fee::numeric), 0)`,
-        depositMargin: sql2`coalesce(sum(CASE WHEN type='DEPOSIT'    THEN yookpay_margin::numeric ELSE 0 END), 0)`,
-        withdrawalMargin: sql2`coalesce(sum(CASE WHEN type='WITHDRAWAL' THEN yookpay_margin::numeric ELSE 0 END), 0)`,
-        successTx: sql2`count(*)::int`
+        totalVolume: sql2`coalesce(sum(CAST(amount AS DECIMAL(30,10))), 0)`,
+        totalMargin: sql2`coalesce(sum(CAST(yookpay_margin AS DECIMAL(30,10))), 0)`,
+        totalFees: sql2`coalesce(sum(CAST(fee AS DECIMAL(30,10))), 0)`,
+        depositMargin: sql2`coalesce(sum(CASE WHEN type='DEPOSIT'    THEN CAST(yookpay_margin AS DECIMAL(30,10)) ELSE 0 END), 0)`,
+        withdrawalMargin: sql2`coalesce(sum(CASE WHEN type='WITHDRAWAL' THEN CAST(yookpay_margin AS DECIMAL(30,10)) ELSE 0 END), 0)`,
+        successTx: sql2`count(*)`
       }).from(transactionsTable).where(eq2(transactionsTable.status, "SUCCESS")),
-      db.select({ verifiedUsers: sql2`count(distinct user_id)::int` }).from(kycDocumentsTable).where(eq2(kycDocumentsTable.status, "VERIFIED")),
+      db.select({ verifiedUsers: sql2`count(distinct user_id)` }).from(kycDocumentsTable).where(eq2(kycDocumentsTable.status, "VERIFIED")),
       db.execute(sql2`
         SELECT
-          count(*) FILTER (WHERE kyc_status = 'PENDING')::int                               AS pending_kyc,
-          count(*) FILTER (WHERE kyb_status = 'PENDING')::int                               AS pending_kyb,
-          count(*) FILTER (WHERE kyc_status IN ('VERIFIED','APPROVED'))::int                AS verified_kyc,
-          count(*) FILTER (WHERE kyb_status IN ('VERIFIED','APPROVED'))::int                AS verified_kyb
+          SUM(CASE WHEN kyc_status = 'PENDING' THEN 1 ELSE 0 END)                    AS pending_kyc,
+          SUM(CASE WHEN kyb_status = 'PENDING' THEN 1 ELSE 0 END)                    AS pending_kyb,
+          SUM(CASE WHEN kyc_status IN ('VERIFIED','APPROVED') THEN 1 ELSE 0 END)     AS verified_kyc,
+          SUM(CASE WHEN kyb_status IN ('VERIFIED','APPROVED') THEN 1 ELSE 0 END)     AS verified_kyb
         FROM kyc_profiles
       `),
       db.select({
         currency: transactionsTable.currency,
-        volume: sql2`coalesce(sum(amount::numeric), 0)`,
-        margin: sql2`coalesce(sum(yookpay_margin::numeric), 0)`,
-        fees: sql2`coalesce(sum(fee::numeric), 0)`,
-        depositMargin: sql2`coalesce(sum(CASE WHEN type='DEPOSIT'    THEN yookpay_margin::numeric ELSE 0 END), 0)`,
-        withdrawalMargin: sql2`coalesce(sum(CASE WHEN type='WITHDRAWAL' THEN yookpay_margin::numeric ELSE 0 END), 0)`,
-        count: sql2`count(*)::int`
+        volume: sql2`coalesce(sum(CAST(amount AS DECIMAL(30,10))), 0)`,
+        margin: sql2`coalesce(sum(CAST(yookpay_margin AS DECIMAL(30,10))), 0)`,
+        fees: sql2`coalesce(sum(CAST(fee AS DECIMAL(30,10))), 0)`,
+        depositMargin: sql2`coalesce(sum(CASE WHEN type='DEPOSIT'    THEN CAST(yookpay_margin AS DECIMAL(30,10)) ELSE 0 END), 0)`,
+        withdrawalMargin: sql2`coalesce(sum(CASE WHEN type='WITHDRAWAL' THEN CAST(yookpay_margin AS DECIMAL(30,10)) ELSE 0 END), 0)`,
+        count: sql2`count(*)`
       }).from(transactionsTable).where(eq2(transactionsTable.status, "SUCCESS")).groupBy(transactionsTable.currency)
     ]);
     const kp = kycProfileStats.rows[0] ?? { pending_kyc: 0, pending_kyb: 0, verified_kyc: 0, verified_kyb: 0 };
@@ -84376,7 +84389,7 @@ router9.get("/users", async (req, res) => {
       if (!walletMap[w.userId]) walletMap[w.userId] = [];
       walletMap[w.userId].push(w);
     }
-    const kycCounts = await db.select({ userId: kycDocumentsTable.userId, status: kycDocumentsTable.status, count: sql2`count(*)::int` }).from(kycDocumentsTable).groupBy(kycDocumentsTable.userId, kycDocumentsTable.status);
+    const kycCounts = await db.select({ userId: kycDocumentsTable.userId, status: kycDocumentsTable.status, count: sql2`count(*)` }).from(kycDocumentsTable).groupBy(kycDocumentsTable.userId, kycDocumentsTable.status);
     const kycMap = {};
     for (const k of kycCounts) {
       if (!kycMap[k.userId]) kycMap[k.userId] = {};
@@ -84657,7 +84670,7 @@ router9.get("/users/:id/operator-fees", async (req, res) => {
     return;
   }
   try {
-    const rows = await pool.query(
+    const rows = await pgQuery(
       "SELECT country, operator, pixpay_deposit, pixpay_withdrawal, margin_deposit, margin_withdrawal FROM user_operator_fees WHERE user_id = $1",
       [userId]
     );
@@ -84703,14 +84716,14 @@ router9.put("/users/:id/operator-fees", async (req, res) => {
   }
   try {
     for (const row of parse3.data) {
-      await pool.query(
+      await pgQuery(
         `INSERT INTO user_operator_fees (user_id, country, operator, pixpay_deposit, pixpay_withdrawal, margin_deposit, margin_withdrawal, updated_at)
          VALUES ($1, $2, $3, $4, $5, $6, $7, NOW())
-         ON CONFLICT (user_id, country, operator) DO UPDATE SET
-           pixpay_deposit = EXCLUDED.pixpay_deposit,
-           pixpay_withdrawal = EXCLUDED.pixpay_withdrawal,
-           margin_deposit = EXCLUDED.margin_deposit,
-           margin_withdrawal = EXCLUDED.margin_withdrawal,
+         ON DUPLICATE KEY UPDATE
+           pixpay_deposit = VALUES(pixpay_deposit),
+           pixpay_withdrawal = VALUES(pixpay_withdrawal),
+           margin_deposit = VALUES(margin_deposit),
+           margin_withdrawal = VALUES(margin_withdrawal),
            updated_at = NOW()`,
         [userId, row.country, row.operator, row.pixpayDeposit, row.pixpayWithdrawal, row.marginDeposit, row.marginWithdrawal]
       );
@@ -84752,9 +84765,8 @@ router9.patch("/kyc/:docId", async (req, res) => {
   }
 });
 router9.get("/kyc", async (req, res) => {
-  const client = await pool.connect();
   try {
-    const profilesRes = await client.query(`
+    const profilesRes = await pgQuery(`
       SELECT
         kp.*,
         u.name AS user_name,
@@ -84763,13 +84775,18 @@ router9.get("/kyc", async (req, res) => {
       INNER JOIN users u ON u.id = kp.user_id
       ORDER BY kp.updated_at DESC
     `);
-    const docsRes = await client.query(`
-      SELECT id, user_id, type, status, file_name, notes, created_at, updated_at
-      FROM kyc_documents
-      WHERE user_id = ANY($1::int[])
-    `, [profilesRes.rows.map((r) => r.user_id)]);
+    const userIds = profilesRes.rows.map((r) => r.user_id);
+    let docRows = [];
+    if (userIds.length > 0) {
+      const [rows] = await pool.query(`
+        SELECT id, user_id, type, status, file_name, notes, created_at, updated_at
+        FROM kyc_documents
+        WHERE user_id IN (?)
+      `, [userIds]);
+      docRows = rows;
+    }
     const docsMap = {};
-    for (const d of docsRes.rows) {
+    for (const d of docRows) {
       if (!docsMap[d.user_id]) docsMap[d.user_id] = [];
       docsMap[d.user_id].push({
         id: d.id,
@@ -84811,8 +84828,6 @@ router9.get("/kyc", async (req, res) => {
   } catch (err) {
     req.log.error({ err }, "Admin list KYC error");
     res.status(500).json({ error: "InternalError", message: "Failed to fetch KYC submissions" });
-  } finally {
-    client.release();
   }
 });
 router9.get("/kyc/doc/:docId/file", async (req, res) => {
@@ -84821,17 +84836,12 @@ router9.get("/kyc/doc/:docId/file", async (req, res) => {
     res.status(400).json({ error: "ValidationError", message: "ID invalide" });
     return;
   }
-  const client = await pool.connect();
-  try {
-    const result = await client.query(`SELECT file_data, file_name, type FROM kyc_documents WHERE id = $1`, [docId]);
-    if (!result.rows[0]) {
-      res.status(404).json({ error: "NotFound", message: "Document introuvable" });
-      return;
-    }
-    res.json({ fileData: result.rows[0].file_data, fileName: result.rows[0].file_name, type: result.rows[0].type });
-  } finally {
-    client.release();
+  const result = await pgQuery(`SELECT file_data, file_name, type FROM kyc_documents WHERE id = $1`, [docId]);
+  if (!result.rows[0]) {
+    res.status(404).json({ error: "NotFound", message: "Document introuvable" });
+    return;
   }
+  res.json({ fileData: result.rows[0].file_data, fileName: result.rows[0].file_name, type: result.rows[0].type });
 });
 router9.get("/kyc/signature/:userId", async (req, res) => {
   const userId = parseInt(req.params.userId);
@@ -84839,17 +84849,12 @@ router9.get("/kyc/signature/:userId", async (req, res) => {
     res.status(400).json({ error: "ValidationError", message: "ID invalide" });
     return;
   }
-  const client = await pool.connect();
-  try {
-    const result = await client.query(`SELECT signature_data FROM kyc_profiles WHERE user_id = $1`, [userId]);
-    if (!result.rows[0]) {
-      res.status(404).json({ error: "NotFound" });
-      return;
-    }
-    res.json({ signatureData: result.rows[0].signature_data });
-  } finally {
-    client.release();
+  const result = await pgQuery(`SELECT signature_data FROM kyc_profiles WHERE user_id = $1`, [userId]);
+  if (!result.rows[0]) {
+    res.status(404).json({ error: "NotFound" });
+    return;
   }
+  res.json({ signatureData: result.rows[0].signature_data });
 });
 router9.patch("/kyc/profile/:userId", async (req, res) => {
   const userId = parseInt(req.params.userId);
@@ -84867,14 +84872,13 @@ router9.patch("/kyc/profile/:userId", async (req, res) => {
     res.status(400).json({ error: "ValidationError", message: "Donn\xE9es invalides" });
     return;
   }
-  const client = await pool.connect();
   try {
     const { kycStatus, adminNotes } = parse3.data;
     const kybStatus = kycStatus === "NOT_STARTED" ? "NOT_STARTED" : parse3.data.kybStatus;
-    await client.query(
+    await pgQuery(
       `INSERT INTO kyc_profiles (user_id, kyc_status, kyb_status, admin_notes, updated_at)
        VALUES ($1, COALESCE($2, 'NOT_STARTED'), COALESCE($3, 'NOT_STARTED'), $4, NOW())
-       ON CONFLICT (user_id) DO UPDATE SET
+       ON DUPLICATE KEY UPDATE
          kyc_status   = CASE WHEN $2 IS NOT NULL THEN $2 ELSE kyc_profiles.kyc_status END,
          kyb_status   = CASE WHEN $3 IS NOT NULL THEN $3 ELSE kyc_profiles.kyb_status END,
          admin_notes  = CASE WHEN $4 IS NOT NULL THEN $4 ELSE kyc_profiles.admin_notes END,
@@ -84886,8 +84890,6 @@ router9.patch("/kyc/profile/:userId", async (req, res) => {
   } catch (err) {
     req.log.error({ err }, "Admin KYC profile update error");
     res.status(500).json({ error: "InternalError", message: "Erreur" });
-  } finally {
-    client.release();
   }
 });
 router9.patch("/users/:id/role", async (req, res) => {
@@ -85095,8 +85097,7 @@ router9.put("/maviance/services", async (req, res) => {
     await db.execute(sql2`
       INSERT INTO maviance_services (operator, country, currency, type, service_id, active, notes, updated_at)
       VALUES (${operator}, ${country ?? null}, ${currency}, ${type}, ${serviceId}, ${active}, ${notes ?? null}, NOW())
-      ON CONFLICT ON CONSTRAINT maviance_services_uq
-      DO UPDATE SET service_id = ${serviceId}, active = ${active}, notes = ${notes ?? null}, updated_at = NOW()
+      ON DUPLICATE KEY UPDATE service_id = ${serviceId}, active = ${active}, notes = ${notes ?? null}, updated_at = NOW()
     `);
     req.log.info({ adminId: req.userId, operator, country, currency, type, serviceId, active }, "Maviance service upserted");
     res.json({ success: true, message: `Service Maviance ${operator} (${country ?? "global"}) ${currency} ${type} mis \xE0 jour` });
@@ -85134,8 +85135,7 @@ router9.put("/provider-config", async (req, res) => {
     await db.execute(sql2`
       INSERT INTO payment_provider_config (country, operator, type, provider, updated_at)
       VALUES (${country}, ${operator}, ${type}, ${provider}, NOW())
-      ON CONFLICT ON CONSTRAINT provider_config_uq
-      DO UPDATE SET provider = ${provider}, updated_at = NOW()
+      ON DUPLICATE KEY UPDATE provider = ${provider}, updated_at = NOW()
     `);
     req.log.info({ adminId: req.userId, country, operator, type, provider }, "Provider config updated");
     res.json({ success: true, message: `Fournisseur pour ${operator} ${country} ${type} \u2192 ${provider}` });
@@ -85199,8 +85199,7 @@ router9.put("/pixpay/services", async (req, res) => {
     await db.execute(sql2`
       INSERT INTO pixpay_services (operator, country, currency, type, service_id, active, notes, updated_at)
       VALUES (${operator}, ${country ?? null}, ${currency}, ${type}, ${serviceId}, ${active}, ${notes ?? null}, NOW())
-      ON CONFLICT (operator, country, currency, type)
-      DO UPDATE SET service_id = ${serviceId}, active = ${active}, notes = ${notes ?? null}, updated_at = NOW()
+      ON DUPLICATE KEY UPDATE service_id = ${serviceId}, active = ${active}, notes = ${notes ?? null}, updated_at = NOW()
     `);
     req.log.info({ adminId: req.userId, operator, country, currency, type, serviceId, active }, "PixPay service upserted");
     res.json({ success: true, message: `Service PixPay ${operator} (${country ?? "global"}) ${currency} ${type} mis \xE0 jour` });
@@ -85211,7 +85210,7 @@ router9.put("/pixpay/services", async (req, res) => {
 });
 router9.get("/pixpay/config", async (_req, res) => {
   try {
-    const result = await db.execute(sql2`SELECT key, value, updated_at FROM platform_config ORDER BY key`);
+    const result = await db.execute(sql2`SELECT \`key\`, value, updated_at FROM platform_config ORDER BY \`key\``);
     res.json({ config: result.rows });
   } catch (err) {
     res.status(500).json({ error: "InternalError", message: "Impossible de charger la configuration" });
@@ -85230,9 +85229,9 @@ router9.put("/pixpay/config", async (req, res) => {
   const { key, value } = parse3.data;
   try {
     await db.execute(sql2`
-      INSERT INTO platform_config (key, value, updated_at)
+      INSERT INTO platform_config (\`key\`, value, updated_at)
       VALUES (${key}, ${value}, NOW())
-      ON CONFLICT (key) DO UPDATE SET value = ${value}, updated_at = NOW()
+      ON DUPLICATE KEY UPDATE value = ${value}, updated_at = NOW()
     `);
     req.log.info({ adminId: req.userId, key }, "Platform config updated");
     res.json({ success: true, message: `Configuration ${key} mise \xE0 jour` });
@@ -85244,7 +85243,7 @@ router9.put("/pixpay/config", async (req, res) => {
 router9.get("/margin", async (_req, res) => {
   try {
     const result = await db.execute(
-      sql2`SELECT value FROM platform_config WHERE key = 'default_margin' LIMIT 1`
+      sql2`SELECT value FROM platform_config WHERE \`key\` = 'default_margin' LIMIT 1`
     );
     const value = result.rows.length ? parseFloat(result.rows[0].value) : 0.025;
     res.json({ margin: isNaN(value) ? 0.025 : value });
@@ -85262,9 +85261,9 @@ router9.put("/margin", async (req, res) => {
   const { margin } = parse3.data;
   try {
     await db.execute(sql2`
-      INSERT INTO platform_config (key, value, updated_at)
+      INSERT INTO platform_config (\`key\`, value, updated_at)
       VALUES ('default_margin', ${margin.toString()}, NOW())
-      ON CONFLICT (key) DO UPDATE SET value = ${margin.toString()}, updated_at = NOW()
+      ON DUPLICATE KEY UPDATE value = ${margin.toString()}, updated_at = NOW()
     `);
     invalidateMarginCache();
     req.log.info({ adminId: req.userId, margin }, "Default margin updated");
@@ -85294,17 +85293,17 @@ router9.get("/transactions", async (req, res) => {
   if (search) {
     params.push(`%${search}%`);
     const idx = params.length;
-    conditions.push(`(t.reference ILIKE $${idx} OR u.email ILIKE $${idx} OR u.name ILIKE $${idx})`);
+    conditions.push(`(t.reference LIKE $${idx} OR u.email LIKE $${idx} OR u.name LIKE $${idx})`);
   }
   const where = conditions.length ? `WHERE ${conditions.join(" AND ")}` : "";
   try {
-    const countRes = await pool.query(
-      `SELECT COUNT(*)::int AS total FROM transactions t JOIN users u ON t.user_id = u.id ${where}`,
+    const countRes = await pgQuery(
+      `SELECT COUNT(*) AS total FROM transactions t JOIN users u ON t.user_id = u.id ${where}`,
       params
     );
-    const total = countRes.rows[0]?.total ?? 0;
+    const total = Number(countRes.rows[0]?.total ?? 0);
     params.push(limit, offset);
-    const rows = await pool.query(
+    const rows = await pgQuery(
       `SELECT t.id, t.type, t.status, t.amount, t.fee, t.net_amount,
               t.currency, t.country, t.operator, t.phone, t.reference,
               t.provider_reference, t.fee_rate, t.metadata, t.created_at, t.updated_at,
@@ -85355,7 +85354,7 @@ router9.get("/transactions/:id", async (req, res) => {
     return;
   }
   try {
-    const result = await pool.query(
+    const result = await pgQuery(
       `SELECT t.*, u.id AS user_id, u.email AS user_email, u.name AS user_name
        FROM transactions t
        JOIN users u ON t.user_id = u.id
@@ -85466,7 +85465,7 @@ router9.patch("/transactions/:id/status", async (req, res) => {
     const notifTitle = isRectification ? `Rectification \u2014 ${typeLabel} ${amtStr}` : `${typeLabel} ${amtStr} mis \xE0 jour`;
     const notifBody = isRectification ? `Votre ${typeLabel.toLowerCase()} de ${amtStr} a \xE9t\xE9 rectifi\xE9. Nouveau statut : ${statusLabel}.${notes ? " Note : " + notes : ""}` : `Votre ${typeLabel.toLowerCase()} de ${amtStr} est maintenant ${statusLabel}.`;
     try {
-      await pool.query(
+      await pgQuery(
         `INSERT INTO notifications (user_id, type, title, body, transaction_id, created_at)
          VALUES ($1, $2, $3, $4, $5, NOW())`,
         [tx.userId, tx.type, notifTitle, notifBody, tx.id]
@@ -85646,7 +85645,7 @@ router9.put("/usdt-rates/:pair", async (req, res) => {
 });
 router9.get("/support-links", async (_req, res) => {
   try {
-    const r = await pool.query("SELECT whatsapp_url, facebook_url, telegram_url, phone_url FROM support_links WHERE id = 1");
+    const r = await pgQuery("SELECT whatsapp_url, facebook_url, telegram_url, phone_url FROM support_links WHERE id = 1");
     res.json(r.rows[0] ?? { whatsapp_url: "", facebook_url: "", telegram_url: "", phone_url: "" });
   } catch (err) {
     res.status(500).json({ error: "InternalError" });
@@ -85665,7 +85664,7 @@ router9.put("/support-links", async (req, res) => {
     return;
   }
   try {
-    await pool.query(
+    await pgQuery(
       `UPDATE support_links SET whatsapp_url=$1, facebook_url=$2, telegram_url=$3, phone_url=$4, updated_at=NOW() WHERE id=1`,
       [parse3.data.whatsapp_url, parse3.data.facebook_url, parse3.data.telegram_url, parse3.data.phone_url]
     );
@@ -85817,7 +85816,7 @@ init_schema2();
 // src/lib/notify.ts
 async function createNotification(userId, type, title, body, transactionId) {
   try {
-    await pool.query(
+    await pgQuery(
       `INSERT INTO notifications (user_id, type, title, body, transaction_id)
        VALUES ($1, $2, $3, $4, $5)`,
       [userId, type, title, body, transactionId ?? null]
@@ -86201,7 +86200,7 @@ function normalizePhone2(phone, country) {
   return "0" + digits;
 }
 async function getPixPayServiceId2(operator, currency, type, country) {
-  const r = await pool.query(
+  const r = await pgQuery(
     `SELECT service_id FROM pixpay_services
      WHERE operator = $1 AND currency = $2 AND type = $3
        AND (country = $4 OR country IS NULL) AND active = true
@@ -86212,7 +86211,7 @@ async function getPixPayServiceId2(operator, currency, type, country) {
   return r.rows[0].service_id;
 }
 async function getMavianceServiceId2(operator, currency, type, country) {
-  const r = await pool.query(
+  const r = await pgQuery(
     `SELECT service_id FROM maviance_services
      WHERE operator = $1 AND currency = $2 AND type = $3
        AND (country = $4 OR country IS NULL) AND active = true
@@ -86224,7 +86223,7 @@ async function getMavianceServiceId2(operator, currency, type, country) {
 }
 async function getProviderForRoute2(country, operator, type) {
   try {
-    const r = await pool.query(
+    const r = await pgQuery(
       `SELECT provider FROM payment_provider_config
        WHERE country = $1 AND operator = $2 AND type = $3 LIMIT 1`,
       [country.toUpperCase(), operator.toUpperCase(), type]
@@ -86236,7 +86235,7 @@ async function getProviderForRoute2(country, operator, type) {
 }
 async function getUserOperatorFeeRate2(userId, country, operator, type) {
   try {
-    const r = await pool.query(
+    const r = await pgQuery(
       "SELECT pixpay_deposit, pixpay_withdrawal, margin_deposit, margin_withdrawal FROM user_operator_fees WHERE user_id = $1 AND country = $2 AND operator = $3",
       [userId, country, operator]
     );
@@ -86251,7 +86250,7 @@ async function getUserOperatorFeeRate2(userId, country, operator, type) {
 }
 async function getUserFeeRate2(userId, country, operator, type) {
   try {
-    const r = await pool.query(
+    const r = await pgQuery(
       "SELECT rate FROM user_fees WHERE user_id = $1 AND country = $2 AND operator = $3 AND transaction_type = $4",
       [userId, country, operator, type]
     );
@@ -86284,10 +86283,9 @@ router12.post("/", authMiddleware, async (req, res) => {
   }
   const token = import_crypto6.default.randomBytes(5).toString("hex");
   try {
-    const r = await pool.query(
+    const ins = await pgQuery(
       `INSERT INTO payment_links (user_id, token, title, description, photo_data, price_type, price_amount, currency, countries)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
-       RETURNING *`,
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
       [
         req.userId,
         token,
@@ -86297,8 +86295,12 @@ router12.post("/", authMiddleware, async (req, res) => {
         priceType,
         priceAmount ?? null,
         currency ?? null,
-        countries
+        serializeCountries(countries)
       ]
+    );
+    const r = await pgQuery(
+      `SELECT * FROM payment_links WHERE id = $1`,
+      [ins.insertId]
     );
     res.status(201).json(formatLink(r.rows[0]));
   } catch (err) {
@@ -86308,13 +86310,13 @@ router12.post("/", authMiddleware, async (req, res) => {
 });
 router12.get("/", authMiddleware, async (req, res) => {
   try {
-    const r = await pool.query(
+    const r = await pgQuery(
       `SELECT pl.*,
-         COUNT(t.id) FILTER (WHERE t.status != 'FAILED') AS transaction_count,
-         COUNT(t.id) FILTER (WHERE t.status = 'FAILED') AS rejected_count,
-         COALESCE(SUM(t.net_amount::numeric) FILTER (WHERE t.status IN ('COMPLETED','SUCCESS')), 0) AS total_collected
+         SUM(CASE WHEN t.status != 'FAILED' THEN 1 ELSE 0 END) AS transaction_count,
+         SUM(CASE WHEN t.status = 'FAILED' THEN 1 ELSE 0 END) AS rejected_count,
+         COALESCE(SUM(CASE WHEN t.status IN ('COMPLETED','SUCCESS') THEN CAST(t.net_amount AS DECIMAL(30,10)) ELSE 0 END), 0) AS total_collected
        FROM payment_links pl
-       LEFT JOIN transactions t ON (t.metadata->>'paymentLinkId')::int = pl.id
+       LEFT JOIN transactions t ON CAST(JSON_UNQUOTE(JSON_EXTRACT(t.metadata, '$.paymentLinkId')) AS SIGNED) = pl.id
        WHERE pl.user_id = $1
        GROUP BY pl.id
        ORDER BY pl.created_at DESC`,
@@ -86333,14 +86335,14 @@ router12.get("/:id/stats", authMiddleware, async (req, res) => {
     return;
   }
   try {
-    const r = await pool.query(
+    const r = await pgQuery(
       `SELECT pl.click_count,
-         COUNT(t.id) FILTER (WHERE t.status != 'FAILED') AS transaction_count,
-         COUNT(t.id) FILTER (WHERE t.status = 'FAILED') AS rejected_count,
-         COALESCE(SUM(t.net_amount::numeric) FILTER (WHERE t.status IN ('COMPLETED','SUCCESS')), 0) AS total_collected,
+         SUM(CASE WHEN t.status != 'FAILED' THEN 1 ELSE 0 END) AS transaction_count,
+         SUM(CASE WHEN t.status = 'FAILED' THEN 1 ELSE 0 END) AS rejected_count,
+         COALESCE(SUM(CASE WHEN t.status IN ('COMPLETED','SUCCESS') THEN CAST(t.net_amount AS DECIMAL(30,10)) ELSE 0 END), 0) AS total_collected,
          pl.currency
        FROM payment_links pl
-       LEFT JOIN transactions t ON (t.metadata->>'paymentLinkId')::int = pl.id
+       LEFT JOIN transactions t ON CAST(JSON_UNQUOTE(JSON_EXTRACT(t.metadata, '$.paymentLinkId')) AS SIGNED) = pl.id
        WHERE pl.id = $1 AND pl.user_id = $2
        GROUP BY pl.id, pl.click_count, pl.currency`,
       [id, req.userId]
@@ -86384,11 +86386,11 @@ router12.put("/:id", authMiddleware, async (req, res) => {
   }
   const { title, description, photoData, priceType, priceAmount, currency, countries } = parse3.data;
   try {
-    const r = await pool.query(
+    await pgQuery(
       `UPDATE payment_links
        SET title=$3, description=$4, photo_data=$5, price_type=$6, price_amount=$7, currency=$8,
            countries=$9, updated_at=NOW()
-       WHERE id=$1 AND user_id=$2 RETURNING *`,
+       WHERE id=$1 AND user_id=$2`,
       [
         id,
         req.userId,
@@ -86398,10 +86400,14 @@ router12.put("/:id", authMiddleware, async (req, res) => {
         priceType,
         priceAmount ?? null,
         currency ?? null,
-        countries
+        serializeCountries(countries)
       ]
     );
-    if (!r.rowCount) {
+    const r = await pgQuery(
+      `SELECT * FROM payment_links WHERE id = $1 AND user_id = $2`,
+      [id, req.userId]
+    );
+    if (!r.rows.length) {
       res.status(404).json({ error: "NotFound" });
       return;
     }
@@ -86418,11 +86424,11 @@ router12.delete("/:id", authMiddleware, async (req, res) => {
     return;
   }
   try {
-    const r = await pool.query(
-      "DELETE FROM payment_links WHERE id = $1 AND user_id = $2 RETURNING id",
+    const r = await pgQuery(
+      "DELETE FROM payment_links WHERE id = $1 AND user_id = $2",
       [id, req.userId]
     );
-    if (!r.rowCount) {
+    if (!r.affectedRows) {
       res.status(404).json({ error: "NotFound" });
       return;
     }
@@ -86435,9 +86441,9 @@ router12.delete("/:id", authMiddleware, async (req, res) => {
 router12.get("/public/:token", async (req, res) => {
   const { token } = req.params;
   try {
-    pool.query("UPDATE payment_links SET click_count = click_count + 1 WHERE token = $1", [token]).catch(() => {
+    pgQuery("UPDATE payment_links SET click_count = click_count + 1 WHERE token = $1", [token]).catch(() => {
     });
-    const r = await pool.query(
+    const r = await pgQuery(
       `SELECT id, token, title, description, photo_data, price_type, price_amount, currency, countries
        FROM payment_links WHERE token = $1 AND is_active = true`,
       [token]
@@ -86455,7 +86461,7 @@ router12.get("/public/:token", async (req, res) => {
       priceType: row.price_type,
       priceAmount: row.price_amount ? parseFloat(row.price_amount) : null,
       currency: row.currency,
-      countries: row.countries
+      countries: parseCountries(row.countries)
     });
   } catch (err) {
     res.status(500).json({ error: "InternalError", message: "Erreur serveur" });
@@ -86477,7 +86483,7 @@ router12.post("/public/:token/pay", async (req, res) => {
   }
   const { token } = req.params;
   const { amount, country, operator, phone, feeBearer, omOtp } = parse3.data;
-  const linkRes = await pool.query(
+  const linkRes = await pgQuery(
     "SELECT id, user_id, title, price_type, price_amount, currency, countries, is_active FROM payment_links WHERE token = $1",
     [token]
   );
@@ -86487,7 +86493,8 @@ router12.post("/public/:token/pay", async (req, res) => {
   }
   const link = linkRes.rows[0];
   const merchantId = link.user_id;
-  if (link.countries.length > 0 && !link.countries.includes(country)) {
+  const linkCountries = parseCountries(link.countries);
+  if (linkCountries.length > 0 && !linkCountries.includes(country)) {
     res.status(400).json({ error: "CountryNotAllowed", message: "Ce pays n'est pas accept\xE9 pour ce lien de paiement" });
     return;
   }
@@ -86532,10 +86539,9 @@ router12.post("/public/:token/pay", async (req, res) => {
   const reference = generateReference();
   const yookpayMarginAmount = Math.round(amount * (opBreakdown?.margin ?? await getDefaultMargin()));
   try {
-    const txRes = await pool.query(
+    const txIns = await pgQuery(
       `INSERT INTO transactions (user_id, type, status, amount, fee, net_amount, currency, country, operator, phone, reference, fee_rate, yookpay_margin, metadata)
-       VALUES ($1, 'DEPOSIT', 'PENDING', $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
-       RETURNING id, status, currency, amount`,
+       VALUES ($1, 'DEPOSIT', 'PENDING', $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)`,
       [
         merchantId,
         amount.toString(),
@@ -86559,7 +86565,11 @@ router12.post("/public/:token/pay", async (req, res) => {
         })
       ]
     );
-    const tx = txRes.rows[0];
+    const txSel = await pgQuery(
+      `SELECT id, status, currency, amount FROM transactions WHERE id = $1`,
+      [txIns.insertId]
+    );
+    const tx = txSel.rows[0];
     if (provider === "MAVIANCE") {
       let mavResult;
       try {
@@ -86572,10 +86582,10 @@ router12.post("/public/:token/pay", async (req, res) => {
           trid: reference
         });
       } catch (err) {
-        await pool.query(
+        await pgQuery(
           `UPDATE transactions
            SET status = 'FAILED',
-               metadata = metadata || $1::jsonb,
+               metadata = JSON_MERGE_PATCH(COALESCE(metadata, '{}'), $1),
                updated_at = NOW()
            WHERE id = $2`,
           [
@@ -86592,10 +86602,10 @@ router12.post("/public/:token/pay", async (req, res) => {
         return;
       }
       const immediatelyFailed = isMavianceFailed(mavResult.collect.status);
-      await pool.query(
+      await pgQuery(
         `UPDATE transactions
          SET provider_reference = $1, status = $2,
-             metadata = metadata || $3::jsonb, updated_at = NOW()
+             metadata = JSON_MERGE_PATCH(COALESCE(metadata, '{}'), $3), updated_at = NOW()
          WHERE id = $4`,
         [
           mavResult.payToken,
@@ -86634,12 +86644,12 @@ router12.post("/public/:token/pay", async (req, res) => {
     const pixResult = await callPixPayAirtime(pixParams);
     const pixTxId = pixResult?.transaction_id ?? pixResult?.id ?? null;
     if (pixResult?.status === "FAILED" || pixResult?.error) {
-      await pool.query("UPDATE transactions SET status = 'FAILED' WHERE id = $1", [tx.id]);
+      await pgQuery("UPDATE transactions SET status = 'FAILED' WHERE id = $1", [tx.id]);
       res.status(400).json({ error: "PixPayError", message: pixResult?.message ?? "Transaction \xE9chou\xE9e c\xF4t\xE9 op\xE9rateur" });
       return;
     }
     if (pixTxId) {
-      await pool.query("UPDATE transactions SET pix_transaction_id = $1 WHERE id = $2", [String(pixTxId), tx.id]);
+      await pgQuery("UPDATE transactions SET pix_transaction_id = $1 WHERE id = $2", [String(pixTxId), tx.id]);
     }
     const finalStatus = pixResult?.status ?? "PENDING";
     const pending = finalStatus !== "SUCCESS" && finalStatus !== "FAILED";
@@ -86690,11 +86700,11 @@ router12.get("/public/tx/:txId", async (req, res) => {
     return;
   }
   try {
-    const r = await pool.query(
+    const r = await pgQuery(
       `SELECT id, user_id, status, amount, net_amount, currency, reference,
               provider_reference, metadata
        FROM transactions WHERE id = $1
-       AND metadata->>'paymentLinkId' IS NOT NULL`,
+       AND JSON_UNQUOTE(JSON_EXTRACT(metadata, '$.paymentLinkId')) IS NOT NULL`,
       [txId]
     );
     if (!r.rows.length) {
@@ -86713,14 +86723,13 @@ router12.get("/public/tx/:txId", async (req, res) => {
           const isFailed = isMavianceFailed(mavStatus.status);
           if (isSuccess || isFailed) {
             const nextStatus = isSuccess ? "SUCCESS" : "FAILED";
-            const update = await pool.query(
+            const update = await pgQuery(
               `UPDATE transactions
                SET status = $1,
                    provider_reference = COALESCE($2, provider_reference),
-                   metadata = metadata || $3::jsonb,
+                   metadata = JSON_MERGE_PATCH(COALESCE(metadata, '{}'), $3),
                    updated_at = NOW()
-               WHERE id = $4 AND status = 'PENDING'
-               RETURNING id`,
+               WHERE id = $4 AND status = 'PENDING'`,
               [
                 nextStatus,
                 mavStatus.payToken ?? null,
@@ -86735,10 +86744,10 @@ router12.get("/public/tx/:txId", async (req, res) => {
             );
             status = nextStatus;
             failureReason = isFailed ? mavStatus.message ?? mavStatus.errorCode ?? null : null;
-            if (isSuccess && update.rowCount > 0) {
-              await pool.query(
+            if (isSuccess && update.affectedRows > 0) {
+              await pgQuery(
                 `UPDATE wallets
-                 SET balance = (balance::numeric + $1::numeric)::text,
+                 SET balance = CAST(CAST(balance AS DECIMAL(30,10)) + CAST($1 AS DECIMAL(30,10)) AS CHAR),
                      updated_at = NOW()
                  WHERE user_id = $2 AND currency = $3`,
                 [row.net_amount, row.user_id, row.currency]
@@ -86769,7 +86778,7 @@ router12.post("/public/:token/pay-crypto", async (req, res) => {
   }
   const { token } = req.params;
   const { amountUsdt } = parse3.data;
-  const linkRes = await pool.query(
+  const linkRes = await pgQuery(
     "SELECT id, user_id, is_active FROM payment_links WHERE token = $1",
     [token]
   );
@@ -86792,9 +86801,9 @@ router12.post("/public/:token/pay-crypto", async (req, res) => {
   const reference = generateReference();
   const callbackUrl = `${process.env.APP_URL ?? ""}/api/nowpayments/ipn`;
   try {
-    const txRes = await pool.query(
+    const txRes = await pgQuery(
       `INSERT INTO transactions (user_id, type, status, amount, fee, net_amount, currency, country, operator, phone, reference, fee_rate, yookpay_margin, metadata)
-       VALUES ($1,'DEPOSIT','PENDING',$2,'0',$3,'USDT','ZZ','CRYPTO','',$4,'0','0',$5) RETURNING id`,
+       VALUES ($1,'DEPOSIT','PENDING',$2,'0',$3,'USDT','ZZ','CRYPTO','',$4,'0','0',$5)`,
       [
         merchantId,
         amountUsdt.toString(),
@@ -86803,7 +86812,7 @@ router12.post("/public/:token/pay-crypto", async (req, res) => {
         JSON.stringify({ provider: "NOWPAYMENTS", paymentLinkId: link.id, paymentLinkToken: token, initiatedAt: (/* @__PURE__ */ new Date()).toISOString() })
       ]
     );
-    const txId = txRes.rows[0].id;
+    const txId = txRes.insertId;
     const npResult = await createNpPayment({
       priceAmount: amountUsdt,
       priceCurrency: "usdttrc20",
@@ -86812,7 +86821,7 @@ router12.post("/public/:token/pay-crypto", async (req, res) => {
       orderDescription: `YookLink USDT payment - link ${link.id}`,
       ipnCallbackUrl: callbackUrl
     });
-    await pool.query(
+    await pgQuery(
       `UPDATE transactions SET metadata = $1 WHERE id = $2`,
       [JSON.stringify({
         provider: "NOWPAYMENTS",
@@ -86840,6 +86849,19 @@ router12.post("/public/:token/pay-crypto", async (req, res) => {
     res.status(400).json({ error: "NowPaymentsError", message: detail });
   }
 });
+function serializeCountries(countries) {
+  return JSON.stringify(countries ?? []);
+}
+function parseCountries(value) {
+  if (Array.isArray(value)) return value;
+  if (typeof value !== "string" || value.length === 0) return [];
+  try {
+    const parsed = JSON.parse(value);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return value.split(",").map((c) => c.trim()).filter(Boolean);
+  }
+}
 function formatLink(row) {
   return {
     id: row.id,
@@ -86850,7 +86872,7 @@ function formatLink(row) {
     priceType: row.price_type,
     priceAmount: row.price_amount ? parseFloat(row.price_amount) : null,
     currency: row.currency,
-    countries: row.countries ?? [],
+    countries: parseCountries(row.countries),
     isActive: row.is_active,
     clickCount: parseInt(row.click_count) || 0,
     transactionCount: parseInt(row.transaction_count) || 0,
@@ -86866,11 +86888,11 @@ var import_express13 = __toESM(require_express2(), 1);
 var router13 = (0, import_express13.Router)();
 router13.get("/", authMiddleware, async (req, res) => {
   try {
-    await pool.query(
-      `DELETE FROM notifications WHERE user_id = $1 AND created_at < NOW() - INTERVAL '24 hours'`,
+    await pgQuery(
+      `DELETE FROM notifications WHERE user_id = $1 AND created_at < NOW() - INTERVAL 24 HOUR`,
       [req.userId]
     );
-    const result = await pool.query(
+    const result = await pgQuery(
       `SELECT id, type, title, body, transaction_id, read_at, created_at
        FROM notifications
        WHERE user_id = $1
@@ -86902,7 +86924,7 @@ router13.patch("/:id/read", authMiddleware, async (req, res) => {
     return;
   }
   try {
-    await pool.query(
+    await pgQuery(
       `UPDATE notifications SET read_at = NOW() WHERE id = $1 AND user_id = $2`,
       [id, req.userId]
     );
@@ -86919,7 +86941,7 @@ router13.delete("/:id", authMiddleware, async (req, res) => {
     return;
   }
   try {
-    await pool.query(
+    await pgQuery(
       `DELETE FROM notifications WHERE id = $1 AND user_id = $2`,
       [id, req.userId]
     );
@@ -86931,7 +86953,7 @@ router13.delete("/:id", authMiddleware, async (req, res) => {
 });
 router13.delete("/", authMiddleware, async (req, res) => {
   try {
-    await pool.query(`DELETE FROM notifications WHERE user_id = $1`, [req.userId]);
+    await pgQuery(`DELETE FROM notifications WHERE user_id = $1`, [req.userId]);
     res.json({ ok: true });
   } catch (err) {
     req.log?.error({ err }, "DELETE /notifications error");
@@ -87714,7 +87736,7 @@ async function expireStaleTransactions() {
           if (wallet) {
             const refund = parseFloat(tx.netAmount) + parseFloat(tx.fee);
             await db.update(walletsTable).set({
-              balance: sql2`${walletsTable.balance} + ${refund.toFixed(2)}::numeric`,
+              balance: sql2`${walletsTable.balance} + CAST(${refund.toFixed(2)} AS DECIMAL(30,10))`,
               updatedAt: /* @__PURE__ */ new Date()
             }).where(eq2(walletsTable.id, wallet.id));
             logger.info(
