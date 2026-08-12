@@ -1,3 +1,4 @@
+import { affectedRows } from "./dbResult";
 import { db } from "@workspace/db";
 import { transactionsTable, walletsTable } from "@workspace/db/schema";
 import { and, eq, lt, or, isNull, ne, sql } from "drizzle-orm";
@@ -49,7 +50,7 @@ async function expireStaleTransactions(): Promise<void> {
           .where(and(eq(transactionsTable.id, tx.id), eq(transactionsTable.status, "PENDING")));
 
         // Dispatch webhook only if we actually claimed this row (prevent double-fire)
-        const rowClaimed = (updateResult as unknown as { rowCount?: number }).rowCount ?? 1;
+        const rowClaimed = affectedRows(updateResult);
         if (rowClaimed > 0) {
           dispatchWebhook(tx.userId, buildTxPayload({ ...tx, status: "FAILED", updatedAt: expiredAt }), getNotificationUrl(tx.metadata));
         }

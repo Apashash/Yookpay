@@ -1,4 +1,5 @@
 import { Router } from "express";
+import { affectedRows } from "../lib/dbResult";
 import { db, pool, pgQuery } from "@workspace/db";
 import { usersTable, walletsTable, transactionsTable, kycDocumentsTable, userFeesTable } from "@workspace/db/schema";
 import { eq, desc, sql, and } from "drizzle-orm";
@@ -1345,7 +1346,7 @@ router.patch("/transactions/:id/status", async (req: AuthRequest, res) => {
       updatedAt: new Date(),
     }).where(and(eq(transactionsTable.id, tx.id), eq(transactionsTable.status, oldStatus)));
 
-    if ((updateResult as any).rowCount === 0) {
+    if (affectedRows(updateResult) === 0) {
       res.status(409).json({ error: "Conflict", message: "Le statut a déjà été modifié par un autre acteur. Veuillez recharger la page." });
       return;
     }

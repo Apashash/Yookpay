@@ -42261,18 +42261,18 @@ var require_packets = __commonJS({
     var OK2 = class {
       static toPacket(args, encoding) {
         args = args || {};
-        const affectedRows = args.affectedRows || 0;
+        const affectedRows2 = args.affectedRows || 0;
         const insertId = args.insertId || 0;
         const serverStatus = args.serverStatus || 0;
         const warningCount = args.warningCount || 0;
         const message = args.message || "";
-        let length = 9 + Packet.lengthCodedNumberLength(affectedRows);
+        let length = 9 + Packet.lengthCodedNumberLength(affectedRows2);
         length += Packet.lengthCodedNumberLength(insertId);
         const buffer = Buffer.allocUnsafe(length);
         const packet = new Packet(0, buffer, 0, length);
         packet.offset = 4;
         packet.writeInt8(0);
-        packet.writeLengthCodedNumber(affectedRows);
+        packet.writeLengthCodedNumber(affectedRows2);
         packet.writeLengthCodedNumber(insertId);
         packet.writeInt16(serverStatus);
         packet.writeInt16(warningCount);
@@ -78653,11 +78653,11 @@ var MySql2PreparedQuery = class extends MySqlPreparedQuery {
         return await client.query(rawQuery, params);
       });
       const insertId = res[0].insertId;
-      const affectedRows = res[0].affectedRows;
+      const affectedRows2 = res[0].affectedRows;
       if (returningIds) {
         const returningResponse = [];
         let j = 0;
-        for (let i = insertId; i < insertId + affectedRows; i++) {
+        for (let i = insertId; i < insertId + affectedRows2; i++) {
           for (const column of returningIds) {
             const key = returningIds[0].path[0];
             if (is(column.field, Column)) {
@@ -81350,6 +81350,14 @@ var wallets_default = router3;
 
 // src/routes/transactions.ts
 var import_express4 = __toESM(require_express2(), 1);
+
+// src/lib/dbResult.ts
+function affectedRows(result) {
+  if (Array.isArray(result)) return Number(result[0]?.affectedRows ?? 0);
+  return Number(result?.affectedRows ?? 0);
+}
+
+// src/routes/transactions.ts
 init_schema2();
 
 // src/lib/nowpayments.ts
@@ -82312,7 +82320,7 @@ router4.get("/:id", authMiddleware, async (req, res) => {
             metadata: { ...meta, ...syncMeta },
             updatedAt: /* @__PURE__ */ new Date()
           }).where(and2(eq2(transactionsTable.id, tx.id), eq2(transactionsTable.status, "PENDING")));
-          const rowClaimed = syncResult.rowCount > 0;
+          const rowClaimed = affectedRows(syncResult) > 0;
           if (rowClaimed && newStatus === "SUCCESS" && (tx.type === "DEPOSIT" || tx.type === "CARD_DEPOSIT")) {
             const [wallet] = await db.select().from(walletsTable).where(and2(eq2(walletsTable.userId, tx.userId), eq2(walletsTable.currency, tx.currency))).limit(1);
             if (wallet) {
@@ -83468,7 +83476,7 @@ router4.post("/webhook", async (req, res) => {
       metadata: { ...tx.metadata, webhookAt: (/* @__PURE__ */ new Date()).toISOString(), ...metadata ?? {} },
       updatedAt: /* @__PURE__ */ new Date()
     }).where(and2(eq2(transactionsTable.id, tx.id), eq2(transactionsTable.status, "PENDING")));
-    if (webhookResult.rowCount === 0) {
+    if (affectedRows(webhookResult) === 0) {
       req.log.warn({ reference, txId: tx.id }, "Webhook: transaction already processed by another actor \u2014 skipping wallet");
       res.json({ success: true, message: "Transaction already processed" });
       return;
@@ -85435,7 +85443,7 @@ router9.patch("/transactions/:id/status", async (req, res) => {
       metadata: { ...meta, ...adminNotes },
       updatedAt: /* @__PURE__ */ new Date()
     }).where(and2(eq2(transactionsTable.id, tx.id), eq2(transactionsTable.status, oldStatus)));
-    if (updateResult.rowCount === 0) {
+    if (affectedRows(updateResult) === 0) {
       res.status(409).json({ error: "Conflict", message: "Le statut a d\xE9j\xE0 \xE9t\xE9 modifi\xE9 par un autre acteur. Veuillez recharger la page." });
       return;
     }
@@ -87727,7 +87735,7 @@ async function expireStaleTransactions() {
           },
           updatedAt: expiredAt
         }).where(and2(eq2(transactionsTable.id, tx.id), eq2(transactionsTable.status, "PENDING")));
-        const rowClaimed = updateResult.rowCount ?? 1;
+        const rowClaimed = affectedRows(updateResult);
         if (rowClaimed > 0) {
           dispatchWebhook(tx.userId, buildTxPayload({ ...tx, status: "FAILED", updatedAt: expiredAt }), getNotificationUrl(tx.metadata));
         }

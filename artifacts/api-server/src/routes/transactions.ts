@@ -1,4 +1,5 @@
 import { Router } from "express";
+import { affectedRows } from "../lib/dbResult";
 import { db, pgQuery } from "@workspace/db";
 import { transactionsTable, walletsTable, userFeesTable } from "@workspace/db/schema";
 import { eq, and, desc, count } from "drizzle-orm";
@@ -316,7 +317,7 @@ router.get("/:id", authMiddleware, async (req: AuthRequest, res) => {
             .where(and(eq(transactionsTable.id, tx.id), eq(transactionsTable.status, "PENDING")));
 
           // Only touch wallet if this UPDATE actually claimed the row (prevents double-credit race)
-          const rowClaimed = (syncResult as any).rowCount > 0;
+          const rowClaimed = affectedRows(syncResult) > 0;
 
           if (rowClaimed && newStatus === "SUCCESS" && (tx.type === "DEPOSIT" || tx.type === "CARD_DEPOSIT")) {
             const [wallet] = await db.select().from(walletsTable)
@@ -1781,7 +1782,7 @@ router.post("/webhook", async (req, res) => {
       .where(and(eq(transactionsTable.id, tx.id), eq(transactionsTable.status, "PENDING")));
 
     // If rowCount = 0, someone else (admin or another webhook) already changed the status — skip wallet
-    if ((webhookResult as any).rowCount === 0) {
+    if (affectedRows(webhookResult) === 0) {
       req.log.warn({ reference, txId: tx.id }, "Webhook: transaction already processed by another actor — skipping wallet");
       res.json({ success: true, message: "Transaction already processed" });
       return;
