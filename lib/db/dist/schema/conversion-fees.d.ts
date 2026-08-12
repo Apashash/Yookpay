@@ -1,0 +1,121 @@
+import { z } from "zod/v4";
+export declare const conversionFeesTable: import("drizzle-orm/mysql-core").MySqlTableWithColumns<{
+    name: "conversion_fees";
+    schema: undefined;
+    columns: {
+        id: import("drizzle-orm/mysql-core").MySqlColumn<{
+            name: "id";
+            tableName: "conversion_fees";
+            dataType: "number";
+            columnType: "MySqlInt";
+            data: number;
+            driverParam: string | number;
+            notNull: true;
+            hasDefault: true;
+            isPrimaryKey: true;
+            isAutoincrement: true;
+            hasRuntimeDefault: false;
+            enumValues: undefined;
+            baseColumn: never;
+            identity: undefined;
+            generated: undefined;
+        }, {}, {}>;
+        pair: import("drizzle-orm/mysql-core").MySqlColumn<{
+            name: "pair";
+            tableName: "conversion_fees";
+            dataType: "string";
+            columnType: "MySqlVarChar";
+            data: string;
+            driverParam: string | number;
+            notNull: true;
+            hasDefault: false;
+            isPrimaryKey: false;
+            isAutoincrement: false;
+            hasRuntimeDefault: false;
+            enumValues: [string, ...string[]];
+            baseColumn: never;
+            identity: undefined;
+            generated: undefined;
+        }, {}, {}>;
+        rate: import("drizzle-orm/mysql-core").MySqlColumn<{
+            name: "rate";
+            tableName: "conversion_fees";
+            dataType: "string";
+            columnType: "MySqlDecimal";
+            data: string;
+            driverParam: string;
+            notNull: true;
+            hasDefault: true;
+            isPrimaryKey: false;
+            isAutoincrement: false;
+            hasRuntimeDefault: false;
+            enumValues: undefined;
+            baseColumn: never;
+            identity: undefined;
+            generated: undefined;
+        }, {}, {}>;
+        minAmount: import("drizzle-orm/mysql-core").MySqlColumn<{
+            name: "min_amount";
+            tableName: "conversion_fees";
+            dataType: "string";
+            columnType: "MySqlDecimal";
+            data: string;
+            driverParam: string;
+            notNull: true;
+            hasDefault: true;
+            isPrimaryKey: false;
+            isAutoincrement: false;
+            hasRuntimeDefault: false;
+            enumValues: undefined;
+            baseColumn: never;
+            identity: undefined;
+            generated: undefined;
+        }, {}, {}>;
+        createdAt: import("drizzle-orm/mysql-core").MySqlColumn<{
+            name: "created_at";
+            tableName: "conversion_fees";
+            dataType: "date";
+            columnType: "MySqlTimestamp";
+            data: Date;
+            driverParam: string | number;
+            notNull: true;
+            hasDefault: true;
+            isPrimaryKey: false;
+            isAutoincrement: false;
+            hasRuntimeDefault: false;
+            enumValues: undefined;
+            baseColumn: never;
+            identity: undefined;
+            generated: undefined;
+        }, {}, {}>;
+        updatedAt: import("drizzle-orm/mysql-core").MySqlColumn<{
+            name: "updated_at";
+            tableName: "conversion_fees";
+            dataType: "date";
+            columnType: "MySqlTimestamp";
+            data: Date;
+            driverParam: string | number;
+            notNull: true;
+            hasDefault: true;
+            isPrimaryKey: false;
+            isAutoincrement: false;
+            hasRuntimeDefault: false;
+            enumValues: undefined;
+            baseColumn: never;
+            identity: undefined;
+            generated: undefined;
+        }, {}, {}>;
+    };
+    dialect: "mysql";
+}>;
+export declare const insertConversionFeeSchema: z.ZodObject<{
+    rate: z.ZodOptional<z.ZodString>;
+    pair: z.ZodString;
+    minAmount: z.ZodOptional<z.ZodString>;
+}, {
+    out: {};
+    in: {};
+}>;
+export type InsertConversionFee = z.infer<typeof insertConversionFeeSchema>;
+export type ConversionFee = typeof conversionFeesTable.$inferSelect;
+//# sourceMappingURL=conversion-fees.d.ts.map

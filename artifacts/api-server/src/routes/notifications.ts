@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { pool } from "@workspace/db";
+import { pgQuery } from "@workspace/db";
 import { authMiddleware, type AuthRequest } from "../middlewares/authMiddleware";
 
 const router = Router();
@@ -8,12 +8,20 @@ const router = Router();
 router.get("/", authMiddleware, async (req: AuthRequest, res) => {
   try {
     // Auto-purge old notifications (>24h)
-    await pool.query(
-      `DELETE FROM notifications WHERE user_id = $1 AND created_at < NOW() - INTERVAL '24 hours'`,
+    await pgQuery(
+      `DELETE FROM notifications WHERE user_id = $1 AND created_at < NOW() - INTERVAL 24 HOUR`,
       [req.userId],
     );
 
-    const result = await pool.query(
+    const result = await pgQuery<{
+      id: number;
+      type: string;
+      title: string;
+      body: string;
+      transaction_id: number | null;
+      read_at: Date | null;
+      created_at: Date;
+    }>(
       `SELECT id, type, title, body, transaction_id, read_at, created_at
        FROM notifications
        WHERE user_id = $1
@@ -48,7 +56,7 @@ router.patch("/:id/read", authMiddleware, async (req: AuthRequest, res) => {
   if (isNaN(id)) { res.status(400).json({ error: "Invalid id" }); return; }
 
   try {
-    await pool.query(
+    await pgQuery(
       `UPDATE notifications SET read_at = NOW() WHERE id = $1 AND user_id = $2`,
       [id, req.userId],
     );
@@ -65,7 +73,7 @@ router.delete("/:id", authMiddleware, async (req: AuthRequest, res) => {
   if (isNaN(id)) { res.status(400).json({ error: "Invalid id" }); return; }
 
   try {
-    await pool.query(
+    await pgQuery(
       `DELETE FROM notifications WHERE id = $1 AND user_id = $2`,
       [id, req.userId],
     );
@@ -79,7 +87,7 @@ router.delete("/:id", authMiddleware, async (req: AuthRequest, res) => {
 // Delete all notifications for the user
 router.delete("/", authMiddleware, async (req: AuthRequest, res) => {
   try {
-    await pool.query(`DELETE FROM notifications WHERE user_id = $1`, [req.userId]);
+    await pgQuery(`DELETE FROM notifications WHERE user_id = $1`, [req.userId]);
     res.json({ ok: true });
   } catch (err) {
     req.log?.error({ err }, "DELETE /notifications error");

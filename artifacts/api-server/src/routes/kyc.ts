@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { pool } from "@workspace/db";
+import { pgQuery } from "@workspace/db";
 import { db } from "@workspace/db";
 import { kycDocumentsTable } from "@workspace/db/schema";
 import { eq, and } from "drizzle-orm";
@@ -15,9 +15,8 @@ type DocType = typeof ALL_DOC_TYPES[number];
 
 // GET /kyc — return profile + docs
 router.get("/", authMiddleware, async (req: AuthRequest, res) => {
-  const client = await pool.connect();
   try {
-    const profileRes = await client.query(
+    const profileRes = await pgQuery(
       `SELECT * FROM kyc_profiles WHERE user_id = $1 LIMIT 1`,
       [req.userId]
     );
@@ -57,8 +56,6 @@ router.get("/", authMiddleware, async (req: AuthRequest, res) => {
   } catch (err) {
     req.log.error({ err }, "Get KYC error");
     res.status(500).json({ error: "InternalError", message: "Erreur lors de la récupération KYC" });
-  } finally {
-    client.release();
   }
 });
 
@@ -81,17 +78,16 @@ router.post("/identity", authMiddleware, async (req: AuthRequest, res) => {
   }
 
   const { fullName, dateOfBirth, docType, docNumber, frontFile, backFile, selfieFile } = parse.data;
-  const client = await pool.connect();
 
   try {
-    await client.query(`
+    await pgQuery(`
       INSERT INTO kyc_profiles (user_id, full_name, date_of_birth, doc_type, doc_number, kyc_status, updated_at)
       VALUES ($1, $2, $3, $4, $5, 'PENDING', NOW())
-      ON CONFLICT (user_id) DO UPDATE SET
-        full_name = EXCLUDED.full_name,
-        date_of_birth = EXCLUDED.date_of_birth,
-        doc_type = EXCLUDED.doc_type,
-        doc_number = EXCLUDED.doc_number,
+      ON DUPLICATE KEY UPDATE
+        full_name = VALUES(full_name),
+        date_of_birth = VALUES(date_of_birth),
+        doc_type = VALUES(doc_type),
+        doc_number = VALUES(doc_number),
         kyc_status = 'PENDING',
         updated_at = NOW()
     `, [req.userId, fullName, dateOfBirth, docType, docNumber]);
@@ -119,8 +115,6 @@ router.post("/identity", authMiddleware, async (req: AuthRequest, res) => {
   } catch (err) {
     req.log.error({ err }, "KYC identity error");
     res.status(500).json({ error: "InternalError", message: "Erreur lors de l'enregistrement" });
-  } finally {
-    client.release();
   }
 });
 
@@ -148,20 +142,19 @@ router.post("/kyb", authMiddleware, async (req: AuthRequest, res) => {
 
   const { businessDescription, businessWebsite, businessCategory, businessType, niuNumber, rccmNumber,
     signatureData, statutsFile, rccmFile, niuFile, planLocFile } = parse.data;
-  const client = await pool.connect();
 
   try {
-    await client.query(`
+    await pgQuery(`
       INSERT INTO kyc_profiles (user_id, business_description, business_website, business_category, business_type, niu_number, rccm_number, signature_data, kyb_status, updated_at)
       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 'PENDING', NOW())
-      ON CONFLICT (user_id) DO UPDATE SET
-        business_description = EXCLUDED.business_description,
-        business_website = EXCLUDED.business_website,
-        business_category = EXCLUDED.business_category,
-        business_type = EXCLUDED.business_type,
-        niu_number = EXCLUDED.niu_number,
-        rccm_number = EXCLUDED.rccm_number,
-        signature_data = EXCLUDED.signature_data,
+      ON DUPLICATE KEY UPDATE
+        business_description = VALUES(business_description),
+        business_website = VALUES(business_website),
+        business_category = VALUES(business_category),
+        business_type = VALUES(business_type),
+        niu_number = VALUES(niu_number),
+        rccm_number = VALUES(rccm_number),
+        signature_data = VALUES(signature_data),
         kyb_status = 'PENDING',
         updated_at = NOW()
     `, [req.userId, businessDescription, businessWebsite, businessCategory, businessType, niuNumber, rccmNumber, signatureData]);
@@ -195,8 +188,6 @@ router.post("/kyb", authMiddleware, async (req: AuthRequest, res) => {
   } catch (err) {
     req.log.error({ err }, "KYB error");
     res.status(500).json({ error: "InternalError", message: "Erreur lors de l'enregistrement" });
-  } finally {
-    client.release();
   }
 });
 

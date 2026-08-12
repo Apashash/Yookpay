@@ -1,4 +1,4 @@
-import { pool } from "@workspace/db";
+import { pgQuery } from "@workspace/db";
 
 export async function createNotification(
   userId: number,
@@ -8,7 +8,7 @@ export async function createNotification(
   transactionId?: number | null,
 ): Promise<void> {
   try {
-    await pool.query(
+    await pgQuery(
       `INSERT INTO notifications (user_id, type, title, body, transaction_id)
        VALUES ($1, $2, $3, $4, $5)`,
       [userId, type, title, body, transactionId ?? null],

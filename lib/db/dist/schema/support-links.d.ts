@@ -1,0 +1,123 @@
+import { z } from "zod/v4";
+export declare const supportLinksTable: import("drizzle-orm/mysql-core").MySqlTableWithColumns<{
+    name: "support_links";
+    schema: undefined;
+    columns: {
+        id: import("drizzle-orm/mysql-core").MySqlColumn<{
+            name: "id";
+            tableName: "support_links";
+            dataType: "number";
+            columnType: "MySqlInt";
+            data: number;
+            driverParam: string | number;
+            notNull: true;
+            hasDefault: true;
+            isPrimaryKey: true;
+            isAutoincrement: false;
+            hasRuntimeDefault: false;
+            enumValues: undefined;
+            baseColumn: never;
+            identity: undefined;
+            generated: undefined;
+        }, {}, {}>;
+        whatsappUrl: import("drizzle-orm/mysql-core").MySqlColumn<{
+            name: "whatsapp_url";
+            tableName: "support_links";
+            dataType: "string";
+            columnType: "MySqlText";
+            data: string;
+            driverParam: string;
+            notNull: true;
+            hasDefault: true;
+            isPrimaryKey: false;
+            isAutoincrement: false;
+            hasRuntimeDefault: false;
+            enumValues: [string, ...string[]];
+            baseColumn: never;
+            identity: undefined;
+            generated: undefined;
+        }, {}, {}>;
+        facebookUrl: import("drizzle-orm/mysql-core").MySqlColumn<{
+            name: "facebook_url";
+            tableName: "support_links";
+            dataType: "string";
+            columnType: "MySqlText";
+            data: string;
+            driverParam: string;
+            notNull: true;
+            hasDefault: true;
+            isPrimaryKey: false;
+            isAutoincrement: false;
+            hasRuntimeDefault: false;
+            enumValues: [string, ...string[]];
+            baseColumn: never;
+            identity: undefined;
+            generated: undefined;
+        }, {}, {}>;
+        telegramUrl: import("drizzle-orm/mysql-core").MySqlColumn<{
+            name: "telegram_url";
+            tableName: "support_links";
+            dataType: "string";
+            columnType: "MySqlText";
+            data: string;
+            driverParam: string;
+            notNull: true;
+            hasDefault: true;
+            isPrimaryKey: false;
+            isAutoincrement: false;
+            hasRuntimeDefault: false;
+            enumValues: [string, ...string[]];
+            baseColumn: never;
+            identity: undefined;
+            generated: undefined;
+        }, {}, {}>;
+        phoneUrl: import("drizzle-orm/mysql-core").MySqlColumn<{
+            name: "phone_url";
+            tableName: "support_links";
+            dataType: "string";
+            columnType: "MySqlText";
+            data: string;
+            driverParam: string;
+            notNull: true;
+            hasDefault: true;
+            isPrimaryKey: false;
+            isAutoincrement: false;
+            hasRuntimeDefault: false;
+            enumValues: [string, ...string[]];
+            baseColumn: never;
+            identity: undefined;
+            generated: undefined;
+        }, {}, {}>;
+        updatedAt: import("drizzle-orm/mysql-core").MySqlColumn<{
+            name: "updated_at";
+            tableName: "support_links";
+            dataType: "date";
+            columnType: "MySqlTimestamp";
+            data: Date;
+            driverParam: string | number;
+            notNull: true;
+            hasDefault: true;
+            isPrimaryKey: false;
+            isAutoincrement: false;
+            hasRuntimeDefault: false;
+            enumValues: undefined;
+            baseColumn: never;
+            identity: undefined;
+            generated: undefined;
+        }, {}, {}>;
+    };
+    dialect: "mysql";
+}>;
+export declare const insertSupportLinksSchema: z.ZodObject<{
+    id: z.ZodOptional<z.ZodInt>;
+    whatsappUrl: z.ZodOptional<z.ZodString>;
+    facebookUrl: z.ZodOptional<z.ZodString>;
+    telegramUrl: z.ZodOptional<z.ZodString>;
+    phoneUrl: z.ZodOptional<z.ZodString>;
+}, {
+    out: {};
+    in: {};
+}>;
+export type InsertSupportLinks = z.infer<typeof insertSupportLinksSchema>;
+export type SupportLinks = typeof supportLinksTable.$inferSelect;
+//# sourceMappingURL=support-links.d.ts.map

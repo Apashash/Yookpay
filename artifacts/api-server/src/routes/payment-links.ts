@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { pool } from "@workspace/db";
+import { pool, pgQuery } from "@workspace/db";
 import { authMiddleware, type AuthRequest } from "../middlewares/authMiddleware";
 import { z } from "zod";
 import crypto from "crypto";
@@ -54,7 +54,7 @@ const COUNTRY_MIN_AMOUNTS: Partial<Record<string, number>> = {
 async function getPixPayServiceId(
   operator: string, currency: string, type: "DEPOSIT" | "WITHDRAWAL", country: string
 ): Promise<number | null> {
-  const r = await pool.query<{ service_id: number }>(
+  const r = await pgQuery<{ service_id: number }>(
     `SELECT service_id FROM pixpay_services
      WHERE operator = $1 AND currency = $2 AND type = $3
        AND (country = $4 OR country IS NULL) AND active = true
@@ -71,7 +71,7 @@ async function getMavianceServiceId(
   type: "DEPOSIT" | "WITHDRAWAL",
   country: string,
 ): Promise<number | null> {
-  const r = await pool.query<{ service_id: number }>(
+  const r = await pgQuery<{ service_id: number }>(
     `SELECT service_id FROM maviance_services
      WHERE operator = $1 AND currency = $2 AND type = $3
        AND (country = $4 OR country IS NULL) AND active = true
@@ -88,7 +88,7 @@ async function getProviderForRoute(
   type: "DEPOSIT" | "WITHDRAWAL",
 ): Promise<"PIXPAY" | "MAVIANCE"> {
   try {
-    const r = await pool.query<{ provider: string }>(
+    const r = await pgQuery<{ provider: string }>(
       `SELECT provider FROM payment_provider_config
        WHERE country = $1 AND operator = $2 AND type = $3 LIMIT 1`,
       [country.toUpperCase(), operator.toUpperCase(), type],
@@ -103,7 +103,7 @@ async function getUserOperatorFeeRate(
   userId: number, country: string, operator: string, type: "DEPOSIT" | "WITHDRAWAL"
 ): Promise<{ total: number; pixpay: number; margin: number } | undefined> {
   try {
-    const r = await pool.query<{
+    const r = await pgQuery<{
       pixpay_deposit: string; pixpay_withdrawal: string;
       margin_deposit: string; margin_withdrawal: string;
     }>(
@@ -122,7 +122,7 @@ async function getUserFeeRate(
   userId: number, country: string, operator: string, type: "DEPOSIT"
 ): Promise<number | undefined> {
   try {
-    const r = await pool.query<{ rate: string }>(
+    const r = await pgQuery<{ rate: string }>(
       "SELECT rate FROM user_fees WHERE user_id = $1 AND country = $2 AND operator = $3 AND transaction_type = $4",
       [userId, country, operator, type]
     );
@@ -161,16 +161,19 @@ router.post("/", authMiddleware, async (req: AuthRequest, res) => {
   const token = crypto.randomBytes(5).toString("hex");
 
   try {
-    const r = await pool.query<{
+    const ins = await pgQuery(
+      `INSERT INTO payment_links (user_id, token, title, description, photo_data, price_type, price_amount, currency, countries)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
+      [req.userId, token, title, description ?? null, photoData ?? null,
+       priceType, priceAmount ?? null, currency ?? null, serializeCountries(countries)]
+    );
+    const r = await pgQuery<{
       id: number; token: string; title: string; description: string | null;
       photo_data: string | null; price_type: string; price_amount: string | null;
-      currency: string | null; countries: string[]; is_active: boolean; created_at: Date;
+      currency: string | null; countries: string; is_active: boolean; created_at: Date;
     }>(
-      `INSERT INTO payment_links (user_id, token, title, description, photo_data, price_type, price_amount, currency, countries)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
-       RETURNING *`,
-      [req.userId, token, title, description ?? null, photoData ?? null,
-       priceType, priceAmount ?? null, currency ?? null, countries]
+      `SELECT * FROM payment_links WHERE id = $1`,
+      [ins.insertId]
     );
     res.status(201).json(formatLink(r.rows[0]));
   } catch (err) {
@@ -182,13 +185,13 @@ router.post("/", authMiddleware, async (req: AuthRequest, res) => {
 // GET /api/payment-links  — list my links (with stats)
 router.get("/", authMiddleware, async (req: AuthRequest, res) => {
   try {
-    const r = await pool.query(
+    const r = await pgQuery(
       `SELECT pl.*,
-         COUNT(t.id) FILTER (WHERE t.status != 'FAILED') AS transaction_count,
-         COUNT(t.id) FILTER (WHERE t.status = 'FAILED') AS rejected_count,
-         COALESCE(SUM(t.net_amount::numeric) FILTER (WHERE t.status IN ('COMPLETED','SUCCESS')), 0) AS total_collected
+         SUM(CASE WHEN t.status != 'FAILED' THEN 1 ELSE 0 END) AS transaction_count,
+         SUM(CASE WHEN t.status = 'FAILED' THEN 1 ELSE 0 END) AS rejected_count,
+         COALESCE(SUM(CASE WHEN t.status IN ('COMPLETED','SUCCESS') THEN CAST(t.net_amount AS DECIMAL(30,10)) ELSE 0 END), 0) AS total_collected
        FROM payment_links pl
-       LEFT JOIN transactions t ON (t.metadata->>'paymentLinkId')::int = pl.id
+       LEFT JOIN transactions t ON CAST(JSON_UNQUOTE(JSON_EXTRACT(t.metadata, '$.paymentLinkId')) AS SIGNED) = pl.id
        WHERE pl.user_id = $1
        GROUP BY pl.id
        ORDER BY pl.created_at DESC`,
@@ -206,14 +209,14 @@ router.get("/:id/stats", authMiddleware, async (req: AuthRequest, res) => {
   const id = parseInt(req.params.id);
   if (isNaN(id)) { res.status(400).json({ error: "Invalid ID" }); return; }
   try {
-    const r = await pool.query(
+    const r = await pgQuery(
       `SELECT pl.click_count,
-         COUNT(t.id) FILTER (WHERE t.status != 'FAILED') AS transaction_count,
-         COUNT(t.id) FILTER (WHERE t.status = 'FAILED') AS rejected_count,
-         COALESCE(SUM(t.net_amount::numeric) FILTER (WHERE t.status IN ('COMPLETED','SUCCESS')), 0) AS total_collected,
+         SUM(CASE WHEN t.status != 'FAILED' THEN 1 ELSE 0 END) AS transaction_count,
+         SUM(CASE WHEN t.status = 'FAILED' THEN 1 ELSE 0 END) AS rejected_count,
+         COALESCE(SUM(CASE WHEN t.status IN ('COMPLETED','SUCCESS') THEN CAST(t.net_amount AS DECIMAL(30,10)) ELSE 0 END), 0) AS total_collected,
          pl.currency
        FROM payment_links pl
-       LEFT JOIN transactions t ON (t.metadata->>'paymentLinkId')::int = pl.id
+       LEFT JOIN transactions t ON CAST(JSON_UNQUOTE(JSON_EXTRACT(t.metadata, '$.paymentLinkId')) AS SIGNED) = pl.id
        WHERE pl.id = $1 AND pl.user_id = $2
        GROUP BY pl.id, pl.click_count, pl.currency`,
       [id, req.userId]
@@ -254,15 +257,19 @@ router.put("/:id", authMiddleware, async (req: AuthRequest, res) => {
   }
   const { title, description, photoData, priceType, priceAmount, currency, countries } = parse.data;
   try {
-    const r = await pool.query(
+    await pgQuery(
       `UPDATE payment_links
        SET title=$3, description=$4, photo_data=$5, price_type=$6, price_amount=$7, currency=$8,
            countries=$9, updated_at=NOW()
-       WHERE id=$1 AND user_id=$2 RETURNING *`,
+       WHERE id=$1 AND user_id=$2`,
       [id, req.userId, title, description ?? null, photoData ?? null,
-       priceType, priceAmount ?? null, currency ?? null, countries]
+       priceType, priceAmount ?? null, currency ?? null, serializeCountries(countries)]
     );
-    if (!r.rowCount) { res.status(404).json({ error: "NotFound" }); return; }
+    const r = await pgQuery(
+      `SELECT * FROM payment_links WHERE id = $1 AND user_id = $2`,
+      [id, req.userId]
+    );
+    if (!r.rows.length) { res.status(404).json({ error: "NotFound" }); return; }
     res.json(formatLink(r.rows[0]));
   } catch (err) {
     req.log.error({ err }, "Error updating payment link");
@@ -275,11 +282,11 @@ router.delete("/:id", authMiddleware, async (req: AuthRequest, res) => {
   const id = parseInt(req.params.id);
   if (isNaN(id)) { res.status(400).json({ error: "Invalid ID" }); return; }
   try {
-    const r = await pool.query(
-      "DELETE FROM payment_links WHERE id = $1 AND user_id = $2 RETURNING id",
+    const r = await pgQuery(
+      "DELETE FROM payment_links WHERE id = $1 AND user_id = $2",
       [id, req.userId]
     );
-    if (!r.rowCount) { res.status(404).json({ error: "NotFound" }); return; }
+    if (!r.affectedRows) { res.status(404).json({ error: "NotFound" }); return; }
     res.json({ success: true });
   } catch (err) {
     req.log.error({ err }, "Error deleting payment link");
@@ -294,9 +301,9 @@ router.get("/public/:token", async (req, res) => {
   const { token } = req.params;
   try {
     // Increment click counter (fire-and-forget)
-    pool.query("UPDATE payment_links SET click_count = click_count + 1 WHERE token = $1", [token]).catch(() => {});
+    pgQuery("UPDATE payment_links SET click_count = click_count + 1 WHERE token = $1", [token]).catch(() => {});
 
-    const r = await pool.query(
+    const r = await pgQuery(
       `SELECT id, token, title, description, photo_data, price_type, price_amount, currency, countries
        FROM payment_links WHERE token = $1 AND is_active = true`,
       [token]
@@ -314,7 +321,7 @@ router.get("/public/:token", async (req, res) => {
       priceType: row.price_type,
       priceAmount: row.price_amount ? parseFloat(row.price_amount) : null,
       currency: row.currency,
-      countries: row.countries,
+      countries: parseCountries(row.countries),
     });
   } catch (err) {
     res.status(500).json({ error: "InternalError", message: "Erreur serveur" });
@@ -342,9 +349,9 @@ router.post("/public/:token/pay", async (req, res) => {
   const { amount, country, operator, phone, feeBearer, omOtp } = parse.data;
 
   // Load the payment link + merchant user
-  const linkRes = await pool.query<{
+  const linkRes = await pgQuery<{
     id: number; user_id: number; title: string; price_type: string; price_amount: string | null;
-    currency: string | null; countries: string[]; is_active: boolean;
+    currency: string | null; countries: string; is_active: boolean | number;
   }>(
     "SELECT id, user_id, title, price_type, price_amount, currency, countries, is_active FROM payment_links WHERE token = $1",
     [token]
@@ -356,9 +363,10 @@ router.post("/public/:token/pay", async (req, res) => {
 
   const link = linkRes.rows[0];
   const merchantId = link.user_id;
+  const linkCountries = parseCountries(link.countries);
 
   // Validate country is in the allowed list
-  if (link.countries.length > 0 && !link.countries.includes(country)) {
+  if (linkCountries.length > 0 && !linkCountries.includes(country)) {
     res.status(400).json({ error: "CountryNotAllowed", message: "Ce pays n'est pas accepté pour ce lien de paiement" });
     return;
   }
@@ -419,10 +427,9 @@ router.post("/public/:token/pay", async (req, res) => {
 
   try {
     // Create transaction in merchant's wallet
-    const txRes = await pool.query<{ id: number; status: string; currency: string; amount: string }>(
+    const txIns = await pgQuery(
       `INSERT INTO transactions (user_id, type, status, amount, fee, net_amount, currency, country, operator, phone, reference, fee_rate, yookpay_margin, metadata)
-       VALUES ($1, 'DEPOSIT', 'PENDING', $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
-       RETURNING id, status, currency, amount`,
+       VALUES ($1, 'DEPOSIT', 'PENDING', $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)`,
       [merchantId, amount.toString(), feeAmt.toString(), walletNetAmount.toString(),
        currency, country, operator, phone, reference,
        feeBreakdown.feeRate.toString(), yookpayMarginAmount.toString(),
@@ -436,7 +443,11 @@ router.post("/public/:token/pay", async (req, res) => {
          paymentLinkTitle: link.title,
        })]
     );
-    const tx = txRes.rows[0];
+    const txSel = await pgQuery<{ id: number; status: string; currency: string; amount: string }>(
+      `SELECT id, status, currency, amount FROM transactions WHERE id = $1`,
+      [txIns.insertId]
+    );
+    const tx = txSel.rows[0];
 
     if (provider === "MAVIANCE") {
       let mavResult: Awaited<ReturnType<typeof mavInitDeposit>>;
@@ -450,10 +461,10 @@ router.post("/public/:token/pay", async (req, res) => {
           trid: reference,
         });
       } catch (err) {
-        await pool.query(
+        await pgQuery(
           `UPDATE transactions
            SET status = 'FAILED',
-               metadata = metadata || $1::jsonb,
+               metadata = JSON_MERGE_PATCH(COALESCE(metadata, '{}'), $1),
                updated_at = NOW()
            WHERE id = $2`,
           [
@@ -470,10 +481,10 @@ router.post("/public/:token/pay", async (req, res) => {
         return;
       }
       const immediatelyFailed = isMavianceFailed(mavResult.collect.status);
-      await pool.query(
+      await pgQuery(
         `UPDATE transactions
          SET provider_reference = $1, status = $2,
-             metadata = metadata || $3::jsonb, updated_at = NOW()
+             metadata = JSON_MERGE_PATCH(COALESCE(metadata, '{}'), $3), updated_at = NOW()
          WHERE id = $4`,
         [
           mavResult.payToken,
@@ -515,13 +526,13 @@ router.post("/public/:token/pay", async (req, res) => {
     const pixTxId = pixResult?.transaction_id ?? pixResult?.id ?? null;
 
     if (pixResult?.status === "FAILED" || pixResult?.error) {
-      await pool.query("UPDATE transactions SET status = 'FAILED' WHERE id = $1", [tx.id]);
+      await pgQuery("UPDATE transactions SET status = 'FAILED' WHERE id = $1", [tx.id]);
       res.status(400).json({ error: "PixPayError", message: pixResult?.message ?? "Transaction échouée côté opérateur" });
       return;
     }
 
     if (pixTxId) {
-      await pool.query("UPDATE transactions SET pix_transaction_id = $1 WHERE id = $2", [String(pixTxId), tx.id]);
+      await pgQuery("UPDATE transactions SET pix_transaction_id = $1 WHERE id = $2", [String(pixTxId), tx.id]);
     }
 
     const finalStatus = pixResult?.status ?? "PENDING";
@@ -574,7 +585,7 @@ router.get("/public/tx/:txId", async (req, res) => {
   const txId = parseInt(req.params.txId);
   if (isNaN(txId)) { res.status(400).json({ error: "Invalid ID" }); return; }
   try {
-    const r = await pool.query<{
+    const r = await pgQuery<{
       id: number;
       user_id: number;
       status: string;
@@ -588,7 +599,7 @@ router.get("/public/tx/:txId", async (req, res) => {
       `SELECT id, user_id, status, amount, net_amount, currency, reference,
               provider_reference, metadata
        FROM transactions WHERE id = $1
-       AND metadata->>'paymentLinkId' IS NOT NULL`,
+       AND JSON_UNQUOTE(JSON_EXTRACT(metadata, '$.paymentLinkId')) IS NOT NULL`,
       [txId]
     );
     if (!r.rows.length) { res.status(404).json({ error: "NotFound" }); return; }
@@ -612,14 +623,13 @@ router.get("/public/tx/:txId", async (req, res) => {
           const isFailed = isMavianceFailed(mavStatus.status);
           if (isSuccess || isFailed) {
             const nextStatus = isSuccess ? "SUCCESS" : "FAILED";
-            const update = await pool.query(
+            const update = await pgQuery(
               `UPDATE transactions
                SET status = $1,
                    provider_reference = COALESCE($2, provider_reference),
-                   metadata = metadata || $3::jsonb,
+                   metadata = JSON_MERGE_PATCH(COALESCE(metadata, '{}'), $3),
                    updated_at = NOW()
-               WHERE id = $4 AND status = 'PENDING'
-               RETURNING id`,
+               WHERE id = $4 AND status = 'PENDING'`,
               [
                 nextStatus,
                 mavStatus.payToken ?? null,
@@ -637,10 +647,10 @@ router.get("/public/tx/:txId", async (req, res) => {
 
             // Only the request that claims the pending row may credit the
             // merchant wallet. This prevents duplicate credits from polling.
-            if (isSuccess && update.rowCount > 0) {
-              await pool.query(
+            if (isSuccess && update.affectedRows > 0) {
+              await pgQuery(
                 `UPDATE wallets
-                 SET balance = (balance::numeric + $1::numeric)::text,
+                 SET balance = CAST(CAST(balance AS DECIMAL(30,10)) + CAST($1 AS DECIMAL(30,10)) AS CHAR),
                      updated_at = NOW()
                  WHERE user_id = $2 AND currency = $3`,
                 [row.net_amount, row.user_id, row.currency],
@@ -676,7 +686,7 @@ router.post("/public/:token/pay-crypto", async (req, res) => {
   const { amountUsdt } = parse.data;
 
   // Load the payment link
-  const linkRes = await pool.query<{ id: number; user_id: number; is_active: boolean }>(
+  const linkRes = await pgQuery<{ id: number; user_id: number; is_active: boolean | number }>(
     "SELECT id, user_id, is_active FROM payment_links WHERE token = $1",
     [token]
   );
@@ -700,13 +710,13 @@ router.post("/public/:token/pay-crypto", async (req, res) => {
 
   try {
     // Create pending transaction in merchant's wallet
-    const txRes = await pool.query<{ id: number }>(
+    const txRes = await pgQuery(
       `INSERT INTO transactions (user_id, type, status, amount, fee, net_amount, currency, country, operator, phone, reference, fee_rate, yookpay_margin, metadata)
-       VALUES ($1,'DEPOSIT','PENDING',$2,'0',$3,'USDT','ZZ','CRYPTO','',$4,'0','0',$5) RETURNING id`,
+       VALUES ($1,'DEPOSIT','PENDING',$2,'0',$3,'USDT','ZZ','CRYPTO','',$4,'0','0',$5)`,
       [merchantId, amountUsdt.toString(), amountUsdt.toFixed(8), reference,
        JSON.stringify({ provider: "NOWPAYMENTS", paymentLinkId: link.id, paymentLinkToken: token, initiatedAt: new Date().toISOString() })]
     );
-    const txId = txRes.rows[0].id;
+    const txId = txRes.insertId;
 
     // Create NowPayments payment address
     const npResult = await createNpPayment({
@@ -719,7 +729,7 @@ router.post("/public/:token/pay-crypto", async (req, res) => {
     });
 
     // Store NowPayments details in metadata
-    await pool.query(
+    await pgQuery(
       `UPDATE transactions SET metadata = $1 WHERE id = $2`,
       [JSON.stringify({
         provider: "NOWPAYMENTS",
@@ -750,6 +760,23 @@ router.post("/public/:token/pay-crypto", async (req, res) => {
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
+// countries is stored in a TEXT column as a JSON-encoded string array.
+function serializeCountries(countries: string[]): string {
+  return JSON.stringify(countries ?? []);
+}
+
+function parseCountries(value: unknown): string[] {
+  if (Array.isArray(value)) return value as string[];
+  if (typeof value !== "string" || value.length === 0) return [];
+  try {
+    const parsed = JSON.parse(value);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    // Legacy fallback: comma-separated values.
+    return value.split(",").map((c) => c.trim()).filter(Boolean);
+  }
+}
+
 function formatLink(row: any) {
   return {
     id:               row.id,
@@ -760,7 +787,7 @@ function formatLink(row: any) {
     priceType:        row.price_type,
     priceAmount:      row.price_amount ? parseFloat(row.price_amount) : null,
     currency:         row.currency,
-    countries:        row.countries ?? [],
+    countries:        parseCountries(row.countries),
     isActive:         row.is_active,
     clickCount:       parseInt(row.click_count) || 0,
     transactionCount: parseInt(row.transaction_count) || 0,

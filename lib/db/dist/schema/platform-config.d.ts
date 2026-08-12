@@ -1,0 +1,115 @@
+import { z } from "zod/v4";
+export declare const platformConfigTable: import("drizzle-orm/mysql-core").MySqlTableWithColumns<{
+    name: "platform_config";
+    schema: undefined;
+    columns: {
+        key: import("drizzle-orm/mysql-core").MySqlColumn<{
+            name: "key";
+            tableName: "platform_config";
+            dataType: "string";
+            columnType: "MySqlVarChar";
+            data: string;
+            driverParam: string | number;
+            notNull: true;
+            hasDefault: false;
+            isPrimaryKey: true;
+            isAutoincrement: false;
+            hasRuntimeDefault: false;
+            enumValues: [string, ...string[]];
+            baseColumn: never;
+            identity: undefined;
+            generated: undefined;
+        }, {}, {}>;
+        value: import("drizzle-orm/mysql-core").MySqlColumn<{
+            name: "value";
+            tableName: "platform_config";
+            dataType: "string";
+            columnType: "MySqlText";
+            data: string;
+            driverParam: string;
+            notNull: true;
+            hasDefault: false;
+            isPrimaryKey: false;
+            isAutoincrement: false;
+            hasRuntimeDefault: false;
+            enumValues: [string, ...string[]];
+            baseColumn: never;
+            identity: undefined;
+            generated: undefined;
+        }, {}, {}>;
+        updatedAt: import("drizzle-orm/mysql-core").MySqlColumn<{
+            name: "updated_at";
+            tableName: "platform_config";
+            dataType: "date";
+            columnType: "MySqlTimestamp";
+            data: Date;
+            driverParam: string | number;
+            notNull: true;
+            hasDefault: true;
+            isPrimaryKey: false;
+            isAutoincrement: false;
+            hasRuntimeDefault: false;
+            enumValues: undefined;
+            baseColumn: never;
+            identity: undefined;
+            generated: undefined;
+        }, {}, {}>;
+    };
+    dialect: "mysql";
+}>;
+export declare const insertPlatformConfigSchema: import("drizzle-zod").BuildSchema<"insert", {
+    key: import("drizzle-orm/mysql-core").MySqlColumn<{
+        name: "key";
+        tableName: "platform_config";
+        dataType: "string";
+        columnType: "MySqlVarChar";
+        data: string;
+        driverParam: string | number;
+        notNull: true;
+        hasDefault: false;
+        isPrimaryKey: true;
+        isAutoincrement: false;
+        hasRuntimeDefault: false;
+        enumValues: [string, ...string[]];
+        baseColumn: never;
+        identity: undefined;
+        generated: undefined;
+    }, {}, {}>;
+    value: import("drizzle-orm/mysql-core").MySqlColumn<{
+        name: "value";
+        tableName: "platform_config";
+        dataType: "string";
+        columnType: "MySqlText";
+        data: string;
+        driverParam: string;
+        notNull: true;
+        hasDefault: false;
+        isPrimaryKey: false;
+        isAutoincrement: false;
+        hasRuntimeDefault: false;
+        enumValues: [string, ...string[]];
+        baseColumn: never;
+        identity: undefined;
+        generated: undefined;
+    }, {}, {}>;
+    updatedAt: import("drizzle-orm/mysql-core").MySqlColumn<{
+        name: "updated_at";
+        tableName: "platform_config";
+        dataType: "date";
+        columnType: "MySqlTimestamp";
+        data: Date;
+        driverParam: string | number;
+        notNull: true;
+        hasDefault: true;
+        isPrimaryKey: false;
+        isAutoincrement: false;
+        hasRuntimeDefault: false;
+        enumValues: undefined;
+        baseColumn: never;
+        identity: undefined;
+        generated: undefined;
+    }, {}, {}>;
+}, undefined, undefined>;
+export type InsertPlatformConfig = z.infer<typeof insertPlatformConfigSchema>;
+export type PlatformConfig = typeof platformConfigTable.$inferSelect;
+//# sourceMappingURL=platform-config.d.ts.map

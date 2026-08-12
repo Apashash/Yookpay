@@ -1,4 +1,4 @@
-import { pool } from "@workspace/db";
+import { pgQuery } from "@workspace/db";
 import { DEFAULT_MARGIN } from "../services/feeService";
 
 let cachedMargin: number | null = null;
@@ -11,8 +11,8 @@ export async function getDefaultMargin(): Promise<number> {
     return cachedMargin;
   }
   try {
-    const result = await pool.query<{ value: string }>(
-      "SELECT value FROM platform_config WHERE key = 'default_margin' LIMIT 1"
+    const result = await pgQuery<{ value: string }>(
+      "SELECT value FROM platform_config WHERE `key` = 'default_margin' LIMIT 1"
     );
     if (result.rows.length && result.rows[0].value) {
       const val = parseFloat(result.rows[0].value);

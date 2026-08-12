@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { db, pool } from "@workspace/db";
+import { db, pgQuery } from "@workspace/db";
 import { transactionsTable, walletsTable, userFeesTable } from "@workspace/db/schema";
 import { eq, and, desc, count } from "drizzle-orm";
 import { sql } from "drizzle-orm";
@@ -82,7 +82,7 @@ async function getUserOperatorFeeRate(
   type: "DEPOSIT" | "WITHDRAWAL",
 ): Promise<{ total: number; pixpay: number; margin: number } | undefined> {
   try {
-    const result = await pool.query<{
+    const result = await pgQuery<{
       pixpay_deposit: string; pixpay_withdrawal: string;
       margin_deposit: string; margin_withdrawal: string;
     }>(

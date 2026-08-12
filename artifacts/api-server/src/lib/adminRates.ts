@@ -29,7 +29,7 @@ export async function setUsdtRate(pair: string, rate: number): Promise<void> {
   await db.execute(sql`
     INSERT INTO usdt_rates (pair, rate, updated_at)
     VALUES (${pair}, ${rate}, NOW())
-    ON CONFLICT (pair) DO UPDATE SET rate = ${rate}, updated_at = NOW()
+    ON DUPLICATE KEY UPDATE rate = ${rate}, updated_at = NOW()
   `);
 }
 

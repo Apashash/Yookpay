@@ -67,7 +67,7 @@ async function expireStaleTransactions(): Promise<void> {
             await db
               .update(walletsTable)
               .set({
-                balance: sql`${walletsTable.balance} + ${refund.toFixed(2)}::numeric`,
+                balance: sql`${walletsTable.balance} + CAST(${refund.toFixed(2)} AS DECIMAL(30,10))`,
                 updatedAt: new Date(),
               })
               .where(eq(walletsTable.id, wallet.id));
