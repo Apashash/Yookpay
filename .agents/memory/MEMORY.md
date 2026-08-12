@@ -1,1 +1,2 @@
 - [Maviance SmobilPay Integration](maviance-integration.md) — S3P flow, staging service IDs, HMAC auth, provider selection via payment_provider_config table, e-nkap card collection.
+- [MySQL migration lessons](mysql-migration-lessons.md) — drizzle/mysql2 result shapes ([0].insertId/affectedRows), pgQuery compat layer, local MariaDB test recipe, Plesk deploy via committed dist/.
