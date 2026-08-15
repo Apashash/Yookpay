@@ -15,11 +15,11 @@ var __export = (target, all) => {
   for (var name in all)
     __defProp(target, name, { get: all[name], enumerable: true });
 };
-var __copyProps = (to, from, except2, desc3) => {
+var __copyProps = (to, from, except2, desc2) => {
   if (from && typeof from === "object" || typeof from === "function") {
     for (let key of __getOwnPropNames(from))
       if (!__hasOwnProp.call(to, key) && key !== except2)
-        __defProp(to, key, { get: () => from[key], enumerable: !(desc3 = __getOwnPropDesc(from, key)) || desc3.enumerable });
+        __defProp(to, key, { get: () => from[key], enumerable: !(desc2 = __getOwnPropDesc(from, key)) || desc2.enumerable });
   }
   return to;
 };
@@ -1341,10 +1341,10 @@ var require_http_errors = __commonJS({
       return ServerError;
     }
     function nameFunc(func, name) {
-      var desc3 = Object.getOwnPropertyDescriptor(func, "name");
-      if (desc3 && desc3.configurable) {
-        desc3.value = name;
-        Object.defineProperty(func, "name", desc3);
+      var desc2 = Object.getOwnPropertyDescriptor(func, "name");
+      if (desc2 && desc2.configurable) {
+        desc2.value = name;
+        Object.defineProperty(func, "name", desc2);
       }
     }
     function populateConstructorExports(exports3, codes, HttpError) {
@@ -16789,14 +16789,14 @@ var require_get = __commonJS({
         throw e;
       }
     }
-    var desc3 = !!hasProtoAccessor && gOPD && gOPD(
+    var desc2 = !!hasProtoAccessor && gOPD && gOPD(
       Object.prototype,
       /** @type {keyof typeof Object.prototype} */
       "__proto__"
     );
     var $Object = Object;
     var $getPrototypeOf = $Object.getPrototypeOf;
-    module2.exports = desc3 && typeof desc3.get === "function" ? callBind([desc3.get]) : typeof $getPrototypeOf === "function" ? (
+    module2.exports = desc2 && typeof desc2.get === "function" ? callBind([desc2.get]) : typeof $getPrototypeOf === "function" ? (
       /** @type {import('./get')} */
       function getDunder(value) {
         return $getPrototypeOf(value == null ? value : $Object(value));
@@ -17146,10 +17146,10 @@ var require_get_intrinsic = __commonJS({
             return void undefined2;
           }
           if ($gOPD && i + 1 >= parts.length) {
-            var desc3 = $gOPD(value, part);
-            isOwn = !!desc3;
-            if (isOwn && "get" in desc3 && !("originalValue" in desc3.get)) {
-              value = desc3.get;
+            var desc2 = $gOPD(value, part);
+            isOwn = !!desc2;
+            if (isOwn && "get" in desc2 && !("originalValue" in desc2.get)) {
+              value = desc2.get;
             } else {
               value = value[part];
             }
@@ -18672,8 +18672,8 @@ var require_view = __commonJS({
     var extname = path3.extname;
     var join = path3.join;
     var resolve = path3.resolve;
-    module2.exports = View3;
-    function View3(name, options) {
+    module2.exports = View2;
+    function View2(name, options) {
       var opts = options || {};
       this.defaultEngine = opts.defaultEngine;
       this.ext = extname(name);
@@ -18699,7 +18699,7 @@ var require_view = __commonJS({
       this.engine = opts.engines[this.ext];
       this.path = this.lookup(fileName);
     }
-    View3.prototype.lookup = function lookup(name) {
+    View2.prototype.lookup = function lookup(name) {
       var path4;
       var roots = [].concat(this.root);
       debug('lookup "%s"', name);
@@ -18712,7 +18712,7 @@ var require_view = __commonJS({
       }
       return path4;
     };
-    View3.prototype.render = function render(options, callback) {
+    View2.prototype.render = function render(options, callback) {
       var sync = true;
       debug('render "%s"', this.path);
       this.engine(this.path, options, function onRender() {
@@ -18730,7 +18730,7 @@ var require_view = __commonJS({
       });
       sync = false;
     };
-    View3.prototype.resolve = function resolve2(dir, file2) {
+    View2.prototype.resolve = function resolve2(dir, file2) {
       var ext = this.ext;
       var path4 = join(dir, file2);
       var stat = tryStat(path4);
@@ -20865,7 +20865,7 @@ var require_application = __commonJS({
     "use strict";
     var finalhandler = require_finalhandler();
     var debug = require_src()("express:application");
-    var View3 = require_view();
+    var View2 = require_view();
     var http = require("node:http");
     var methods = require_utils3().methods;
     var compileETag = require_utils3().compileETag;
@@ -20924,7 +20924,7 @@ var require_application = __commonJS({
       this.locals = /* @__PURE__ */ Object.create(null);
       this.mountpath = "/";
       this.locals.settings = this.settings;
-      this.set("view", View3);
+      this.set("view", View2);
       this.set("views", resolve("views"));
       this.set("jsonp callback name", "callback");
       if (env === "production") {
@@ -21080,8 +21080,8 @@ var require_application = __commonJS({
         view = cache[name];
       }
       if (!view) {
-        var View4 = this.get("view");
-        view = new View4(name, {
+        var View3 = this.get("view");
+        view = new View3(name, {
           defaultEngine: this.get("view engine"),
           root: this.get("views"),
           engines
@@ -21925,7 +21925,7 @@ var require_request = __commonJS({
       var querystring = parse3(this).query;
       return queryparse(querystring);
     });
-    req.is = function is3(types) {
+    req.is = function is2(types) {
       var arr = types;
       if (!Array.isArray(types)) {
         arr = new Array(arguments.length);
@@ -25808,7 +25808,7 @@ var require_indexes = __commonJS({
 var require_thread_stream = __commonJS({
   "../../node_modules/.pnpm/thread-stream@3.1.0/node_modules/thread-stream/index.js"(exports2, module2) {
     "use strict";
-    var { version: version4 } = require_package();
+    var { version: version3 } = require_package();
     var { EventEmitter } = require("events");
     var { Worker } = require("worker_threads");
     var { join } = require("path");
@@ -25857,7 +25857,7 @@ var require_thread_stream = __commonJS({
           stateBuf: stream[kImpl].stateBuf,
           workerData: {
             $context: {
-              threadStreamVersion: version4
+              threadStreamVersion: version3
             },
             ...workerData
           }
@@ -26967,7 +26967,7 @@ var require_proto = __commonJS({
       noop
     } = require_tools();
     var {
-      version: version4
+      version: version3
     } = require_meta();
     var redaction = require_redaction();
     var constructor = class Pino {
@@ -26979,7 +26979,7 @@ var require_proto = __commonJS({
       setBindings,
       flush,
       isLevelEnabled,
-      version: version4,
+      version: version3,
       get level() {
         return this[getLevelSym]();
       },
@@ -27946,7 +27946,7 @@ var require_pino = __commonJS({
       normalizeDestFileDescriptor,
       noop
     } = require_tools();
-    var { version: version4 } = require_meta();
+    var { version: version3 } = require_meta();
     var {
       chindingsSym,
       redactFmtSym,
@@ -28127,7 +28127,7 @@ var require_pino = __commonJS({
     module2.exports.stdSerializers = serializers;
     module2.exports.stdTimeFunctions = Object.assign({}, time4);
     module2.exports.symbols = symbols;
-    module2.exports.version = version4;
+    module2.exports.version = version3;
     module2.exports.default = pino4;
     module2.exports.pino = pino4;
   }
@@ -28448,31 +28448,31 @@ var require_lib4 = __commonJS({
     var isWordChar = (code) => code >= 65 && code <= 90 || code >= 97 && code <= 122 || code >= 48 && code <= 57 || code === 95;
     var isWhitespace = (code) => code === charCode.space || code === charCode.tab || code === charCode.newline || code === charCode.carriageReturn;
     var toLower = (code) => code | 32;
-    var matchesWord = (sql3, position, word, length) => {
+    var matchesWord = (sql2, position, word, length) => {
       const wordLength = word.length;
       for (let offset = 0; offset < wordLength; offset++)
-        if (toLower(sql3.charCodeAt(position + offset)) !== word.charCodeAt(offset))
+        if (toLower(sql2.charCodeAt(position + offset)) !== word.charCodeAt(offset))
           return false;
-      return (position === 0 || !isWordChar(sql3.charCodeAt(position - 1))) && (position + wordLength >= length || !isWordChar(sql3.charCodeAt(position + wordLength)));
+      return (position === 0 || !isWordChar(sql2.charCodeAt(position - 1))) && (position + wordLength >= length || !isWordChar(sql2.charCodeAt(position + wordLength)));
     };
-    var skipSqlContext = (sql3, position) => {
-      const currentChar = sql3.charCodeAt(position);
-      const nextChar = sql3.charCodeAt(position + 1);
+    var skipSqlContext = (sql2, position) => {
+      const currentChar = sql2.charCodeAt(position);
+      const nextChar = sql2.charCodeAt(position + 1);
       if (currentChar === charCode.singleQuote) {
-        for (let cursor = position + 1; cursor < sql3.length; cursor++) {
-          if (sql3.charCodeAt(cursor) === charCode.backslash)
+        for (let cursor = position + 1; cursor < sql2.length; cursor++) {
+          if (sql2.charCodeAt(cursor) === charCode.backslash)
             cursor++;
-          else if (sql3.charCodeAt(cursor) === charCode.singleQuote)
+          else if (sql2.charCodeAt(cursor) === charCode.singleQuote)
             return cursor + 1;
         }
-        return sql3.length;
+        return sql2.length;
       }
       if (currentChar === charCode.backtick) {
-        const length = sql3.length;
+        const length = sql2.length;
         for (let cursor = position + 1; cursor < length; cursor++) {
-          if (sql3.charCodeAt(cursor) !== charCode.backtick)
+          if (sql2.charCodeAt(cursor) !== charCode.backtick)
             continue;
-          if (sql3.charCodeAt(cursor + 1) === charCode.backtick) {
+          if (sql2.charCodeAt(cursor + 1) === charCode.backtick) {
             cursor++;
             continue;
           }
@@ -28481,45 +28481,45 @@ var require_lib4 = __commonJS({
         return length;
       }
       if (currentChar === charCode.dash && nextChar === charCode.dash) {
-        const afterDash = sql3.charCodeAt(position + 2);
+        const afterDash = sql2.charCodeAt(position + 2);
         if (Number.isNaN(afterDash) || afterDash <= charCode.space) {
-          const lineBreak = sql3.indexOf("\n", position + 2);
-          return lineBreak === -1 ? sql3.length : lineBreak + 1;
+          const lineBreak = sql2.indexOf("\n", position + 2);
+          return lineBreak === -1 ? sql2.length : lineBreak + 1;
         }
         return -1;
       }
       if (currentChar === charCode.slash && nextChar === charCode.asterisk) {
-        const markerChar = sql3.charCodeAt(position + 2);
+        const markerChar = sql2.charCodeAt(position + 2);
         if (markerChar === charCode.exclamation || markerChar === charCode.plus)
           return -1;
-        const commentEnd = sql3.indexOf("*/", position + 2);
-        return commentEnd === -1 ? sql3.length : commentEnd + 2;
+        const commentEnd = sql2.indexOf("*/", position + 2);
+        return commentEnd === -1 ? sql2.length : commentEnd + 2;
       }
       return -1;
     };
-    var findNextPlaceholder = (sql3, start) => {
-      const sqlLength = sql3.length;
+    var findNextPlaceholder = (sql2, start) => {
+      const sqlLength = sql2.length;
       for (let position = start; position < sqlLength; position++) {
-        const code = sql3.charCodeAt(position);
+        const code = sql2.charCodeAt(position);
         if (code === charCode.questionMark)
           return position;
         if (code < 128 && CONTEXT_TRIGGER[code]) {
-          const contextEnd = skipSqlContext(sql3, position);
+          const contextEnd = skipSqlContext(sql2, position);
           if (contextEnd !== -1)
             position = contextEnd - 1;
         }
       }
       return -1;
     };
-    var isInSetAssignmentList = (sql3, setEnd, placeholderPosition) => {
-      const length = sql3.length;
+    var isInSetAssignmentList = (sql2, setEnd, placeholderPosition) => {
+      const length = sql2.length;
       let depth = 0;
       let sawContent = false;
       let lastWasComma = false;
       for (let i = setEnd; i < placeholderPosition; ) {
-        const code = sql3.charCodeAt(i);
+        const code = sql2.charCodeAt(i);
         if (code < 128 && CONTEXT_TRIGGER[code]) {
-          const contextEnd = skipSqlContext(sql3, i);
+          const contextEnd = skipSqlContext(sql2, i);
           if (contextEnd !== -1) {
             i = contextEnd;
             sawContent = true;
@@ -28551,13 +28551,13 @@ var require_lib4 = __commonJS({
             const bucket = SET_CLAUSE_TERMINATORS_BY_FIRST[code | 32];
             if (bucket) {
               for (let t = 0; t < bucket.length; t++)
-                if (matchesWord(sql3, i, bucket[t], length))
+                if (matchesWord(sql2, i, bucket[t], length))
                   return false;
             }
           }
           do {
             i++;
-          } while (i < placeholderPosition && isWordChar(sql3.charCodeAt(i)));
+          } while (i < placeholderPosition && isWordChar(sql2.charCodeAt(i)));
           sawContent = true;
           lastWasComma = false;
           continue;
@@ -28578,25 +28578,25 @@ var require_lib4 = __commonJS({
       }
       return depth === 0 && (!sawContent || lastWasComma);
     };
-    var findSetKeyword = (sql3, startFrom = 0) => {
-      const length = sql3.length;
+    var findSetKeyword = (sql2, startFrom = 0) => {
+      const length = sql2.length;
       for (let position = startFrom; position < length; position++) {
-        const code = sql3.charCodeAt(position);
+        const code = sql2.charCodeAt(position);
         if (code < 128 && CONTEXT_TRIGGER[code]) {
-          const contextEnd = skipSqlContext(sql3, position);
+          const contextEnd = skipSqlContext(sql2, position);
           if (contextEnd !== -1) {
             position = contextEnd - 1;
             continue;
           }
         }
         const lower = code | 32;
-        if (lower === 115 && matchesWord(sql3, position, "set", length))
+        if (lower === 115 && matchesWord(sql2, position, "set", length))
           return position + 3;
-        if (lower === 107 && matchesWord(sql3, position, "key", length)) {
+        if (lower === 107 && matchesWord(sql2, position, "key", length)) {
           let cursor = position + 3;
-          while (cursor < length && isWhitespace(sql3.charCodeAt(cursor)))
+          while (cursor < length && isWhitespace(sql2.charCodeAt(cursor)))
             cursor++;
-          if (matchesWord(sql3, cursor, "update", length))
+          if (matchesWord(sql2, cursor, "update", length))
             return cursor + 6;
         }
       }
@@ -28709,13 +28709,13 @@ var require_lib4 = __commonJS({
     var escapeId = (value, forbidQualified) => {
       if (Array.isArray(value)) {
         const length = value.length;
-        let sql3 = "";
+        let sql2 = "";
         for (let i = 0; i < length; i++) {
           if (i > 0)
-            sql3 += ", ";
-          sql3 += (0, exports2.escapeId)(value[i], forbidQualified);
+            sql2 += ", ";
+          sql2 += (0, exports2.escapeId)(value[i], forbidQualified);
         }
-        return sql3;
+        return sql2;
       }
       const identifier = String(value);
       const hasJsonOperator = !forbidQualified && identifier.indexOf("->") !== -1;
@@ -28730,18 +28730,18 @@ var require_lib4 = __commonJS({
     };
     exports2.escapeId = escapeId;
     var objectToValues = (object2, timezone) => {
-      let sql3 = "";
+      let sql2 = "";
       if (object2 instanceof Map) {
         for (const [key, value] of object2) {
           if (typeof value === "function")
             continue;
-          if (sql3.length > 0)
-            sql3 += ", ";
-          sql3 += (0, exports2.escapeId)(String(key));
-          sql3 += " = ";
-          sql3 += (0, exports2.escape)(value, true, timezone);
+          if (sql2.length > 0)
+            sql2 += ", ";
+          sql2 += (0, exports2.escapeId)(String(key));
+          sql2 += " = ";
+          sql2 += (0, exports2.escape)(value, true, timezone);
         }
-        return sql3;
+        return sql2;
       }
       for (const key in object2) {
         if (!hasOwnProperty.call(object2, key))
@@ -28749,32 +28749,32 @@ var require_lib4 = __commonJS({
         const value = object2[key];
         if (typeof value === "function")
           continue;
-        if (sql3.length > 0)
-          sql3 += ", ";
-        sql3 += (0, exports2.escapeId)(key);
-        sql3 += " = ";
-        sql3 += (0, exports2.escape)(value, true, timezone);
+        if (sql2.length > 0)
+          sql2 += ", ";
+        sql2 += (0, exports2.escapeId)(key);
+        sql2 += " = ";
+        sql2 += (0, exports2.escape)(value, true, timezone);
       }
-      return sql3;
+      return sql2;
     };
     exports2.objectToValues = objectToValues;
     var bufferToString = (buffer) => `X${escapeString(buffer.toString("hex"))}`;
     exports2.bufferToString = bufferToString;
     var arrayToList = (array2, timezone) => {
       const length = array2.length;
-      let sql3 = "";
+      let sql2 = "";
       for (let i = 0; i < length; i++) {
         if (i > 0)
-          sql3 += ", ";
+          sql2 += ", ";
         const value = array2[i];
         if (Array.isArray(value))
-          sql3 += `(${(0, exports2.arrayToList)(value, timezone)})`;
+          sql2 += `(${(0, exports2.arrayToList)(value, timezone)})`;
         else if (value instanceof Set)
-          sql3 += `(${(0, exports2.arrayToList)(Array.from(value), timezone)})`;
+          sql2 += `(${(0, exports2.arrayToList)(Array.from(value), timezone)})`;
         else
-          sql3 += (0, exports2.escape)(value, true, timezone);
+          sql2 += (0, exports2.escape)(value, true, timezone);
       }
-      return sql3;
+      return sql2;
     };
     exports2.arrayToList = arrayToList;
     var escape2 = (value, stringifyObjects, timezone) => {
@@ -28814,9 +28814,9 @@ var require_lib4 = __commonJS({
       }
     };
     exports2.escape = escape2;
-    var format = (sql3, values, stringifyObjects, timezone) => {
+    var format = (sql2, values, stringifyObjects, timezone) => {
       if (values === void 0 || values === null)
-        return sql3;
+        return sql2;
       const valuesArray = Array.isArray(values) ? values : [values];
       const length = valuesArray.length;
       let setIndex = -2;
@@ -28824,16 +28824,16 @@ var require_lib4 = __commonJS({
       let result = "";
       let chunkIndex = 0;
       let valuesIndex = 0;
-      let placeholderPosition = findNextPlaceholder(sql3, 0);
+      let placeholderPosition = findNextPlaceholder(sql2, 0);
       while (valuesIndex < length && placeholderPosition !== -1) {
         let placeholderEnd = placeholderPosition + 1;
         let escapedValue;
-        while (sql3.charCodeAt(placeholderEnd) === 63)
+        while (sql2.charCodeAt(placeholderEnd) === 63)
           placeholderEnd++;
         const placeholderLength = placeholderEnd - placeholderPosition;
         const currentValue = valuesArray[valuesIndex];
         if (placeholderLength > 2) {
-          placeholderPosition = findNextPlaceholder(sql3, placeholderEnd);
+          placeholderPosition = findNextPlaceholder(sql2, placeholderEnd);
           continue;
         }
         if (placeholderLength === 2)
@@ -28844,21 +28844,21 @@ var require_lib4 = __commonJS({
           const expandable = !(Array.isArray(currentValue) || currentValue instanceof Uint8Array || currentValue instanceof Date || hasSqlString(currentValue) || isDate(currentValue)) && (isRecord(currentValue) || currentValue instanceof Map);
           if (expandable) {
             let previous = placeholderPosition - 1;
-            while (previous >= chunkIndex && isWhitespace(sql3.charCodeAt(previous)))
+            while (previous >= chunkIndex && isWhitespace(sql2.charCodeAt(previous)))
               previous--;
-            const previousChar = previous >= chunkIndex ? toLower(sql3.charCodeAt(previous)) : 0;
+            const previousChar = previous >= chunkIndex ? toLower(sql2.charCodeAt(previous)) : 0;
             if ((previousChar < 97 || previousChar > 122) && previousChar !== charCode.comma)
               escapedValue = (0, exports2.escape)(currentValue, true, timezone);
             else {
               if (setIndex === -2) {
-                setIndex = findSetKeyword(sql3);
-                nextSetIndex = setIndex === -1 ? -1 : findSetKeyword(sql3, setIndex);
+                setIndex = findSetKeyword(sql2);
+                nextSetIndex = setIndex === -1 ? -1 : findSetKeyword(sql2, setIndex);
               }
               while (nextSetIndex !== -1 && nextSetIndex <= placeholderPosition) {
                 setIndex = nextSetIndex;
-                nextSetIndex = findSetKeyword(sql3, nextSetIndex);
+                nextSetIndex = findSetKeyword(sql2, nextSetIndex);
               }
-              if (setIndex !== -1 && setIndex <= placeholderPosition && isInSetAssignmentList(sql3, setIndex, placeholderPosition))
+              if (setIndex !== -1 && setIndex <= placeholderPosition && isInSetAssignmentList(sql2, setIndex, placeholderPosition))
                 escapedValue = (0, exports2.objectToValues)(currentValue, timezone);
               else
                 escapedValue = (0, exports2.escape)(currentValue, true, timezone);
@@ -28867,24 +28867,24 @@ var require_lib4 = __commonJS({
             escapedValue = (0, exports2.escape)(currentValue, true, timezone);
         } else
           escapedValue = (0, exports2.escape)(currentValue, stringifyObjects, timezone);
-        result += sql3.slice(chunkIndex, placeholderPosition);
+        result += sql2.slice(chunkIndex, placeholderPosition);
         result += escapedValue;
         chunkIndex = placeholderEnd;
         valuesIndex++;
-        placeholderPosition = findNextPlaceholder(sql3, placeholderEnd);
+        placeholderPosition = findNextPlaceholder(sql2, placeholderEnd);
       }
       if (chunkIndex === 0)
-        return sql3;
-      if (chunkIndex < sql3.length)
-        return result + sql3.slice(chunkIndex);
+        return sql2;
+      if (chunkIndex < sql2.length)
+        return result + sql2.slice(chunkIndex);
       return result;
     };
     exports2.format = format;
-    var raw = (sql3) => {
-      if (typeof sql3 !== "string")
+    var raw = (sql2) => {
+      if (typeof sql2 !== "string")
         throw new TypeError("argument sql must be a string");
       return {
-        toSqlString: () => sql3
+        toSqlString: () => sql2
       };
     };
     exports2.raw = raw;
@@ -29517,7 +29517,7 @@ var require_connection_config = __commonJS({
     var { URL: URL2 } = require("url");
     var ClientConstants = require_client();
     var Charsets = require_charsets();
-    var { version: version4 } = require_package2();
+    var { version: version3 } = require_package2();
     var SSLProfiles = null;
     var validOptions = {
       authPlugins: 1,
@@ -29662,7 +29662,7 @@ var require_connection_config = __commonJS({
         );
         const defaultConnectAttributes = {
           _client_name: "Node-MySQL-2",
-          _client_version: version4
+          _client_version: version3
         };
         this.connectAttributes = {
           ...defaultConnectAttributes,
@@ -35082,7 +35082,7 @@ var require_umd = __commonJS({
           return this.low ? ctz32(this.low) : ctz32(this.high) + 32;
         };
         LongPrototype.ctz = LongPrototype.countTrailingZeros;
-        LongPrototype.and = function and3(other) {
+        LongPrototype.and = function and2(other) {
           if (!isLong(other)) other = fromValue(other);
           return fromBits(
             this.low & other.low,
@@ -35090,7 +35090,7 @@ var require_umd = __commonJS({
             this.unsigned
           );
         };
-        LongPrototype.or = function or3(other) {
+        LongPrototype.or = function or2(other) {
           if (!isLong(other)) other = fromValue(other);
           return fromBits(
             this.low | other.low,
@@ -41736,8 +41736,8 @@ var require_prepare_statement = __commonJS({
     var StringParser = require_string();
     var CharsetToEncoding = require_charset_encodings();
     var PrepareStatement = class {
-      constructor(sql3, charsetNumber) {
-        this.query = sql3;
+      constructor(sql2, charsetNumber) {
+        this.query = sql2;
         this.charsetNumber = charsetNumber;
         this.encoding = CharsetToEncoding[charsetNumber];
       }
@@ -41786,8 +41786,8 @@ var require_query = __commonJS({
     var Types = require_types();
     var { toParameter } = require_encode_parameter();
     var Query = class {
-      constructor(sql3, charsetNumber, attributes, clientFlags) {
-        this.query = sql3;
+      constructor(sql2, charsetNumber, attributes, clientFlags) {
+        this.query = sql2;
         this.charsetNumber = charsetNumber;
         this.encoding = CharsetToEncoding[charsetNumber];
         this.attributes = attributes;
@@ -45965,17 +45965,17 @@ var require_connection = __commonJS({
         }
         return cmd;
       }
-      format(sql3, values, namedPlaceholders) {
+      format(sql2, values, namedPlaceholders) {
         if (typeof this.config.queryFormat === "function") {
           return this.config.queryFormat.call(
             this,
-            sql3,
+            sql2,
             values,
             this.config.timezone
           );
         }
         const opts = {
-          sql: sql3,
+          sql: sql2,
           values
         };
         if (typeof namedPlaceholders !== "undefined") {
@@ -45995,8 +45995,8 @@ var require_connection = __commonJS({
       escapeId(value) {
         return SqlString.escapeId(value, false);
       }
-      raw(sql3) {
-        return SqlString.raw(sql3);
+      raw(sql2) {
+        return SqlString.raw(sql2);
       }
       _resolveNamedPlaceholders(options) {
         let unnamed;
@@ -46015,12 +46015,12 @@ var require_connection = __commonJS({
           options.values = unnamed[1];
         }
       }
-      query(sql3, values, cb) {
+      query(sql2, values, cb) {
         let cmdQuery;
-        if (sql3.constructor === Commands.Query) {
-          cmdQuery = sql3;
+        if (sql2.constructor === Commands.Query) {
+          cmdQuery = sql2;
         } else {
-          cmdQuery = _BaseConnection.createQuery(sql3, values, cb, this.config);
+          cmdQuery = _BaseConnection.createQuery(sql2, values, cb, this.config);
         }
         this._resolveNamedPlaceholders(cmdQuery);
         const rawSql = this.format(
@@ -46097,12 +46097,12 @@ var require_connection = __commonJS({
         }
         return this.addCommand(new Commands.Prepare(options, cb));
       }
-      unprepare(sql3) {
+      unprepare(sql2) {
         let options = {};
-        if (typeof sql3 === "object") {
-          options = sql3;
+        if (typeof sql2 === "object") {
+          options = sql2;
         } else {
-          options.sql = sql3;
+          options.sql = sql2;
         }
         const key = _BaseConnection.statementKey(options);
         const stmt = this._statements.get(key);
@@ -46112,16 +46112,16 @@ var require_connection = __commonJS({
         }
         return stmt;
       }
-      execute(sql3, values, cb) {
+      execute(sql2, values, cb) {
         let options = {
           infileStreamFactory: this.config.infileStreamFactory
         };
-        if (typeof sql3 === "object") {
+        if (typeof sql2 === "object") {
           options = {
             ...options,
-            ...sql3,
-            sql: sql3.sql,
-            values: sql3.values
+            ...sql2,
+            sql: sql2.sql,
+            values: sql2.values
           };
           if (typeof values === "function") {
             cb = values;
@@ -46130,10 +46130,10 @@ var require_connection = __commonJS({
           }
         } else if (typeof values === "function") {
           cb = values;
-          options.sql = sql3;
+          options.sql = sql2;
           options.values = void 0;
         } else {
-          options.sql = sql3;
+          options.sql = sql2;
           options.values = values;
         }
         this._resolveNamedPlaceholders(options);
@@ -46414,17 +46414,17 @@ var require_connection = __commonJS({
         this.addCommand = this._addCommandClosedState;
         return quitCmd;
       }
-      static createQuery(sql3, values, cb, config2) {
+      static createQuery(sql2, values, cb, config2) {
         let options = {
           rowsAsArray: config2.rowsAsArray,
           infileStreamFactory: config2.infileStreamFactory
         };
-        if (typeof sql3 === "object") {
+        if (typeof sql2 === "object") {
           options = {
             ...options,
-            ...sql3,
-            sql: sql3.sql,
-            values: sql3.values
+            ...sql2,
+            sql: sql2.sql,
+            values: sql2.values
           };
           if (typeof values === "function") {
             cb = values;
@@ -46433,10 +46433,10 @@ var require_connection = __commonJS({
           }
         } else if (typeof values === "function") {
           cb = values;
-          options.sql = sql3;
+          options.sql = sql2;
           options.values = void 0;
         } else {
-          options.sql = sql3;
+          options.sql = sql2;
           options.values = values;
         }
         return new Commands.Query(options, cb);
@@ -47086,9 +47086,9 @@ var require_pool = __commonJS({
           connection._realEnd(endCB);
         }
       }
-      query(sql3, values, cb) {
+      query(sql2, values, cb) {
         const cmdQuery = BaseConnection.createQuery(
-          sql3,
+          sql2,
           values,
           cb,
           this.config.connectionConfig
@@ -47136,7 +47136,7 @@ var require_pool = __commonJS({
         });
         return cmdQuery;
       }
-      execute(sql3, values, cb) {
+      execute(sql2, values, cb) {
         if (typeof values === "function") {
           cb = values;
           values = [];
@@ -47146,7 +47146,7 @@ var require_pool = __commonJS({
             return cb(err);
           }
           try {
-            conn.execute(sql3, values, (err2, rows, fields) => {
+            conn.execute(sql2, values, (err2, rows, fields) => {
               if (isReadOnlyError(err2)) {
                 conn.destroy();
               }
@@ -47183,9 +47183,9 @@ var require_pool = __commonJS({
           }
         }, 1e3);
       }
-      format(sql3, values) {
+      format(sql2, values) {
         return SqlString.format(
-          sql3,
+          sql2,
           values,
           this.config.connectionConfig.stringifyObjects,
           this.config.connectionConfig.timezone
@@ -47241,7 +47241,7 @@ var require_pool2 = __commonJS({
       releaseConnection(connection) {
         if (connection instanceof PromisePoolConnection) connection.release();
       }
-      query(sql3, args) {
+      query(sql2, args) {
         const corePool = this.pool;
         const stackHolder = captureStackHolder(_PromisePool.prototype.query);
         if (typeof args === "function") {
@@ -47252,13 +47252,13 @@ var require_pool2 = __commonJS({
         return new this.Promise((resolve, reject) => {
           const done = makeDoneCb(resolve, reject, stackHolder);
           if (args !== void 0) {
-            corePool.query(sql3, args, done);
+            corePool.query(sql2, args, done);
           } else {
-            corePool.query(sql3, done);
+            corePool.query(sql2, done);
           }
         });
       }
-      execute(sql3, args) {
+      execute(sql2, args) {
         const corePool = this.pool;
         const stackHolder = captureStackHolder(_PromisePool.prototype.execute);
         if (typeof args === "function") {
@@ -47269,9 +47269,9 @@ var require_pool2 = __commonJS({
         return new this.Promise((resolve, reject) => {
           const done = makeDoneCb(resolve, reject, stackHolder);
           if (args) {
-            corePool.execute(sql3, args, done);
+            corePool.execute(sql2, args, done);
           } else {
-            corePool.execute(sql3, done);
+            corePool.execute(sql2, done);
           }
         });
       }
@@ -47427,8 +47427,8 @@ var require_pool_cluster = __commonJS({
        * @param {*} cb
        * @returns query
        */
-      query(sql3, values, cb) {
-        const query = Connection.createQuery(sql3, values, cb, {});
+      query(sql2, values, cb) {
+        const query = Connection.createQuery(sql2, values, cb, {});
         this.getConnection((err, conn) => {
           if (err) {
             if (typeof query.onResult === "function") {
@@ -47455,7 +47455,7 @@ var require_pool_cluster = __commonJS({
        * @param {*} values
        * @param {*} cb
        */
-      execute(sql3, values, cb) {
+      execute(sql2, values, cb) {
         if (typeof values === "function") {
           cb = values;
           values = [];
@@ -47465,7 +47465,7 @@ var require_pool_cluster = __commonJS({
             return cb(err);
           }
           try {
-            conn.execute(sql3, values, cb).once("end", () => {
+            conn.execute(sql2, values, cb).once("end", () => {
               conn.release();
             });
           } catch (e) {
@@ -47761,7 +47761,7 @@ var require_pool_cluster2 = __commonJS({
           });
         });
       }
-      query(sql3, values) {
+      query(sql2, values) {
         const corePoolNamespace = this.poolNamespace;
         const stackHolder = captureStackHolder(
           _PromisePoolNamespace.prototype.query
@@ -47773,10 +47773,10 @@ var require_pool_cluster2 = __commonJS({
         }
         return new this.Promise((resolve, reject) => {
           const done = makeDoneCb(resolve, reject, stackHolder);
-          corePoolNamespace.query(sql3, values, done);
+          corePoolNamespace.query(sql2, values, done);
         });
       }
-      execute(sql3, values) {
+      execute(sql2, values) {
         const corePoolNamespace = this.poolNamespace;
         const stackHolder = captureStackHolder(
           _PromisePoolNamespace.prototype.execute
@@ -47788,7 +47788,7 @@ var require_pool_cluster2 = __commonJS({
         }
         return new this.Promise((resolve, reject) => {
           const done = makeDoneCb(resolve, reject, stackHolder);
-          corePoolNamespace.execute(sql3, values, done);
+          corePoolNamespace.execute(sql2, values, done);
         });
       }
     };
@@ -47869,7 +47869,7 @@ var require_promise = __commonJS({
           );
         });
       }
-      query(sql3, args) {
+      query(sql2, args) {
         const corePoolCluster = this.poolCluster;
         const stackHolder = captureStackHolder(_PromisePoolCluster.prototype.query);
         if (typeof args === "function") {
@@ -47879,10 +47879,10 @@ var require_promise = __commonJS({
         }
         return new this.Promise((resolve, reject) => {
           const done = makeDoneCb(resolve, reject, stackHolder);
-          corePoolCluster.query(sql3, args, done);
+          corePoolCluster.query(sql2, args, done);
         });
       }
-      execute(sql3, args) {
+      execute(sql2, args) {
         const corePoolCluster = this.poolCluster;
         const stackHolder = captureStackHolder(
           _PromisePoolCluster.prototype.execute
@@ -47894,7 +47894,7 @@ var require_promise = __commonJS({
         }
         return new this.Promise((resolve, reject) => {
           const done = makeDoneCb(resolve, reject, stackHolder);
-          corePoolCluster.execute(sql3, args, done);
+          corePoolCluster.execute(sql2, args, done);
         });
       }
       of(pattern, selector) {
@@ -48763,10 +48763,10 @@ var init_subquery = __esm({
     init_entity();
     Subquery = class {
       static [entityKind] = "Subquery";
-      constructor(sql3, fields, alias, isWith = false, usedTables = []) {
+      constructor(sql2, fields, alias, isWith = false, usedTables = []) {
         this._ = {
           brand: "Subquery",
-          sql: sql3,
+          sql: sql2,
           selectedFields: fields,
           alias,
           isWith,
@@ -48806,14 +48806,14 @@ var init_tracing = __esm({
           rawTracer = otel.trace.getTracer("drizzle-orm", version);
         }
         return iife(
-          (otel22, rawTracer22) => rawTracer22.startActiveSpan(
+          (otel2, rawTracer2) => rawTracer2.startActiveSpan(
             name,
             (span) => {
               try {
                 return fn(span);
               } catch (e) {
                 span.setStatus({
-                  code: otel22.SpanStatusCode.ERROR,
+                  code: otel2.SpanStatusCode.ERROR,
                   message: e instanceof Error ? e.message : "Unknown error"
                   // eslint-disable-line no-instanceof/no-instanceof
                 });
@@ -49221,19 +49221,19 @@ var init_sql = __esm({
         return new SQL([this]);
       }
     };
-    ((sql22) => {
+    ((sql2) => {
       function empty() {
         return new SQL([]);
       }
-      sql22.empty = empty;
+      sql2.empty = empty;
       function fromList(list) {
         return new SQL(list);
       }
-      sql22.fromList = fromList;
+      sql2.fromList = fromList;
       function raw(str) {
         return new SQL([new StringChunk(str)]);
       }
-      sql22.raw = raw;
+      sql2.raw = raw;
       function join(chunks, separator) {
         const result = [];
         for (const [i, chunk] of chunks.entries()) {
@@ -49244,24 +49244,24 @@ var init_sql = __esm({
         }
         return new SQL(result);
       }
-      sql22.join = join;
+      sql2.join = join;
       function identifier(value) {
         return new Name(value);
       }
-      sql22.identifier = identifier;
+      sql2.identifier = identifier;
       function placeholder2(name2) {
         return new Placeholder(name2);
       }
-      sql22.placeholder = placeholder2;
+      sql2.placeholder = placeholder2;
       function param2(value, encoder) {
         return new Param(value, encoder);
       }
-      sql22.param = param2;
+      sql2.param = param2;
     })(sql || (sql = {}));
-    ((SQL22) => {
+    ((SQL2) => {
       class Aliased {
-        constructor(sql22, fieldAlias) {
-          this.sql = sql22;
+        constructor(sql2, fieldAlias) {
+          this.sql = sql2;
           this.fieldAlias = fieldAlias;
         }
         static [entityKind] = "SQL.Aliased";
@@ -49275,7 +49275,7 @@ var init_sql = __esm({
           return new Aliased(this.sql, this.fieldAlias);
         }
       }
-      SQL22.Aliased = Aliased;
+      SQL2.Aliased = Aliased;
     })(SQL || (SQL = {}));
     Placeholder = class {
       constructor(name2) {
@@ -50273,8 +50273,15 @@ var init_relations = __esm({
 });
 
 // ../../node_modules/.pnpm/drizzle-orm@0.45.1_@types+pg@8.18.0_mysql2@3.23.3_@types+node@25.3.5__pg@8.20.0/node_modules/drizzle-orm/sql/functions/aggregate.js
+function count(expression) {
+  return sql`count(${expression || sql.raw("*")})`.mapWith(Number);
+}
+function sum(expression) {
+  return sql`sum(${expression})`.mapWith(String);
+}
 var init_aggregate = __esm({
   "../../node_modules/.pnpm/drizzle-orm@0.45.1_@types+pg@8.18.0_mysql2@3.23.3_@types+node@25.3.5__pg@8.20.0/node_modules/drizzle-orm/sql/functions/aggregate.js"() {
+    init_sql();
   }
 });
 
@@ -52551,8 +52558,8 @@ var init_dialect = __esm({
           generatedIds: generatedIdsResponse
         };
       }
-      sqlToQuery(sql22, invokeSource) {
-        return sql22.toQuery({
+      sqlToQuery(sql2, invokeSource) {
+        return sql2.toQuery({
           casing: this.casing,
           escapeName: this.escapeName,
           escapeParam: this.escapeParam,
@@ -54065,9 +54072,9 @@ var init_insert = __esm({
         return rest;
       }
       prepare() {
-        const { sql: sql22, generatedIds } = this.dialect.buildInsertQuery(this.config);
+        const { sql: sql2, generatedIds } = this.dialect.buildInsertQuery(this.config);
         return this.session.prepareQuery(
-          this.dialect.sqlToQuery(sql22),
+          this.dialect.sqlToQuery(sql2),
           void 0,
           void 0,
           generatedIds,
@@ -54593,8 +54600,8 @@ var init_db = __esm({
 });
 
 // ../../node_modules/.pnpm/drizzle-orm@0.45.1_@types+pg@8.18.0_mysql2@3.23.3_@types+node@25.3.5__pg@8.20.0/node_modules/drizzle-orm/cache/core/cache.js
-async function hashQuery(sql3, params) {
-  const dataToHash = `${sql3}-${JSON.stringify(params)}`;
+async function hashQuery(sql2, params) {
+  const dataToHash = `${sql2}-${JSON.stringify(params)}`;
   const encoder = new TextEncoder();
   const data = encoder.encode(dataToHash);
   const hashBuffer = await crypto.subtle.digest("SHA-256", data);
@@ -54727,8 +54734,8 @@ var init_session = __esm({
           void 0
         ).execute();
       }
-      async count(sql22) {
-        const res = await this.execute(sql22);
+      async count(sql2) {
+        const res = await this.execute(sql2);
         return Number(
           res[0][0]["count"]
         );
@@ -55857,10 +55864,10 @@ var init_regexes = __esm({
     duration = /^P(?:(\d+W)|(?!.*W)(?=\d|T\d)(\d+Y)?(\d+M)?(\d+D)?(T(?=\d)(\d+H)?(\d+M)?(\d+([.,]\d+)?S)?)?)$/;
     extendedDuration = /^[-+]?P(?!$)(?:(?:[-+]?\d+Y)|(?:[-+]?\d+[.,]\d+Y$))?(?:(?:[-+]?\d+M)|(?:[-+]?\d+[.,]\d+M$))?(?:(?:[-+]?\d+W)|(?:[-+]?\d+[.,]\d+W$))?(?:(?:[-+]?\d+D)|(?:[-+]?\d+[.,]\d+D$))?(?:T(?=[\d+-])(?:(?:[-+]?\d+H)|(?:[-+]?\d+[.,]\d+H$))?(?:(?:[-+]?\d+M)|(?:[-+]?\d+[.,]\d+M$))?(?:[-+]?\d+(?:[.,]\d+)?S)?)??$/;
     guid = /^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12})$/;
-    uuid = (version4) => {
-      if (!version4)
+    uuid = (version3) => {
+      if (!version3)
         return /^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000)$/;
-      return new RegExp(`^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-${version4}[0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12})$`);
+      return new RegExp(`^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-${version3}[0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12})$`);
     };
     uuid4 = /* @__PURE__ */ uuid(4);
     uuid6 = /* @__PURE__ */ uuid(6);
@@ -68360,31 +68367,31 @@ var require_semver = __commonJS({
     var parseOptions2 = require_parse_options();
     var { compareIdentifiers } = require_identifiers();
     var SemVer = class _SemVer {
-      constructor(version4, options) {
+      constructor(version3, options) {
         options = parseOptions2(options);
-        if (version4 instanceof _SemVer) {
-          if (version4.loose === !!options.loose && version4.includePrerelease === !!options.includePrerelease) {
-            return version4;
+        if (version3 instanceof _SemVer) {
+          if (version3.loose === !!options.loose && version3.includePrerelease === !!options.includePrerelease) {
+            return version3;
           } else {
-            version4 = version4.version;
+            version3 = version3.version;
           }
-        } else if (typeof version4 !== "string") {
-          throw new TypeError(`Invalid version. Must be a string. Got type "${typeof version4}".`);
+        } else if (typeof version3 !== "string") {
+          throw new TypeError(`Invalid version. Must be a string. Got type "${typeof version3}".`);
         }
-        if (version4.length > MAX_LENGTH) {
+        if (version3.length > MAX_LENGTH) {
           throw new TypeError(
             `version is longer than ${MAX_LENGTH} characters`
           );
         }
-        debug("SemVer", version4, options);
+        debug("SemVer", version3, options);
         this.options = options;
         this.loose = !!options.loose;
         this.includePrerelease = !!options.includePrerelease;
-        const m = version4.trim().match(options.loose ? re[t.LOOSE] : re[t.FULL]);
+        const m = version3.trim().match(options.loose ? re[t.LOOSE] : re[t.FULL]);
         if (!m) {
-          throw new TypeError(`Invalid Version: ${version4}`);
+          throw new TypeError(`Invalid Version: ${version3}`);
         }
-        this.raw = version4;
+        this.raw = version3;
         this.major = +m[1];
         this.minor = +m[2];
         this.patch = +m[3];
@@ -68634,12 +68641,12 @@ var require_parse2 = __commonJS({
   "../../node_modules/.pnpm/semver@7.7.4/node_modules/semver/functions/parse.js"(exports2, module2) {
     "use strict";
     var SemVer = require_semver();
-    var parse3 = (version4, options, throwErrors = false) => {
-      if (version4 instanceof SemVer) {
-        return version4;
+    var parse3 = (version3, options, throwErrors = false) => {
+      if (version3 instanceof SemVer) {
+        return version3;
       }
       try {
-        return new SemVer(version4, options);
+        return new SemVer(version3, options);
       } catch (er) {
         if (!throwErrors) {
           return null;
@@ -68656,8 +68663,8 @@ var require_valid = __commonJS({
   "../../node_modules/.pnpm/semver@7.7.4/node_modules/semver/functions/valid.js"(exports2, module2) {
     "use strict";
     var parse3 = require_parse2();
-    var valid = (version4, options) => {
-      const v = parse3(version4, options);
+    var valid = (version3, options) => {
+      const v = parse3(version3, options);
       return v ? v.version : null;
     };
     module2.exports = valid;
@@ -68669,8 +68676,8 @@ var require_clean = __commonJS({
   "../../node_modules/.pnpm/semver@7.7.4/node_modules/semver/functions/clean.js"(exports2, module2) {
     "use strict";
     var parse3 = require_parse2();
-    var clean = (version4, options) => {
-      const s = parse3(version4.trim().replace(/^[=v]+/, ""), options);
+    var clean = (version3, options) => {
+      const s = parse3(version3.trim().replace(/^[=v]+/, ""), options);
       return s ? s.version : null;
     };
     module2.exports = clean;
@@ -68682,7 +68689,7 @@ var require_inc = __commonJS({
   "../../node_modules/.pnpm/semver@7.7.4/node_modules/semver/functions/inc.js"(exports2, module2) {
     "use strict";
     var SemVer = require_semver();
-    var inc = (version4, release, options, identifier, identifierBase) => {
+    var inc = (version3, release, options, identifier, identifierBase) => {
       if (typeof options === "string") {
         identifierBase = identifier;
         identifier = options;
@@ -68690,7 +68697,7 @@ var require_inc = __commonJS({
       }
       try {
         return new SemVer(
-          version4 instanceof SemVer ? version4.version : version4,
+          version3 instanceof SemVer ? version3.version : version3,
           options
         ).inc(release, identifier, identifierBase).version;
       } catch (er) {
@@ -68780,8 +68787,8 @@ var require_prerelease = __commonJS({
   "../../node_modules/.pnpm/semver@7.7.4/node_modules/semver/functions/prerelease.js"(exports2, module2) {
     "use strict";
     var parse3 = require_parse2();
-    var prerelease = (version4, options) => {
-      const parsed = parse3(version4, options);
+    var prerelease = (version3, options) => {
+      const parsed = parse3(version3, options);
       return parsed && parsed.prerelease.length ? parsed.prerelease : null;
     };
     module2.exports = prerelease;
@@ -68867,8 +68874,8 @@ var require_lt = __commonJS({
   "../../node_modules/.pnpm/semver@7.7.4/node_modules/semver/functions/lt.js"(exports2, module2) {
     "use strict";
     var compare2 = require_compare();
-    var lt3 = (a, b, loose) => compare2(a, b, loose) < 0;
-    module2.exports = lt3;
+    var lt2 = (a, b, loose) => compare2(a, b, loose) < 0;
+    module2.exports = lt2;
   }
 });
 
@@ -68877,8 +68884,8 @@ var require_eq = __commonJS({
   "../../node_modules/.pnpm/semver@7.7.4/node_modules/semver/functions/eq.js"(exports2, module2) {
     "use strict";
     var compare2 = require_compare();
-    var eq3 = (a, b, loose) => compare2(a, b, loose) === 0;
-    module2.exports = eq3;
+    var eq2 = (a, b, loose) => compare2(a, b, loose) === 0;
+    module2.exports = eq2;
   }
 });
 
@@ -68897,8 +68904,8 @@ var require_gte = __commonJS({
   "../../node_modules/.pnpm/semver@7.7.4/node_modules/semver/functions/gte.js"(exports2, module2) {
     "use strict";
     var compare2 = require_compare();
-    var gte3 = (a, b, loose) => compare2(a, b, loose) >= 0;
-    module2.exports = gte3;
+    var gte2 = (a, b, loose) => compare2(a, b, loose) >= 0;
+    module2.exports = gte2;
   }
 });
 
@@ -68907,8 +68914,8 @@ var require_lte = __commonJS({
   "../../node_modules/.pnpm/semver@7.7.4/node_modules/semver/functions/lte.js"(exports2, module2) {
     "use strict";
     var compare2 = require_compare();
-    var lte3 = (a, b, loose) => compare2(a, b, loose) <= 0;
-    module2.exports = lte3;
+    var lte2 = (a, b, loose) => compare2(a, b, loose) <= 0;
+    module2.exports = lte2;
   }
 });
 
@@ -68916,12 +68923,12 @@ var require_lte = __commonJS({
 var require_cmp = __commonJS({
   "../../node_modules/.pnpm/semver@7.7.4/node_modules/semver/functions/cmp.js"(exports2, module2) {
     "use strict";
-    var eq3 = require_eq();
+    var eq2 = require_eq();
     var neq = require_neq();
     var gt2 = require_gt();
-    var gte3 = require_gte();
-    var lt3 = require_lt();
-    var lte3 = require_lte();
+    var gte2 = require_gte();
+    var lt2 = require_lt();
+    var lte2 = require_lte();
     var cmp = (a, op, b, loose) => {
       switch (op) {
         case "===":
@@ -68943,17 +68950,17 @@ var require_cmp = __commonJS({
         case "":
         case "=":
         case "==":
-          return eq3(a, b, loose);
+          return eq2(a, b, loose);
         case "!=":
           return neq(a, b, loose);
         case ">":
           return gt2(a, b, loose);
         case ">=":
-          return gte3(a, b, loose);
+          return gte2(a, b, loose);
         case "<":
-          return lt3(a, b, loose);
+          return lt2(a, b, loose);
         case "<=":
-          return lte3(a, b, loose);
+          return lte2(a, b, loose);
         default:
           throw new TypeError(`Invalid operator: ${op}`);
       }
@@ -68969,24 +68976,24 @@ var require_coerce = __commonJS({
     var SemVer = require_semver();
     var parse3 = require_parse2();
     var { safeRe: re, t } = require_re();
-    var coerce2 = (version4, options) => {
-      if (version4 instanceof SemVer) {
-        return version4;
+    var coerce2 = (version3, options) => {
+      if (version3 instanceof SemVer) {
+        return version3;
       }
-      if (typeof version4 === "number") {
-        version4 = String(version4);
+      if (typeof version3 === "number") {
+        version3 = String(version3);
       }
-      if (typeof version4 !== "string") {
+      if (typeof version3 !== "string") {
         return null;
       }
       options = options || {};
       let match = null;
       if (!options.rtl) {
-        match = version4.match(options.includePrerelease ? re[t.COERCEFULL] : re[t.COERCE]);
+        match = version3.match(options.includePrerelease ? re[t.COERCEFULL] : re[t.COERCE]);
       } else {
         const coerceRtlRegex = options.includePrerelease ? re[t.COERCERTLFULL] : re[t.COERCERTL];
         let next;
-        while ((next = coerceRtlRegex.exec(version4)) && (!match || match.index + match[0].length !== version4.length)) {
+        while ((next = coerceRtlRegex.exec(version3)) && (!match || match.index + match[0].length !== version3.length)) {
           if (!match || next.index + next[0].length !== match.index + match[0].length) {
             match = next;
           }
@@ -69170,19 +69177,19 @@ var require_range2 = __commonJS({
         });
       }
       // if ANY of the sets match ALL of its comparators, then pass
-      test(version4) {
-        if (!version4) {
+      test(version3) {
+        if (!version3) {
           return false;
         }
-        if (typeof version4 === "string") {
+        if (typeof version3 === "string") {
           try {
-            version4 = new SemVer(version4, this.options);
+            version3 = new SemVer(version3, this.options);
           } catch (er) {
             return false;
           }
         }
         for (let i = 0; i < this.set.length; i++) {
-          if (testSet(this.set[i], version4, this.options)) {
+          if (testSet(this.set[i], version3, this.options)) {
             return true;
           }
         }
@@ -69397,13 +69404,13 @@ var require_range2 = __commonJS({
       }
       return `${from} ${to}`.trim();
     };
-    var testSet = (set2, version4, options) => {
+    var testSet = (set2, version3, options) => {
       for (let i = 0; i < set2.length; i++) {
-        if (!set2[i].test(version4)) {
+        if (!set2[i].test(version3)) {
           return false;
         }
       }
-      if (version4.prerelease.length && !options.includePrerelease) {
+      if (version3.prerelease.length && !options.includePrerelease) {
         for (let i = 0; i < set2.length; i++) {
           debug(set2[i].semver);
           if (set2[i].semver === Comparator.ANY) {
@@ -69411,7 +69418,7 @@ var require_range2 = __commonJS({
           }
           if (set2[i].semver.prerelease.length > 0) {
             const allowed = set2[i].semver;
-            if (allowed.major === version4.major && allowed.minor === version4.minor && allowed.patch === version4.patch) {
+            if (allowed.major === version3.major && allowed.minor === version3.minor && allowed.patch === version3.patch) {
               return true;
             }
           }
@@ -69472,19 +69479,19 @@ var require_comparator = __commonJS({
       toString() {
         return this.value;
       }
-      test(version4) {
-        debug("Comparator.test", version4, this.options.loose);
-        if (this.semver === ANY || version4 === ANY) {
+      test(version3) {
+        debug("Comparator.test", version3, this.options.loose);
+        if (this.semver === ANY || version3 === ANY) {
           return true;
         }
-        if (typeof version4 === "string") {
+        if (typeof version3 === "string") {
           try {
-            version4 = new SemVer(version4, this.options);
+            version3 = new SemVer(version3, this.options);
           } catch (er) {
             return false;
           }
         }
-        return cmp(version4, this.operator, this.semver, this.options);
+        return cmp(version3, this.operator, this.semver, this.options);
       }
       intersects(comp, options) {
         if (!(comp instanceof _Comparator)) {
@@ -69541,13 +69548,13 @@ var require_satisfies = __commonJS({
   "../../node_modules/.pnpm/semver@7.7.4/node_modules/semver/functions/satisfies.js"(exports2, module2) {
     "use strict";
     var Range = require_range2();
-    var satisfies = (version4, range, options) => {
+    var satisfies = (version3, range, options) => {
       try {
         range = new Range(range, options);
       } catch (er) {
         return false;
       }
-      return range.test(version4);
+      return range.test(version3);
     };
     module2.exports = satisfies;
   }
@@ -69706,24 +69713,24 @@ var require_outside = __commonJS({
     var Range = require_range2();
     var satisfies = require_satisfies();
     var gt2 = require_gt();
-    var lt3 = require_lt();
-    var lte3 = require_lte();
-    var gte3 = require_gte();
-    var outside = (version4, range, hilo, options) => {
-      version4 = new SemVer(version4, options);
+    var lt2 = require_lt();
+    var lte2 = require_lte();
+    var gte2 = require_gte();
+    var outside = (version3, range, hilo, options) => {
+      version3 = new SemVer(version3, options);
       range = new Range(range, options);
       let gtfn, ltefn, ltfn, comp, ecomp;
       switch (hilo) {
         case ">":
           gtfn = gt2;
-          ltefn = lte3;
-          ltfn = lt3;
+          ltefn = lte2;
+          ltfn = lt2;
           comp = ">";
           ecomp = ">=";
           break;
         case "<":
-          gtfn = lt3;
-          ltefn = gte3;
+          gtfn = lt2;
+          ltefn = gte2;
           ltfn = gt2;
           comp = "<";
           ecomp = "<=";
@@ -69731,7 +69738,7 @@ var require_outside = __commonJS({
         default:
           throw new TypeError('Must provide a hilo val of "<" or ">"');
       }
-      if (satisfies(version4, range, options)) {
+      if (satisfies(version3, range, options)) {
         return false;
       }
       for (let i = 0; i < range.set.length; ++i) {
@@ -69753,9 +69760,9 @@ var require_outside = __commonJS({
         if (high.operator === comp || high.operator === ecomp) {
           return false;
         }
-        if ((!low.operator || low.operator === comp) && ltefn(version4, low.semver)) {
+        if ((!low.operator || low.operator === comp) && ltefn(version3, low.semver)) {
           return false;
-        } else if (low.operator === ecomp && ltfn(version4, low.semver)) {
+        } else if (low.operator === ecomp && ltfn(version3, low.semver)) {
           return false;
         }
       }
@@ -69770,7 +69777,7 @@ var require_gtr = __commonJS({
   "../../node_modules/.pnpm/semver@7.7.4/node_modules/semver/ranges/gtr.js"(exports2, module2) {
     "use strict";
     var outside = require_outside();
-    var gtr = (version4, range, options) => outside(version4, range, ">", options);
+    var gtr = (version3, range, options) => outside(version3, range, ">", options);
     module2.exports = gtr;
   }
 });
@@ -69780,7 +69787,7 @@ var require_ltr = __commonJS({
   "../../node_modules/.pnpm/semver@7.7.4/node_modules/semver/ranges/ltr.js"(exports2, module2) {
     "use strict";
     var outside = require_outside();
-    var ltr = (version4, range, options) => outside(version4, range, "<", options);
+    var ltr = (version3, range, options) => outside(version3, range, "<", options);
     module2.exports = ltr;
   }
 });
@@ -69810,12 +69817,12 @@ var require_simplify = __commonJS({
       let first = null;
       let prev = null;
       const v = versions.sort((a, b) => compare2(a, b, options));
-      for (const version4 of v) {
-        const included = satisfies(version4, range, options);
+      for (const version3 of v) {
+        const included = satisfies(version3, range, options);
         if (included) {
-          prev = version4;
+          prev = version3;
           if (!first) {
-            first = version4;
+            first = version3;
           }
         } else {
           if (prev) {
@@ -69902,12 +69909,12 @@ var require_subset = __commonJS({
         }
       }
       const eqSet = /* @__PURE__ */ new Set();
-      let gt2, lt3;
+      let gt2, lt2;
       for (const c of sub) {
         if (c.operator === ">" || c.operator === ">=") {
           gt2 = higherGT(gt2, c, options);
         } else if (c.operator === "<" || c.operator === "<=") {
-          lt3 = lowerLT(lt3, c, options);
+          lt2 = lowerLT(lt2, c, options);
         } else {
           eqSet.add(c.semver);
         }
@@ -69916,23 +69923,23 @@ var require_subset = __commonJS({
         return null;
       }
       let gtltComp;
-      if (gt2 && lt3) {
-        gtltComp = compare2(gt2.semver, lt3.semver, options);
+      if (gt2 && lt2) {
+        gtltComp = compare2(gt2.semver, lt2.semver, options);
         if (gtltComp > 0) {
           return null;
-        } else if (gtltComp === 0 && (gt2.operator !== ">=" || lt3.operator !== "<=")) {
+        } else if (gtltComp === 0 && (gt2.operator !== ">=" || lt2.operator !== "<=")) {
           return null;
         }
       }
-      for (const eq3 of eqSet) {
-        if (gt2 && !satisfies(eq3, String(gt2), options)) {
+      for (const eq2 of eqSet) {
+        if (gt2 && !satisfies(eq2, String(gt2), options)) {
           return null;
         }
-        if (lt3 && !satisfies(eq3, String(lt3), options)) {
+        if (lt2 && !satisfies(eq2, String(lt2), options)) {
           return null;
         }
         for (const c of dom) {
-          if (!satisfies(eq3, String(c), options)) {
+          if (!satisfies(eq2, String(c), options)) {
             return false;
           }
         }
@@ -69940,9 +69947,9 @@ var require_subset = __commonJS({
       }
       let higher, lower;
       let hasDomLT, hasDomGT;
-      let needDomLTPre = lt3 && !options.includePrerelease && lt3.semver.prerelease.length ? lt3.semver : false;
+      let needDomLTPre = lt2 && !options.includePrerelease && lt2.semver.prerelease.length ? lt2.semver : false;
       let needDomGTPre = gt2 && !options.includePrerelease && gt2.semver.prerelease.length ? gt2.semver : false;
-      if (needDomLTPre && needDomLTPre.prerelease.length === 1 && lt3.operator === "<" && needDomLTPre.prerelease[0] === 0) {
+      if (needDomLTPre && needDomLTPre.prerelease.length === 1 && lt2.operator === "<" && needDomLTPre.prerelease[0] === 0) {
         needDomLTPre = false;
       }
       for (const c of dom) {
@@ -69963,29 +69970,29 @@ var require_subset = __commonJS({
             return false;
           }
         }
-        if (lt3) {
+        if (lt2) {
           if (needDomLTPre) {
             if (c.semver.prerelease && c.semver.prerelease.length && c.semver.major === needDomLTPre.major && c.semver.minor === needDomLTPre.minor && c.semver.patch === needDomLTPre.patch) {
               needDomLTPre = false;
             }
           }
           if (c.operator === "<" || c.operator === "<=") {
-            lower = lowerLT(lt3, c, options);
-            if (lower === c && lower !== lt3) {
+            lower = lowerLT(lt2, c, options);
+            if (lower === c && lower !== lt2) {
               return false;
             }
-          } else if (lt3.operator === "<=" && !satisfies(lt3.semver, String(c), options)) {
+          } else if (lt2.operator === "<=" && !satisfies(lt2.semver, String(c), options)) {
             return false;
           }
         }
-        if (!c.operator && (lt3 || gt2) && gtltComp !== 0) {
+        if (!c.operator && (lt2 || gt2) && gtltComp !== 0) {
           return false;
         }
       }
-      if (gt2 && hasDomLT && !lt3 && gtltComp !== 0) {
+      if (gt2 && hasDomLT && !lt2 && gtltComp !== 0) {
         return false;
       }
-      if (lt3 && hasDomGT && !gt2 && gtltComp !== 0) {
+      if (lt2 && hasDomGT && !gt2 && gtltComp !== 0) {
         return false;
       }
       if (needDomGTPre || needDomLTPre) {
@@ -70035,11 +70042,11 @@ var require_semver2 = __commonJS({
     var sort = require_sort();
     var rsort = require_rsort();
     var gt2 = require_gt();
-    var lt3 = require_lt();
-    var eq3 = require_eq();
+    var lt2 = require_lt();
+    var eq2 = require_eq();
     var neq = require_neq();
-    var gte3 = require_gte();
-    var lte3 = require_lte();
+    var gte2 = require_gte();
+    var lte2 = require_lte();
     var cmp = require_cmp();
     var coerce2 = require_coerce();
     var Comparator = require_comparator();
@@ -70073,11 +70080,11 @@ var require_semver2 = __commonJS({
       sort,
       rsort,
       gt: gt2,
-      lt: lt3,
-      eq: eq3,
+      lt: lt2,
+      eq: eq2,
       neq,
-      gte: gte3,
-      lte: lte3,
+      gte: gte2,
+      lte: lte2,
       cmp,
       coerce: coerce2,
       Comparator,
@@ -71142,13 +71149,13 @@ var require_ipv4 = __commonJS({
     "use strict";
     var __createBinding = exports2 && exports2.__createBinding || (Object.create ? (function(o, m, k, k2) {
       if (k2 === void 0) k2 = k;
-      var desc3 = Object.getOwnPropertyDescriptor(m, k);
-      if (!desc3 || ("get" in desc3 ? !m.__esModule : desc3.writable || desc3.configurable)) {
-        desc3 = { enumerable: true, get: function() {
+      var desc2 = Object.getOwnPropertyDescriptor(m, k);
+      if (!desc2 || ("get" in desc2 ? !m.__esModule : desc2.writable || desc2.configurable)) {
+        desc2 = { enumerable: true, get: function() {
           return m[k];
         } };
       }
-      Object.defineProperty(o, k2, desc3);
+      Object.defineProperty(o, k2, desc2);
     }) : (function(o, m, k, k2) {
       if (k2 === void 0) k2 = k;
       o[k2] = m[k];
@@ -71571,13 +71578,13 @@ var require_regular_expressions = __commonJS({
     "use strict";
     var __createBinding = exports2 && exports2.__createBinding || (Object.create ? (function(o, m, k, k2) {
       if (k2 === void 0) k2 = k;
-      var desc3 = Object.getOwnPropertyDescriptor(m, k);
-      if (!desc3 || ("get" in desc3 ? !m.__esModule : desc3.writable || desc3.configurable)) {
-        desc3 = { enumerable: true, get: function() {
+      var desc2 = Object.getOwnPropertyDescriptor(m, k);
+      if (!desc2 || ("get" in desc2 ? !m.__esModule : desc2.writable || desc2.configurable)) {
+        desc2 = { enumerable: true, get: function() {
           return m[k];
         } };
       }
-      Object.defineProperty(o, k2, desc3);
+      Object.defineProperty(o, k2, desc2);
     }) : (function(o, m, k, k2) {
       if (k2 === void 0) k2 = k;
       o[k2] = m[k];
@@ -71663,13 +71670,13 @@ var require_ipv6 = __commonJS({
     "use strict";
     var __createBinding = exports2 && exports2.__createBinding || (Object.create ? (function(o, m, k, k2) {
       if (k2 === void 0) k2 = k;
-      var desc3 = Object.getOwnPropertyDescriptor(m, k);
-      if (!desc3 || ("get" in desc3 ? !m.__esModule : desc3.writable || desc3.configurable)) {
-        desc3 = { enumerable: true, get: function() {
+      var desc2 = Object.getOwnPropertyDescriptor(m, k);
+      if (!desc2 || ("get" in desc2 ? !m.__esModule : desc2.writable || desc2.configurable)) {
+        desc2 = { enumerable: true, get: function() {
           return m[k];
         } };
       }
-      Object.defineProperty(o, k2, desc3);
+      Object.defineProperty(o, k2, desc2);
     }) : (function(o, m, k, k2) {
       if (k2 === void 0) k2 = k;
       o[k2] = m[k];
@@ -72577,13 +72584,13 @@ var require_ip_address = __commonJS({
     "use strict";
     var __createBinding = exports2 && exports2.__createBinding || (Object.create ? (function(o, m, k, k2) {
       if (k2 === void 0) k2 = k;
-      var desc3 = Object.getOwnPropertyDescriptor(m, k);
-      if (!desc3 || ("get" in desc3 ? !m.__esModule : desc3.writable || desc3.configurable)) {
-        desc3 = { enumerable: true, get: function() {
+      var desc2 = Object.getOwnPropertyDescriptor(m, k);
+      if (!desc2 || ("get" in desc2 ? !m.__esModule : desc2.writable || desc2.configurable)) {
+        desc2 = { enumerable: true, get: function() {
           return m[k];
         } };
       }
-      Object.defineProperty(o, k2, desc3);
+      Object.defineProperty(o, k2, desc2);
     }) : (function(o, m, k, k2) {
       if (k2 === void 0) k2 = k;
       o[k2] = m[k];
@@ -73611,11 +73618,11 @@ function datetimeRegex(args) {
   regex = `${regex}(${opts.join("|")})`;
   return new RegExp(`^${regex}$`);
 }
-function isValidIP(ip, version4) {
-  if ((version4 === "v4" || !version4) && ipv4Regex.test(ip)) {
+function isValidIP(ip, version3) {
+  if ((version3 === "v4" || !version3) && ipv4Regex.test(ip)) {
     return true;
   }
-  if ((version4 === "v6" || !version4) && ipv6Regex.test(ip)) {
+  if ((version3 === "v6" || !version3) && ipv6Regex.test(ip)) {
     return true;
   }
   return false;
@@ -73642,11 +73649,11 @@ function isValidJWT(jwt3, alg) {
     return false;
   }
 }
-function isValidCidr(ip, version4) {
-  if ((version4 === "v4" || !version4) && ipv4CidrRegex.test(ip)) {
+function isValidCidr(ip, version3) {
+  if ((version3 === "v4" || !version3) && ipv4CidrRegex.test(ip)) {
     return true;
   }
-  if ((version4 === "v6" || !version4) && ipv6CidrRegex.test(ip)) {
+  if ((version3 === "v6" || !version3) && ipv6CidrRegex.test(ip)) {
     return true;
   }
   return false;
@@ -78970,1185 +78977,7 @@ async function pgQuery(text2, params = []) {
 
 // src/routes/auth.ts
 init_schema2();
-
-// ../../node_modules/.pnpm/drizzle-orm@0.45.1_@types+pg@8.18.0_pg@8.20.0/node_modules/drizzle-orm/entity.js
-var entityKind2 = /* @__PURE__ */ Symbol.for("drizzle:entityKind");
-function is2(value, type) {
-  if (!value || typeof value !== "object") {
-    return false;
-  }
-  if (value instanceof type) {
-    return true;
-  }
-  if (!Object.prototype.hasOwnProperty.call(type, entityKind2)) {
-    throw new Error(
-      `Class "${type.name ?? "<unknown>"}" doesn't look like a Drizzle entity. If this is incorrect and the class is provided by Drizzle, please report this as a bug.`
-    );
-  }
-  let cls = Object.getPrototypeOf(value).constructor;
-  if (cls) {
-    while (cls) {
-      if (entityKind2 in cls && cls[entityKind2] === type[entityKind2]) {
-        return true;
-      }
-      cls = Object.getPrototypeOf(cls);
-    }
-  }
-  return false;
-}
-
-// ../../node_modules/.pnpm/drizzle-orm@0.45.1_@types+pg@8.18.0_pg@8.20.0/node_modules/drizzle-orm/column.js
-var Column2 = class {
-  constructor(table, config2) {
-    this.table = table;
-    this.config = config2;
-    this.name = config2.name;
-    this.keyAsName = config2.keyAsName;
-    this.notNull = config2.notNull;
-    this.default = config2.default;
-    this.defaultFn = config2.defaultFn;
-    this.onUpdateFn = config2.onUpdateFn;
-    this.hasDefault = config2.hasDefault;
-    this.primary = config2.primaryKey;
-    this.isUnique = config2.isUnique;
-    this.uniqueName = config2.uniqueName;
-    this.uniqueType = config2.uniqueType;
-    this.dataType = config2.dataType;
-    this.columnType = config2.columnType;
-    this.generated = config2.generated;
-    this.generatedIdentity = config2.generatedIdentity;
-  }
-  static [entityKind2] = "Column";
-  name;
-  keyAsName;
-  primary;
-  notNull;
-  default;
-  defaultFn;
-  onUpdateFn;
-  hasDefault;
-  isUnique;
-  uniqueName;
-  uniqueType;
-  dataType;
-  columnType;
-  enumValues = void 0;
-  generated = void 0;
-  generatedIdentity = void 0;
-  config;
-  mapFromDriverValue(value) {
-    return value;
-  }
-  mapToDriverValue(value) {
-    return value;
-  }
-  // ** @internal */
-  shouldDisableInsert() {
-    return this.config.generated !== void 0 && this.config.generated.type !== "byDefault";
-  }
-};
-
-// ../../node_modules/.pnpm/drizzle-orm@0.45.1_@types+pg@8.18.0_pg@8.20.0/node_modules/drizzle-orm/column-builder.js
-var ColumnBuilder2 = class {
-  static [entityKind2] = "ColumnBuilder";
-  config;
-  constructor(name, dataType, columnType) {
-    this.config = {
-      name,
-      keyAsName: name === "",
-      notNull: false,
-      default: void 0,
-      hasDefault: false,
-      primaryKey: false,
-      isUnique: false,
-      uniqueName: void 0,
-      uniqueType: void 0,
-      dataType,
-      columnType,
-      generated: void 0
-    };
-  }
-  /**
-   * Changes the data type of the column. Commonly used with `json` columns. Also, useful for branded types.
-   *
-   * @example
-   * ```ts
-   * const users = pgTable('users', {
-   * 	id: integer('id').$type<UserId>().primaryKey(),
-   * 	details: json('details').$type<UserDetails>().notNull(),
-   * });
-   * ```
-   */
-  $type() {
-    return this;
-  }
-  /**
-   * Adds a `not null` clause to the column definition.
-   *
-   * Affects the `select` model of the table - columns *without* `not null` will be nullable on select.
-   */
-  notNull() {
-    this.config.notNull = true;
-    return this;
-  }
-  /**
-   * Adds a `default <value>` clause to the column definition.
-   *
-   * Affects the `insert` model of the table - columns *with* `default` are optional on insert.
-   *
-   * If you need to set a dynamic default value, use {@link $defaultFn} instead.
-   */
-  default(value) {
-    this.config.default = value;
-    this.config.hasDefault = true;
-    return this;
-  }
-  /**
-   * Adds a dynamic default value to the column.
-   * The function will be called when the row is inserted, and the returned value will be used as the column value.
-   *
-   * **Note:** This value does not affect the `drizzle-kit` behavior, it is only used at runtime in `drizzle-orm`.
-   */
-  $defaultFn(fn) {
-    this.config.defaultFn = fn;
-    this.config.hasDefault = true;
-    return this;
-  }
-  /**
-   * Alias for {@link $defaultFn}.
-   */
-  $default = this.$defaultFn;
-  /**
-   * Adds a dynamic update value to the column.
-   * The function will be called when the row is updated, and the returned value will be used as the column value if none is provided.
-   * If no `default` (or `$defaultFn`) value is provided, the function will be called when the row is inserted as well, and the returned value will be used as the column value.
-   *
-   * **Note:** This value does not affect the `drizzle-kit` behavior, it is only used at runtime in `drizzle-orm`.
-   */
-  $onUpdateFn(fn) {
-    this.config.onUpdateFn = fn;
-    this.config.hasDefault = true;
-    return this;
-  }
-  /**
-   * Alias for {@link $onUpdateFn}.
-   */
-  $onUpdate = this.$onUpdateFn;
-  /**
-   * Adds a `primary key` clause to the column definition. This implicitly makes the column `not null`.
-   *
-   * In SQLite, `integer primary key` implicitly makes the column auto-incrementing.
-   */
-  primaryKey() {
-    this.config.primaryKey = true;
-    this.config.notNull = true;
-    return this;
-  }
-  /** @internal Sets the name of the column to the key within the table definition if a name was not given. */
-  setName(name) {
-    if (this.config.name !== "") return;
-    this.config.name = name;
-  }
-};
-
-// ../../node_modules/.pnpm/drizzle-orm@0.45.1_@types+pg@8.18.0_pg@8.20.0/node_modules/drizzle-orm/table.utils.js
-var TableName2 = /* @__PURE__ */ Symbol.for("drizzle:Name");
-
-// ../../node_modules/.pnpm/drizzle-orm@0.45.1_@types+pg@8.18.0_pg@8.20.0/node_modules/drizzle-orm/pg-core/foreign-keys.js
-var ForeignKeyBuilder3 = class {
-  static [entityKind2] = "PgForeignKeyBuilder";
-  /** @internal */
-  reference;
-  /** @internal */
-  _onUpdate = "no action";
-  /** @internal */
-  _onDelete = "no action";
-  constructor(config2, actions) {
-    this.reference = () => {
-      const { name, columns, foreignColumns } = config2();
-      return { name, columns, foreignTable: foreignColumns[0].table, foreignColumns };
-    };
-    if (actions) {
-      this._onUpdate = actions.onUpdate;
-      this._onDelete = actions.onDelete;
-    }
-  }
-  onUpdate(action) {
-    this._onUpdate = action === void 0 ? "no action" : action;
-    return this;
-  }
-  onDelete(action) {
-    this._onDelete = action === void 0 ? "no action" : action;
-    return this;
-  }
-  /** @internal */
-  build(table) {
-    return new ForeignKey3(table, this);
-  }
-};
-var ForeignKey3 = class {
-  constructor(table, builder) {
-    this.table = table;
-    this.reference = builder.reference;
-    this.onUpdate = builder._onUpdate;
-    this.onDelete = builder._onDelete;
-  }
-  static [entityKind2] = "PgForeignKey";
-  reference;
-  onUpdate;
-  onDelete;
-  getName() {
-    const { name, columns, foreignColumns } = this.reference();
-    const columnNames = columns.map((column) => column.name);
-    const foreignColumnNames = foreignColumns.map((column) => column.name);
-    const chunks = [
-      this.table[TableName2],
-      ...columnNames,
-      foreignColumns[0].table[TableName2],
-      ...foreignColumnNames
-    ];
-    return name ?? `${chunks.join("_")}_fk`;
-  }
-};
-
-// ../../node_modules/.pnpm/drizzle-orm@0.45.1_@types+pg@8.18.0_pg@8.20.0/node_modules/drizzle-orm/tracing-utils.js
-function iife2(fn, ...args) {
-  return fn(...args);
-}
-
-// ../../node_modules/.pnpm/drizzle-orm@0.45.1_@types+pg@8.18.0_pg@8.20.0/node_modules/drizzle-orm/pg-core/unique-constraint.js
-function uniqueKeyName3(table, columns) {
-  return `${table[TableName2]}_${columns.join("_")}_unique`;
-}
-var UniqueConstraintBuilder3 = class {
-  constructor(columns, name) {
-    this.name = name;
-    this.columns = columns;
-  }
-  static [entityKind2] = "PgUniqueConstraintBuilder";
-  /** @internal */
-  columns;
-  /** @internal */
-  nullsNotDistinctConfig = false;
-  nullsNotDistinct() {
-    this.nullsNotDistinctConfig = true;
-    return this;
-  }
-  /** @internal */
-  build(table) {
-    return new UniqueConstraint3(table, this.columns, this.nullsNotDistinctConfig, this.name);
-  }
-};
-var UniqueOnConstraintBuilder3 = class {
-  static [entityKind2] = "PgUniqueOnConstraintBuilder";
-  /** @internal */
-  name;
-  constructor(name) {
-    this.name = name;
-  }
-  on(...columns) {
-    return new UniqueConstraintBuilder3(columns, this.name);
-  }
-};
-var UniqueConstraint3 = class {
-  constructor(table, columns, nullsNotDistinct, name) {
-    this.table = table;
-    this.columns = columns;
-    this.name = name ?? uniqueKeyName3(this.table, this.columns.map((column) => column.name));
-    this.nullsNotDistinct = nullsNotDistinct;
-  }
-  static [entityKind2] = "PgUniqueConstraint";
-  columns;
-  name;
-  nullsNotDistinct = false;
-  getName() {
-    return this.name;
-  }
-};
-
-// ../../node_modules/.pnpm/drizzle-orm@0.45.1_@types+pg@8.18.0_pg@8.20.0/node_modules/drizzle-orm/pg-core/utils/array.js
-function parsePgArrayValue2(arrayString, startFrom, inQuotes) {
-  for (let i = startFrom; i < arrayString.length; i++) {
-    const char2 = arrayString[i];
-    if (char2 === "\\") {
-      i++;
-      continue;
-    }
-    if (char2 === '"') {
-      return [arrayString.slice(startFrom, i).replace(/\\/g, ""), i + 1];
-    }
-    if (inQuotes) {
-      continue;
-    }
-    if (char2 === "," || char2 === "}") {
-      return [arrayString.slice(startFrom, i).replace(/\\/g, ""), i];
-    }
-  }
-  return [arrayString.slice(startFrom).replace(/\\/g, ""), arrayString.length];
-}
-function parsePgNestedArray2(arrayString, startFrom = 0) {
-  const result = [];
-  let i = startFrom;
-  let lastCharIsComma = false;
-  while (i < arrayString.length) {
-    const char2 = arrayString[i];
-    if (char2 === ",") {
-      if (lastCharIsComma || i === startFrom) {
-        result.push("");
-      }
-      lastCharIsComma = true;
-      i++;
-      continue;
-    }
-    lastCharIsComma = false;
-    if (char2 === "\\") {
-      i += 2;
-      continue;
-    }
-    if (char2 === '"') {
-      const [value2, startFrom2] = parsePgArrayValue2(arrayString, i + 1, true);
-      result.push(value2);
-      i = startFrom2;
-      continue;
-    }
-    if (char2 === "}") {
-      return [result, i + 1];
-    }
-    if (char2 === "{") {
-      const [value2, startFrom2] = parsePgNestedArray2(arrayString, i + 1);
-      result.push(value2);
-      i = startFrom2;
-      continue;
-    }
-    const [value, newStartFrom] = parsePgArrayValue2(arrayString, i, false);
-    result.push(value);
-    i = newStartFrom;
-  }
-  return [result, i];
-}
-function parsePgArray2(arrayString) {
-  const [result] = parsePgNestedArray2(arrayString, 1);
-  return result;
-}
-function makePgArray2(array2) {
-  return `{${array2.map((item) => {
-    if (Array.isArray(item)) {
-      return makePgArray2(item);
-    }
-    if (typeof item === "string") {
-      return `"${item.replace(/\\/g, "\\\\").replace(/"/g, '\\"')}"`;
-    }
-    return `${item}`;
-  }).join(",")}}`;
-}
-
-// ../../node_modules/.pnpm/drizzle-orm@0.45.1_@types+pg@8.18.0_pg@8.20.0/node_modules/drizzle-orm/pg-core/columns/common.js
-var PgColumnBuilder2 = class extends ColumnBuilder2 {
-  foreignKeyConfigs = [];
-  static [entityKind2] = "PgColumnBuilder";
-  array(size) {
-    return new PgArrayBuilder2(this.config.name, this, size);
-  }
-  references(ref, actions = {}) {
-    this.foreignKeyConfigs.push({ ref, actions });
-    return this;
-  }
-  unique(name, config2) {
-    this.config.isUnique = true;
-    this.config.uniqueName = name;
-    this.config.uniqueType = config2?.nulls;
-    return this;
-  }
-  generatedAlwaysAs(as) {
-    this.config.generated = {
-      as,
-      type: "always",
-      mode: "stored"
-    };
-    return this;
-  }
-  /** @internal */
-  buildForeignKeys(column, table) {
-    return this.foreignKeyConfigs.map(({ ref, actions }) => {
-      return iife2(
-        (ref2, actions2) => {
-          const builder = new ForeignKeyBuilder3(() => {
-            const foreignColumn = ref2();
-            return { columns: [column], foreignColumns: [foreignColumn] };
-          });
-          if (actions2.onUpdate) {
-            builder.onUpdate(actions2.onUpdate);
-          }
-          if (actions2.onDelete) {
-            builder.onDelete(actions2.onDelete);
-          }
-          return builder.build(table);
-        },
-        ref,
-        actions
-      );
-    });
-  }
-  /** @internal */
-  buildExtraConfigColumn(table) {
-    return new ExtraConfigColumn2(table, this.config);
-  }
-};
-var PgColumn2 = class extends Column2 {
-  constructor(table, config2) {
-    if (!config2.uniqueName) {
-      config2.uniqueName = uniqueKeyName3(table, [config2.name]);
-    }
-    super(table, config2);
-    this.table = table;
-  }
-  static [entityKind2] = "PgColumn";
-};
-var ExtraConfigColumn2 = class extends PgColumn2 {
-  static [entityKind2] = "ExtraConfigColumn";
-  getSQLType() {
-    return this.getSQLType();
-  }
-  indexConfig = {
-    order: this.config.order ?? "asc",
-    nulls: this.config.nulls ?? "last",
-    opClass: this.config.opClass
-  };
-  defaultConfig = {
-    order: "asc",
-    nulls: "last",
-    opClass: void 0
-  };
-  asc() {
-    this.indexConfig.order = "asc";
-    return this;
-  }
-  desc() {
-    this.indexConfig.order = "desc";
-    return this;
-  }
-  nullsFirst() {
-    this.indexConfig.nulls = "first";
-    return this;
-  }
-  nullsLast() {
-    this.indexConfig.nulls = "last";
-    return this;
-  }
-  /**
-   * ### PostgreSQL documentation quote
-   *
-   * > An operator class with optional parameters can be specified for each column of an index.
-   * The operator class identifies the operators to be used by the index for that column.
-   * For example, a B-tree index on four-byte integers would use the int4_ops class;
-   * this operator class includes comparison functions for four-byte integers.
-   * In practice the default operator class for the column's data type is usually sufficient.
-   * The main point of having operator classes is that for some data types, there could be more than one meaningful ordering.
-   * For example, we might want to sort a complex-number data type either by absolute value or by real part.
-   * We could do this by defining two operator classes for the data type and then selecting the proper class when creating an index.
-   * More information about operator classes check:
-   *
-   * ### Useful links
-   * https://www.postgresql.org/docs/current/sql-createindex.html
-   *
-   * https://www.postgresql.org/docs/current/indexes-opclass.html
-   *
-   * https://www.postgresql.org/docs/current/xindex.html
-   *
-   * ### Additional types
-   * If you have the `pg_vector` extension installed in your database, you can use the
-   * `vector_l2_ops`, `vector_ip_ops`, `vector_cosine_ops`, `vector_l1_ops`, `bit_hamming_ops`, `bit_jaccard_ops`, `halfvec_l2_ops`, `sparsevec_l2_ops` options, which are predefined types.
-   *
-   * **You can always specify any string you want in the operator class, in case Drizzle doesn't have it natively in its types**
-   *
-   * @param opClass
-   * @returns
-   */
-  op(opClass) {
-    this.indexConfig.opClass = opClass;
-    return this;
-  }
-};
-var IndexedColumn2 = class {
-  static [entityKind2] = "IndexedColumn";
-  constructor(name, keyAsName, type, indexConfig) {
-    this.name = name;
-    this.keyAsName = keyAsName;
-    this.type = type;
-    this.indexConfig = indexConfig;
-  }
-  name;
-  keyAsName;
-  type;
-  indexConfig;
-};
-var PgArrayBuilder2 = class extends PgColumnBuilder2 {
-  static [entityKind2] = "PgArrayBuilder";
-  constructor(name, baseBuilder, size) {
-    super(name, "array", "PgArray");
-    this.config.baseBuilder = baseBuilder;
-    this.config.size = size;
-  }
-  /** @internal */
-  build(table) {
-    const baseColumn = this.config.baseBuilder.build(table);
-    return new PgArray2(
-      table,
-      this.config,
-      baseColumn
-    );
-  }
-};
-var PgArray2 = class _PgArray extends PgColumn2 {
-  constructor(table, config2, baseColumn, range) {
-    super(table, config2);
-    this.baseColumn = baseColumn;
-    this.range = range;
-    this.size = config2.size;
-  }
-  size;
-  static [entityKind2] = "PgArray";
-  getSQLType() {
-    return `${this.baseColumn.getSQLType()}[${typeof this.size === "number" ? this.size : ""}]`;
-  }
-  mapFromDriverValue(value) {
-    if (typeof value === "string") {
-      value = parsePgArray2(value);
-    }
-    return value.map((v) => this.baseColumn.mapFromDriverValue(v));
-  }
-  mapToDriverValue(value, isNestedArray = false) {
-    const a = value.map(
-      (v) => v === null ? null : is2(this.baseColumn, _PgArray) ? this.baseColumn.mapToDriverValue(v, true) : this.baseColumn.mapToDriverValue(v)
-    );
-    if (isNestedArray) return a;
-    return makePgArray2(a);
-  }
-};
-
-// ../../node_modules/.pnpm/drizzle-orm@0.45.1_@types+pg@8.18.0_pg@8.20.0/node_modules/drizzle-orm/pg-core/columns/enum.js
-var PgEnumObjectColumnBuilder2 = class extends PgColumnBuilder2 {
-  static [entityKind2] = "PgEnumObjectColumnBuilder";
-  constructor(name, enumInstance) {
-    super(name, "string", "PgEnumObjectColumn");
-    this.config.enum = enumInstance;
-  }
-  /** @internal */
-  build(table) {
-    return new PgEnumObjectColumn2(
-      table,
-      this.config
-    );
-  }
-};
-var PgEnumObjectColumn2 = class extends PgColumn2 {
-  static [entityKind2] = "PgEnumObjectColumn";
-  enum;
-  enumValues = this.config.enum.enumValues;
-  constructor(table, config2) {
-    super(table, config2);
-    this.enum = config2.enum;
-  }
-  getSQLType() {
-    return this.enum.enumName;
-  }
-};
-var isPgEnumSym2 = /* @__PURE__ */ Symbol.for("drizzle:isPgEnum");
-function isPgEnum2(obj) {
-  return !!obj && typeof obj === "function" && isPgEnumSym2 in obj && obj[isPgEnumSym2] === true;
-}
-var PgEnumColumnBuilder2 = class extends PgColumnBuilder2 {
-  static [entityKind2] = "PgEnumColumnBuilder";
-  constructor(name, enumInstance) {
-    super(name, "string", "PgEnumColumn");
-    this.config.enum = enumInstance;
-  }
-  /** @internal */
-  build(table) {
-    return new PgEnumColumn2(
-      table,
-      this.config
-    );
-  }
-};
-var PgEnumColumn2 = class extends PgColumn2 {
-  static [entityKind2] = "PgEnumColumn";
-  enum = this.config.enum;
-  enumValues = this.config.enum.enumValues;
-  constructor(table, config2) {
-    super(table, config2);
-    this.enum = config2.enum;
-  }
-  getSQLType() {
-    return this.enum.enumName;
-  }
-};
-
-// ../../node_modules/.pnpm/drizzle-orm@0.45.1_@types+pg@8.18.0_pg@8.20.0/node_modules/drizzle-orm/subquery.js
-var Subquery2 = class {
-  static [entityKind2] = "Subquery";
-  constructor(sql3, fields, alias, isWith = false, usedTables = []) {
-    this._ = {
-      brand: "Subquery",
-      sql: sql3,
-      selectedFields: fields,
-      alias,
-      isWith,
-      usedTables
-    };
-  }
-  // getSQL(): SQL<unknown> {
-  // 	return new SQL([this]);
-  // }
-};
-var WithSubquery2 = class extends Subquery2 {
-  static [entityKind2] = "WithSubquery";
-};
-
-// ../../node_modules/.pnpm/drizzle-orm@0.45.1_@types+pg@8.18.0_pg@8.20.0/node_modules/drizzle-orm/version.js
-var version3 = "0.45.1";
-
-// ../../node_modules/.pnpm/drizzle-orm@0.45.1_@types+pg@8.18.0_pg@8.20.0/node_modules/drizzle-orm/tracing.js
-var otel2;
-var rawTracer2;
-var tracer2 = {
-  startActiveSpan(name, fn) {
-    if (!otel2) {
-      return fn();
-    }
-    if (!rawTracer2) {
-      rawTracer2 = otel2.trace.getTracer("drizzle-orm", version3);
-    }
-    return iife2(
-      (otel22, rawTracer22) => rawTracer22.startActiveSpan(
-        name,
-        (span) => {
-          try {
-            return fn(span);
-          } catch (e) {
-            span.setStatus({
-              code: otel22.SpanStatusCode.ERROR,
-              message: e instanceof Error ? e.message : "Unknown error"
-              // eslint-disable-line no-instanceof/no-instanceof
-            });
-            throw e;
-          } finally {
-            span.end();
-          }
-        }
-      ),
-      otel2,
-      rawTracer2
-    );
-  }
-};
-
-// ../../node_modules/.pnpm/drizzle-orm@0.45.1_@types+pg@8.18.0_pg@8.20.0/node_modules/drizzle-orm/view-common.js
-var ViewBaseConfig2 = /* @__PURE__ */ Symbol.for("drizzle:ViewBaseConfig");
-
-// ../../node_modules/.pnpm/drizzle-orm@0.45.1_@types+pg@8.18.0_pg@8.20.0/node_modules/drizzle-orm/table.js
-var Schema2 = /* @__PURE__ */ Symbol.for("drizzle:Schema");
-var Columns2 = /* @__PURE__ */ Symbol.for("drizzle:Columns");
-var ExtraConfigColumns2 = /* @__PURE__ */ Symbol.for("drizzle:ExtraConfigColumns");
-var OriginalName2 = /* @__PURE__ */ Symbol.for("drizzle:OriginalName");
-var BaseName2 = /* @__PURE__ */ Symbol.for("drizzle:BaseName");
-var IsAlias2 = /* @__PURE__ */ Symbol.for("drizzle:IsAlias");
-var ExtraConfigBuilder2 = /* @__PURE__ */ Symbol.for("drizzle:ExtraConfigBuilder");
-var IsDrizzleTable2 = /* @__PURE__ */ Symbol.for("drizzle:IsDrizzleTable");
-var Table2 = class {
-  static [entityKind2] = "Table";
-  /** @internal */
-  static Symbol = {
-    Name: TableName2,
-    Schema: Schema2,
-    OriginalName: OriginalName2,
-    Columns: Columns2,
-    ExtraConfigColumns: ExtraConfigColumns2,
-    BaseName: BaseName2,
-    IsAlias: IsAlias2,
-    ExtraConfigBuilder: ExtraConfigBuilder2
-  };
-  /**
-   * @internal
-   * Can be changed if the table is aliased.
-   */
-  [TableName2];
-  /**
-   * @internal
-   * Used to store the original name of the table, before any aliasing.
-   */
-  [OriginalName2];
-  /** @internal */
-  [Schema2];
-  /** @internal */
-  [Columns2];
-  /** @internal */
-  [ExtraConfigColumns2];
-  /**
-   *  @internal
-   * Used to store the table name before the transformation via the `tableCreator` functions.
-   */
-  [BaseName2];
-  /** @internal */
-  [IsAlias2] = false;
-  /** @internal */
-  [IsDrizzleTable2] = true;
-  /** @internal */
-  [ExtraConfigBuilder2] = void 0;
-  constructor(name, schema, baseName) {
-    this[TableName2] = this[OriginalName2] = name;
-    this[Schema2] = schema;
-    this[BaseName2] = baseName;
-  }
-};
-
-// ../../node_modules/.pnpm/drizzle-orm@0.45.1_@types+pg@8.18.0_pg@8.20.0/node_modules/drizzle-orm/sql/sql.js
-var FakePrimitiveParam2 = class {
-  static [entityKind2] = "FakePrimitiveParam";
-};
-function isSQLWrapper2(value) {
-  return value !== null && value !== void 0 && typeof value.getSQL === "function";
-}
-function mergeQueries2(queries) {
-  const result = { sql: "", params: [] };
-  for (const query of queries) {
-    result.sql += query.sql;
-    result.params.push(...query.params);
-    if (query.typings?.length) {
-      if (!result.typings) {
-        result.typings = [];
-      }
-      result.typings.push(...query.typings);
-    }
-  }
-  return result;
-}
-var StringChunk2 = class {
-  static [entityKind2] = "StringChunk";
-  value;
-  constructor(value) {
-    this.value = Array.isArray(value) ? value : [value];
-  }
-  getSQL() {
-    return new SQL2([this]);
-  }
-};
-var SQL2 = class _SQL {
-  constructor(queryChunks) {
-    this.queryChunks = queryChunks;
-    for (const chunk of queryChunks) {
-      if (is2(chunk, Table2)) {
-        const schemaName = chunk[Table2.Symbol.Schema];
-        this.usedTables.push(
-          schemaName === void 0 ? chunk[Table2.Symbol.Name] : schemaName + "." + chunk[Table2.Symbol.Name]
-        );
-      }
-    }
-  }
-  static [entityKind2] = "SQL";
-  /** @internal */
-  decoder = noopDecoder2;
-  shouldInlineParams = false;
-  /** @internal */
-  usedTables = [];
-  append(query) {
-    this.queryChunks.push(...query.queryChunks);
-    return this;
-  }
-  toQuery(config2) {
-    return tracer2.startActiveSpan("drizzle.buildSQL", (span) => {
-      const query = this.buildQueryFromSourceParams(this.queryChunks, config2);
-      span?.setAttributes({
-        "drizzle.query.text": query.sql,
-        "drizzle.query.params": JSON.stringify(query.params)
-      });
-      return query;
-    });
-  }
-  buildQueryFromSourceParams(chunks, _config) {
-    const config2 = Object.assign({}, _config, {
-      inlineParams: _config.inlineParams || this.shouldInlineParams,
-      paramStartIndex: _config.paramStartIndex || { value: 0 }
-    });
-    const {
-      casing,
-      escapeName,
-      escapeParam,
-      prepareTyping,
-      inlineParams,
-      paramStartIndex
-    } = config2;
-    return mergeQueries2(chunks.map((chunk) => {
-      if (is2(chunk, StringChunk2)) {
-        return { sql: chunk.value.join(""), params: [] };
-      }
-      if (is2(chunk, Name2)) {
-        return { sql: escapeName(chunk.value), params: [] };
-      }
-      if (chunk === void 0) {
-        return { sql: "", params: [] };
-      }
-      if (Array.isArray(chunk)) {
-        const result = [new StringChunk2("(")];
-        for (const [i, p] of chunk.entries()) {
-          result.push(p);
-          if (i < chunk.length - 1) {
-            result.push(new StringChunk2(", "));
-          }
-        }
-        result.push(new StringChunk2(")"));
-        return this.buildQueryFromSourceParams(result, config2);
-      }
-      if (is2(chunk, _SQL)) {
-        return this.buildQueryFromSourceParams(chunk.queryChunks, {
-          ...config2,
-          inlineParams: inlineParams || chunk.shouldInlineParams
-        });
-      }
-      if (is2(chunk, Table2)) {
-        const schemaName = chunk[Table2.Symbol.Schema];
-        const tableName = chunk[Table2.Symbol.Name];
-        return {
-          sql: schemaName === void 0 || chunk[IsAlias2] ? escapeName(tableName) : escapeName(schemaName) + "." + escapeName(tableName),
-          params: []
-        };
-      }
-      if (is2(chunk, Column2)) {
-        const columnName = casing.getColumnCasing(chunk);
-        if (_config.invokeSource === "indexes") {
-          return { sql: escapeName(columnName), params: [] };
-        }
-        const schemaName = chunk.table[Table2.Symbol.Schema];
-        return {
-          sql: chunk.table[IsAlias2] || schemaName === void 0 ? escapeName(chunk.table[Table2.Symbol.Name]) + "." + escapeName(columnName) : escapeName(schemaName) + "." + escapeName(chunk.table[Table2.Symbol.Name]) + "." + escapeName(columnName),
-          params: []
-        };
-      }
-      if (is2(chunk, View2)) {
-        const schemaName = chunk[ViewBaseConfig2].schema;
-        const viewName = chunk[ViewBaseConfig2].name;
-        return {
-          sql: schemaName === void 0 || chunk[ViewBaseConfig2].isAlias ? escapeName(viewName) : escapeName(schemaName) + "." + escapeName(viewName),
-          params: []
-        };
-      }
-      if (is2(chunk, Param2)) {
-        if (is2(chunk.value, Placeholder2)) {
-          return { sql: escapeParam(paramStartIndex.value++, chunk), params: [chunk], typings: ["none"] };
-        }
-        const mappedValue = chunk.value === null ? null : chunk.encoder.mapToDriverValue(chunk.value);
-        if (is2(mappedValue, _SQL)) {
-          return this.buildQueryFromSourceParams([mappedValue], config2);
-        }
-        if (inlineParams) {
-          return { sql: this.mapInlineParam(mappedValue, config2), params: [] };
-        }
-        let typings = ["none"];
-        if (prepareTyping) {
-          typings = [prepareTyping(chunk.encoder)];
-        }
-        return { sql: escapeParam(paramStartIndex.value++, mappedValue), params: [mappedValue], typings };
-      }
-      if (is2(chunk, Placeholder2)) {
-        return { sql: escapeParam(paramStartIndex.value++, chunk), params: [chunk], typings: ["none"] };
-      }
-      if (is2(chunk, _SQL.Aliased) && chunk.fieldAlias !== void 0) {
-        return { sql: escapeName(chunk.fieldAlias), params: [] };
-      }
-      if (is2(chunk, Subquery2)) {
-        if (chunk._.isWith) {
-          return { sql: escapeName(chunk._.alias), params: [] };
-        }
-        return this.buildQueryFromSourceParams([
-          new StringChunk2("("),
-          chunk._.sql,
-          new StringChunk2(") "),
-          new Name2(chunk._.alias)
-        ], config2);
-      }
-      if (isPgEnum2(chunk)) {
-        if (chunk.schema) {
-          return { sql: escapeName(chunk.schema) + "." + escapeName(chunk.enumName), params: [] };
-        }
-        return { sql: escapeName(chunk.enumName), params: [] };
-      }
-      if (isSQLWrapper2(chunk)) {
-        if (chunk.shouldOmitSQLParens?.()) {
-          return this.buildQueryFromSourceParams([chunk.getSQL()], config2);
-        }
-        return this.buildQueryFromSourceParams([
-          new StringChunk2("("),
-          chunk.getSQL(),
-          new StringChunk2(")")
-        ], config2);
-      }
-      if (inlineParams) {
-        return { sql: this.mapInlineParam(chunk, config2), params: [] };
-      }
-      return { sql: escapeParam(paramStartIndex.value++, chunk), params: [chunk], typings: ["none"] };
-    }));
-  }
-  mapInlineParam(chunk, { escapeString }) {
-    if (chunk === null) {
-      return "null";
-    }
-    if (typeof chunk === "number" || typeof chunk === "boolean") {
-      return chunk.toString();
-    }
-    if (typeof chunk === "string") {
-      return escapeString(chunk);
-    }
-    if (typeof chunk === "object") {
-      const mappedValueAsString = chunk.toString();
-      if (mappedValueAsString === "[object Object]") {
-        return escapeString(JSON.stringify(chunk));
-      }
-      return escapeString(mappedValueAsString);
-    }
-    throw new Error("Unexpected param value: " + chunk);
-  }
-  getSQL() {
-    return this;
-  }
-  as(alias) {
-    if (alias === void 0) {
-      return this;
-    }
-    return new _SQL.Aliased(this, alias);
-  }
-  mapWith(decoder) {
-    this.decoder = typeof decoder === "function" ? { mapFromDriverValue: decoder } : decoder;
-    return this;
-  }
-  inlineParams() {
-    this.shouldInlineParams = true;
-    return this;
-  }
-  /**
-   * This method is used to conditionally include a part of the query.
-   *
-   * @param condition - Condition to check
-   * @returns itself if the condition is `true`, otherwise `undefined`
-   */
-  if(condition) {
-    return condition ? this : void 0;
-  }
-};
-var Name2 = class {
-  constructor(value) {
-    this.value = value;
-  }
-  static [entityKind2] = "Name";
-  brand;
-  getSQL() {
-    return new SQL2([this]);
-  }
-};
-function isDriverValueEncoder2(value) {
-  return typeof value === "object" && value !== null && "mapToDriverValue" in value && typeof value.mapToDriverValue === "function";
-}
-var noopDecoder2 = {
-  mapFromDriverValue: (value) => value
-};
-var noopEncoder2 = {
-  mapToDriverValue: (value) => value
-};
-var noopMapper2 = {
-  ...noopDecoder2,
-  ...noopEncoder2
-};
-var Param2 = class {
-  /**
-   * @param value - Parameter value
-   * @param encoder - Encoder to convert the value to a driver parameter
-   */
-  constructor(value, encoder = noopEncoder2) {
-    this.value = value;
-    this.encoder = encoder;
-  }
-  static [entityKind2] = "Param";
-  brand;
-  getSQL() {
-    return new SQL2([this]);
-  }
-};
-function sql2(strings, ...params) {
-  const queryChunks = [];
-  if (params.length > 0 || strings.length > 0 && strings[0] !== "") {
-    queryChunks.push(new StringChunk2(strings[0]));
-  }
-  for (const [paramIndex, param2] of params.entries()) {
-    queryChunks.push(param2, new StringChunk2(strings[paramIndex + 1]));
-  }
-  return new SQL2(queryChunks);
-}
-((sql22) => {
-  function empty() {
-    return new SQL2([]);
-  }
-  sql22.empty = empty;
-  function fromList(list) {
-    return new SQL2(list);
-  }
-  sql22.fromList = fromList;
-  function raw(str) {
-    return new SQL2([new StringChunk2(str)]);
-  }
-  sql22.raw = raw;
-  function join(chunks, separator) {
-    const result = [];
-    for (const [i, chunk] of chunks.entries()) {
-      if (i > 0 && separator !== void 0) {
-        result.push(separator);
-      }
-      result.push(chunk);
-    }
-    return new SQL2(result);
-  }
-  sql22.join = join;
-  function identifier(value) {
-    return new Name2(value);
-  }
-  sql22.identifier = identifier;
-  function placeholder2(name2) {
-    return new Placeholder2(name2);
-  }
-  sql22.placeholder = placeholder2;
-  function param2(value, encoder) {
-    return new Param2(value, encoder);
-  }
-  sql22.param = param2;
-})(sql2 || (sql2 = {}));
-((SQL22) => {
-  class Aliased {
-    constructor(sql22, fieldAlias) {
-      this.sql = sql22;
-      this.fieldAlias = fieldAlias;
-    }
-    static [entityKind2] = "SQL.Aliased";
-    /** @internal */
-    isSelectionField = false;
-    getSQL() {
-      return this.sql;
-    }
-    /** @internal */
-    clone() {
-      return new Aliased(this.sql, this.fieldAlias);
-    }
-  }
-  SQL22.Aliased = Aliased;
-})(SQL2 || (SQL2 = {}));
-var Placeholder2 = class {
-  constructor(name2) {
-    this.name = name2;
-  }
-  static [entityKind2] = "Placeholder";
-  getSQL() {
-    return new SQL2([this]);
-  }
-};
-var IsDrizzleView2 = /* @__PURE__ */ Symbol.for("drizzle:IsDrizzleView");
-var View2 = class {
-  static [entityKind2] = "View";
-  /** @internal */
-  [ViewBaseConfig2];
-  /** @internal */
-  [IsDrizzleView2] = true;
-  constructor({ name: name2, schema, selectedFields, query }) {
-    this[ViewBaseConfig2] = {
-      name: name2,
-      originalName: name2,
-      schema,
-      selectedFields,
-      query,
-      isExisting: !query,
-      isAlias: false
-    };
-  }
-  getSQL() {
-    return new SQL2([this]);
-  }
-};
-Column2.prototype.getSQL = function() {
-  return new SQL2([this]);
-};
-Table2.prototype.getSQL = function() {
-  return new SQL2([this]);
-};
-Subquery2.prototype.getSQL = function() {
-  return new SQL2([this]);
-};
-
-// ../../node_modules/.pnpm/drizzle-orm@0.45.1_@types+pg@8.18.0_pg@8.20.0/node_modules/drizzle-orm/sql/expressions/conditions.js
-function bindIfParam2(value, column) {
-  if (isDriverValueEncoder2(column) && !isSQLWrapper2(value) && !is2(value, Param2) && !is2(value, Placeholder2) && !is2(value, Column2) && !is2(value, Table2) && !is2(value, View2)) {
-    return new Param2(value, column);
-  }
-  return value;
-}
-var eq2 = (left, right) => {
-  return sql2`${left} = ${bindIfParam2(right, left)}`;
-};
-var ne2 = (left, right) => {
-  return sql2`${left} <> ${bindIfParam2(right, left)}`;
-};
-function and2(...unfilteredConditions) {
-  const conditions = unfilteredConditions.filter(
-    (c) => c !== void 0
-  );
-  if (conditions.length === 0) {
-    return void 0;
-  }
-  if (conditions.length === 1) {
-    return new SQL2(conditions);
-  }
-  return new SQL2([
-    new StringChunk2("("),
-    sql2.join(conditions, new StringChunk2(" and ")),
-    new StringChunk2(")")
-  ]);
-}
-function or2(...unfilteredConditions) {
-  const conditions = unfilteredConditions.filter(
-    (c) => c !== void 0
-  );
-  if (conditions.length === 0) {
-    return void 0;
-  }
-  if (conditions.length === 1) {
-    return new SQL2(conditions);
-  }
-  return new SQL2([
-    new StringChunk2("("),
-    sql2.join(conditions, new StringChunk2(" or ")),
-    new StringChunk2(")")
-  ]);
-}
-var gte2 = (left, right) => {
-  return sql2`${left} >= ${bindIfParam2(right, left)}`;
-};
-var lt2 = (left, right) => {
-  return sql2`${left} < ${bindIfParam2(right, left)}`;
-};
-var lte2 = (left, right) => {
-  return sql2`${left} <= ${bindIfParam2(right, left)}`;
-};
-function isNull2(value) {
-  return sql2`${value} is null`;
-}
-
-// ../../node_modules/.pnpm/drizzle-orm@0.45.1_@types+pg@8.18.0_pg@8.20.0/node_modules/drizzle-orm/sql/expressions/select.js
-function desc2(column) {
-  return sql2`${column} desc`;
-}
-
-// ../../node_modules/.pnpm/drizzle-orm@0.45.1_@types+pg@8.18.0_pg@8.20.0/node_modules/drizzle-orm/sql/functions/aggregate.js
-function count(expression) {
-  return sql2`count(${expression || sql2.raw("*")})`.mapWith(Number);
-}
-function sum(expression) {
-  return sql2`sum(${expression})`.mapWith(String);
-}
+init_drizzle_orm();
 
 // src/middlewares/authMiddleware.ts
 var import_jsonwebtoken = __toESM(require_jsonwebtoken(), 1);
@@ -80621,9 +79450,9 @@ var validations = {
    *
    * @returns {void}
    */
-  headersDraftVersion(version4) {
-    if (typeof version4 !== "string" || // @ts-expect-error This is fine. If version is not in the array, it will just return false.
-    !SUPPORTED_DRAFT_VERSIONS.includes(version4)) {
+  headersDraftVersion(version3) {
+    if (typeof version3 !== "string" || // @ts-expect-error This is fine. If version is not in the array, it will just return false.
+    !SUPPORTED_DRAFT_VERSIONS.includes(version3)) {
       const versionString = SUPPORTED_DRAFT_VERSIONS.join(", ");
       throw new ValidationError(
         "ERR_ERL_HEADERS_UNSUPPORTED_DRAFT_VERSION",
@@ -81140,14 +79969,14 @@ router2.post("/register", authRateLimit, async (req, res) => {
   }
   const { email: email3, password, name, phone, country } = parse3.data;
   try {
-    const existing = await db.select().from(usersTable).where(eq2(usersTable.email, email3)).limit(1);
+    const existing = await db.select().from(usersTable).where(eq(usersTable.email, email3)).limit(1);
     if (existing.length > 0) {
       res.status(400).json({ error: "Conflict", message: "Email already registered" });
       return;
     }
     const passwordHash = await bcryptjs_default.hash(password, 10);
     const userInsert = await db.insert(usersTable).values({ email: email3, passwordHash, name, phone, country });
-    const [user] = await db.select().from(usersTable).where(eq2(usersTable.id, userInsert[0].insertId)).limit(1);
+    const [user] = await db.select().from(usersTable).where(eq(usersTable.id, userInsert[0].insertId)).limit(1);
     await db.insert(walletsTable).values([
       { userId: user.id, currency: "XAF", balance: "0", country: "CM" },
       { userId: user.id, currency: "XOF", balance: "0", country: "SN" },
@@ -81182,7 +80011,7 @@ router2.post("/login", authRateLimit, async (req, res) => {
   }
   const { email: email3, password } = parse3.data;
   try {
-    const [user] = await db.select().from(usersTable).where(eq2(usersTable.email, email3)).limit(1);
+    const [user] = await db.select().from(usersTable).where(eq(usersTable.email, email3)).limit(1);
     if (!user) {
       res.status(401).json({ error: "Unauthorized", message: "Invalid email or password" });
       return;
@@ -81219,7 +80048,7 @@ router2.post("/login", authRateLimit, async (req, res) => {
 });
 router2.get("/me", authMiddleware, async (req, res) => {
   try {
-    const [user] = await db.select().from(usersTable).where(eq2(usersTable.id, req.userId)).limit(1);
+    const [user] = await db.select().from(usersTable).where(eq(usersTable.id, req.userId)).limit(1);
     if (!user) {
       res.status(404).json({ error: "NotFound", message: "User not found" });
       return;
@@ -81256,7 +80085,7 @@ router2.put("/password", authMiddleware, async (req, res) => {
   }
   const { currentPassword, newPassword } = parse3.data;
   try {
-    const [user] = await db.select().from(usersTable).where(eq2(usersTable.id, req.userId)).limit(1);
+    const [user] = await db.select().from(usersTable).where(eq(usersTable.id, req.userId)).limit(1);
     if (!user) {
       res.status(404).json({ error: "NotFound", message: "Utilisateur introuvable" });
       return;
@@ -81267,7 +80096,7 @@ router2.put("/password", authMiddleware, async (req, res) => {
       return;
     }
     const newHash = await bcryptjs_default.hash(newPassword, 10);
-    await db.update(usersTable).set({ passwordHash: newHash }).where(eq2(usersTable.id, req.userId));
+    await db.update(usersTable).set({ passwordHash: newHash }).where(eq(usersTable.id, req.userId));
     req.log.info({ userId: req.userId }, "Password changed");
     res.json({ success: true, message: "Mot de passe mis \xE0 jour avec succ\xE8s" });
   } catch (err) {
@@ -81286,7 +80115,7 @@ router2.patch("/profile", authMiddleware, async (req, res) => {
   }
   const { webhookUrl } = parse3.data;
   try {
-    await db.update(usersTable).set({ webhookUrl: webhookUrl === "" ? null : webhookUrl ?? null, updatedAt: /* @__PURE__ */ new Date() }).where(eq2(usersTable.id, req.userId));
+    await db.update(usersTable).set({ webhookUrl: webhookUrl === "" ? null : webhookUrl ?? null, updatedAt: /* @__PURE__ */ new Date() }).where(eq(usersTable.id, req.userId));
     res.json({ success: true, message: "Profil mis \xE0 jour." });
   } catch (err) {
     req.log.error({ err }, "Profile update error");
@@ -81304,7 +80133,7 @@ router2.delete("/account", authMiddleware, async (req, res) => {
   }
   const { password } = parse3.data;
   try {
-    const [user] = await db.select().from(usersTable).where(eq2(usersTable.id, req.userId)).limit(1);
+    const [user] = await db.select().from(usersTable).where(eq(usersTable.id, req.userId)).limit(1);
     if (!user) {
       res.status(404).json({ error: "NotFound", message: "Utilisateur introuvable" });
       return;
@@ -81314,7 +80143,7 @@ router2.delete("/account", authMiddleware, async (req, res) => {
       res.status(401).json({ error: "Unauthorized", message: "Mot de passe incorrect" });
       return;
     }
-    await db.delete(usersTable).where(eq2(usersTable.id, req.userId));
+    await db.delete(usersTable).where(eq(usersTable.id, req.userId));
     req.log.info({ userId: req.userId }, "Account deleted");
     res.json({ success: true, message: "Compte supprim\xE9 avec succ\xE8s" });
   } catch (err) {
@@ -81327,10 +80156,11 @@ var auth_default = router2;
 // src/routes/wallets.ts
 var import_express3 = __toESM(require_express2(), 1);
 init_schema2();
+init_drizzle_orm();
 var router3 = (0, import_express3.Router)();
 router3.get("/", authMiddleware, async (req, res) => {
   try {
-    const wallets = await db.select().from(walletsTable).where(eq2(walletsTable.userId, req.userId));
+    const wallets = await db.select().from(walletsTable).where(eq(walletsTable.userId, req.userId));
     res.json(
       wallets.map((w) => ({
         id: w.id,
@@ -81359,6 +80189,8 @@ function affectedRows(result) {
 
 // src/routes/transactions.ts
 init_schema2();
+init_drizzle_orm();
+init_drizzle_orm();
 
 // src/lib/nowpayments.ts
 var import_crypto2 = __toESM(require("crypto"), 1);
@@ -81518,10 +80350,11 @@ async function getMinExchangeAmount(currency) {
 }
 
 // src/lib/adminRates.ts
+init_drizzle_orm();
 var USDT_PAIRS = ["USDT_XAF", "XAF_USDT", "USDT_XOF", "XOF_USDT", "USDT_CDF", "CDF_USDT", "EXCHANGE_FEE"];
 var DEFAULT_EXCHANGE_FEE = 0.02;
 async function getAllUsdtRates() {
-  const result = await db.execute(sql2`SELECT pair, rate FROM usdt_rates ORDER BY pair`);
+  const result = await db.execute(sql`SELECT pair, rate FROM usdt_rates ORDER BY pair`);
   const rates = {};
   for (const row of result.rows) {
     rates[row.pair] = parseFloat(row.rate ?? "0");
@@ -81529,13 +80362,13 @@ async function getAllUsdtRates() {
   return rates;
 }
 async function getAdminRate(pair) {
-  const result = await db.execute(sql2`SELECT rate FROM usdt_rates WHERE pair = ${pair} LIMIT 1`);
+  const result = await db.execute(sql`SELECT rate FROM usdt_rates WHERE pair = ${pair} LIMIT 1`);
   if (!result.rows.length) return null;
   const r = parseFloat(result.rows[0].rate ?? "0");
   return r > 0 ? r : null;
 }
 async function setUsdtRate(pair, rate) {
-  await db.execute(sql2`
+  await db.execute(sql`
     INSERT INTO usdt_rates (pair, rate, updated_at)
     VALUES (${pair}, ${rate}, NOW())
     ON DUPLICATE KEY UPDATE rate = ${rate}, updated_at = NOW()
@@ -82295,7 +81128,7 @@ async function getUserOperatorFeeRate(userId, country, operator, type) {
   }
 }
 async function getUserFeeRate(userId, country, operator, type) {
-  const overrides = await db.select().from(userFeesTable).where(eq2(userFeesTable.userId, userId));
+  const overrides = await db.select().from(userFeesTable).where(eq(userFeesTable.userId, userId));
   let specific;
   let global2;
   for (const o of overrides) {
@@ -82336,12 +81169,12 @@ router4.get("/", authMiddleware, async (req, res) => {
   const statusFilter = req.query.status;
   const currencyFilter = req.query.currency;
   try {
-    const conditions = [eq2(transactionsTable.userId, req.userId)];
-    if (statusFilter) conditions.push(eq2(transactionsTable.status, statusFilter));
-    if (currencyFilter) conditions.push(eq2(transactionsTable.currency, currencyFilter));
-    const where = and2(...conditions);
+    const conditions = [eq(transactionsTable.userId, req.userId)];
+    if (statusFilter) conditions.push(eq(transactionsTable.status, statusFilter));
+    if (currencyFilter) conditions.push(eq(transactionsTable.currency, currencyFilter));
+    const where = and(...conditions);
     const [rows, [{ total }]] = await Promise.all([
-      db.select().from(transactionsTable).where(where).orderBy(desc2(transactionsTable.createdAt)).limit(limit).offset(offset),
+      db.select().from(transactionsTable).where(where).orderBy(desc(transactionsTable.createdAt)).limit(limit).offset(offset),
       db.select({ total: count() }).from(transactionsTable).where(where)
     ]);
     res.json({
@@ -82396,7 +81229,7 @@ router4.get("/:id", authMiddleware, async (req, res) => {
     return;
   }
   try {
-    const [tx] = await db.select().from(transactionsTable).where(and2(eq2(transactionsTable.id, id), eq2(transactionsTable.userId, req.userId))).limit(1);
+    const [tx] = await db.select().from(transactionsTable).where(and(eq(transactionsTable.id, id), eq(transactionsTable.userId, req.userId))).limit(1);
     if (!tx) {
       res.status(404).json({ error: "NotFound", message: "Transaction not found" });
       return;
@@ -82451,24 +81284,24 @@ router4.get("/:id", authMiddleware, async (req, res) => {
             status: newStatus,
             metadata: { ...meta, ...syncMeta },
             updatedAt: /* @__PURE__ */ new Date()
-          }).where(and2(eq2(transactionsTable.id, tx.id), eq2(transactionsTable.status, "PENDING")));
+          }).where(and(eq(transactionsTable.id, tx.id), eq(transactionsTable.status, "PENDING")));
           const rowClaimed = affectedRows(syncResult) > 0;
           if (rowClaimed && newStatus === "SUCCESS" && (tx.type === "DEPOSIT" || tx.type === "CARD_DEPOSIT")) {
-            const [wallet] = await db.select().from(walletsTable).where(and2(eq2(walletsTable.userId, tx.userId), eq2(walletsTable.currency, tx.currency))).limit(1);
+            const [wallet] = await db.select().from(walletsTable).where(and(eq(walletsTable.userId, tx.userId), eq(walletsTable.currency, tx.currency))).limit(1);
             if (wallet) {
               const credit = parseFloat(tx.netAmount);
-              await db.update(walletsTable).set({ balance: (parseFloat(wallet.balance) + credit).toFixed(2), updatedAt: /* @__PURE__ */ new Date() }).where(eq2(walletsTable.id, wallet.id));
+              await db.update(walletsTable).set({ balance: (parseFloat(wallet.balance) + credit).toFixed(2), updatedAt: /* @__PURE__ */ new Date() }).where(eq(walletsTable.id, wallet.id));
               req.log.info({ txId: tx.id, credit, currency: tx.currency }, "Auto-sync DEPOSIT credited wallet");
             }
           } else if (rowClaimed && newStatus === "FAILED" && tx.type === "WITHDRAWAL") {
-            const [wallet] = await db.select().from(walletsTable).where(and2(eq2(walletsTable.userId, tx.userId), eq2(walletsTable.currency, tx.currency))).limit(1);
+            const [wallet] = await db.select().from(walletsTable).where(and(eq(walletsTable.userId, tx.userId), eq(walletsTable.currency, tx.currency))).limit(1);
             if (wallet) {
               const refund = parseFloat(tx.netAmount) + parseFloat(tx.fee);
-              await db.update(walletsTable).set({ balance: (parseFloat(wallet.balance) + refund).toFixed(2), updatedAt: /* @__PURE__ */ new Date() }).where(eq2(walletsTable.id, wallet.id));
+              await db.update(walletsTable).set({ balance: (parseFloat(wallet.balance) + refund).toFixed(2), updatedAt: /* @__PURE__ */ new Date() }).where(eq(walletsTable.id, wallet.id));
               req.log.info({ txId: tx.id, refund, currency: tx.currency }, "Auto-sync WITHDRAWAL FAILED refunded wallet");
             }
           }
-          const [updated] = await db.select().from(transactionsTable).where(eq2(transactionsTable.id, id)).limit(1);
+          const [updated] = await db.select().from(transactionsTable).where(eq(transactionsTable.id, id)).limit(1);
           if (updated) {
             res.json(formatTx(updated));
             return;
@@ -82511,7 +81344,7 @@ router4.post("/fee-preview", authMiddleware, async (req, res) => {
 async function getPixPayServiceId(operator, currency, type, country) {
   try {
     const result = await db.execute(
-      sql2`SELECT service_id FROM pixpay_services
+      sql`SELECT service_id FROM pixpay_services
           WHERE operator = ${operator.toUpperCase()}
             AND currency = ${currency.toUpperCase()}
             AND type = ${type}
@@ -82531,7 +81364,7 @@ async function getPixPayServiceId(operator, currency, type, country) {
 async function getPlatformConfig(key) {
   try {
     const result = await db.execute(
-      sql2`SELECT value FROM platform_config WHERE key = ${key} LIMIT 1`
+      sql`SELECT value FROM platform_config WHERE key = ${key} LIMIT 1`
     );
     if (result.rows.length > 0) return String(result.rows[0].value);
   } catch {
@@ -82541,7 +81374,7 @@ async function getPlatformConfig(key) {
 async function getMavianceServiceId(operator, currency, type, country) {
   try {
     const result = await db.execute(
-      sql2`SELECT service_id FROM maviance_services
+      sql`SELECT service_id FROM maviance_services
           WHERE operator = ${operator.toUpperCase()}
             AND currency = ${currency.toUpperCase()}
             AND type = ${type}
@@ -82561,7 +81394,7 @@ async function getMavianceServiceId(operator, currency, type, country) {
 async function getProviderForRoute(country, operator, type) {
   try {
     const result = await db.execute(
-      sql2`SELECT provider FROM payment_provider_config
+      sql`SELECT provider FROM payment_provider_config
           WHERE country = ${country.toUpperCase()}
             AND operator = ${operator.toUpperCase()}
             AND type = ${type}
@@ -82656,7 +81489,7 @@ router4.post("/deposit", authMiddleware, transactionRateLimit, async (req, res) 
       yookpayMargin: yookpayMarginAmount.toString(),
       metadata: { initiatedAt: (/* @__PURE__ */ new Date()).toISOString(), feeBearer, flow, providerAmount, provider }
     });
-    const [tx] = await db.select().from(transactionsTable).where(eq2(transactionsTable.id, txDepInsert[0].insertId)).limit(1);
+    const [tx] = await db.select().from(transactionsTable).where(eq(transactionsTable.id, txDepInsert[0].insertId)).limit(1);
     req.log.info(
       { txId: tx.id, reference, userId: req.userId, amount, providerAmount, walletNetAmount, currency, operator, country, flow, feeBearer, provider },
       `Deposit transaction created \u2014 calling ${provider}`
@@ -82685,7 +81518,7 @@ router4.post("/deposit", authMiddleware, transactionRateLimit, async (req, res) 
             providerError: mavErr instanceof Error ? mavErr.message : String(mavErr)
           },
           updatedAt: /* @__PURE__ */ new Date()
-        }).where(eq2(transactionsTable.id, tx.id));
+        }).where(eq(transactionsTable.id, tx.id));
         req.log.error({ err: mavErr, txId: tx.id }, "Maviance deposit call failed");
         const msg = mavErr instanceof Error ? mavErr.message : "D\xE9p\xF4t Maviance \xE9chou\xE9";
         res.status(502).json({ error: "ProviderError", message: msg });
@@ -82709,7 +81542,7 @@ router4.post("/deposit", authMiddleware, transactionRateLimit, async (req, res) 
           mavQuoteFees: mavResult.quote.fees
         },
         updatedAt: /* @__PURE__ */ new Date()
-      }).where(eq2(transactionsTable.id, tx.id));
+      }).where(eq(transactionsTable.id, tx.id));
       if (isImmediatelyFailed) {
         req.log.warn({ txId: tx.id, payToken: mavResult.payToken, status: mavResult.collect.status }, "Maviance deposit immediately FAILED");
         res.status(422).json({
@@ -82764,7 +81597,7 @@ router4.post("/deposit", authMiddleware, transactionRateLimit, async (req, res) 
         smsLink: pixResult.smsLink
       },
       updatedAt: /* @__PURE__ */ new Date()
-    }).where(eq2(transactionsTable.id, tx.id));
+    }).where(eq(transactionsTable.id, tx.id));
     if (isPixFailed) {
       req.log.warn(
         { txId: tx.id, pixId: pixResult.pixTransactionId, pixState: pixResult.state, pixMessage: pixResult.message, serviceId, currency, operator, country },
@@ -82819,7 +81652,7 @@ router4.post("/withdraw", authMiddleware, transactionRateLimit, async (req, res)
   }
   const reference = generateReference();
   try {
-    const [wallet] = await db.select().from(walletsTable).where(and2(eq2(walletsTable.userId, req.userId), eq2(walletsTable.currency, currency))).limit(1);
+    const [wallet] = await db.select().from(walletsTable).where(and(eq(walletsTable.userId, req.userId), eq(walletsTable.currency, currency))).limit(1);
     const balance = wallet ? parseFloat(wallet.balance) : 0;
     if (!wallet || balance < amount) {
       res.status(400).json({
@@ -82862,7 +81695,7 @@ router4.post("/withdraw", authMiddleware, transactionRateLimit, async (req, res)
       return;
     }
     const newBalance = parseFloat(wallet.balance) - walletDebit;
-    await db.update(walletsTable).set({ balance: Math.max(newBalance, 0).toFixed(2), updatedAt: /* @__PURE__ */ new Date() }).where(eq2(walletsTable.id, wallet.id));
+    await db.update(walletsTable).set({ balance: Math.max(newBalance, 0).toFixed(2), updatedAt: /* @__PURE__ */ new Date() }).where(eq(walletsTable.id, wallet.id));
     const txWdInsert = await db.insert(transactionsTable).values({
       userId: req.userId,
       type: "WITHDRAWAL",
@@ -82879,7 +81712,7 @@ router4.post("/withdraw", authMiddleware, transactionRateLimit, async (req, res)
       yookpayMargin: yookpayMarginAmount.toString(),
       metadata: { initiatedAt: (/* @__PURE__ */ new Date()).toISOString(), feeBearer, flow, walletDebit, providerAmount: pixPayAmount, provider }
     });
-    const [tx] = await db.select().from(transactionsTable).where(eq2(transactionsTable.id, txWdInsert[0].insertId)).limit(1);
+    const [tx] = await db.select().from(transactionsTable).where(eq(transactionsTable.id, txWdInsert[0].insertId)).limit(1);
     req.log.info(
       { txId: tx.id, reference, userId: req.userId, amount, providerAmount: pixPayAmount, walletDebit, currency, operator, flow, feeBearer, provider },
       `Withdrawal transaction created \u2014 wallet reserved \u2014 calling ${provider}`
@@ -82897,14 +81730,14 @@ router4.post("/withdraw", authMiddleware, transactionRateLimit, async (req, res)
           trid: reference
         });
       } catch (mavErr) {
-        const [cw] = await db.select().from(walletsTable).where(and2(eq2(walletsTable.userId, req.userId), eq2(walletsTable.currency, currency))).limit(1);
+        const [cw] = await db.select().from(walletsTable).where(and(eq(walletsTable.userId, req.userId), eq(walletsTable.currency, currency))).limit(1);
         if (cw) {
           await db.update(walletsTable).set({
             balance: (parseFloat(cw.balance) + walletDebit).toFixed(2),
             updatedAt: /* @__PURE__ */ new Date()
-          }).where(eq2(walletsTable.id, cw.id));
+          }).where(eq(walletsTable.id, cw.id));
         }
-        await db.update(transactionsTable).set({ status: "FAILED", updatedAt: /* @__PURE__ */ new Date() }).where(eq2(transactionsTable.id, tx.id));
+        await db.update(transactionsTable).set({ status: "FAILED", updatedAt: /* @__PURE__ */ new Date() }).where(eq(transactionsTable.id, tx.id));
         req.log.error({ err: mavErr, txId: tx.id }, "Maviance withdrawal call failed \u2014 wallet refunded");
         const msg = mavErr instanceof Error ? mavErr.message : "Retrait Maviance \xE9chou\xE9";
         res.status(500).json({ error: "ProviderError", message: msg });
@@ -82929,14 +81762,14 @@ router4.post("/withdraw", authMiddleware, transactionRateLimit, async (req, res)
           mavQuoteFees: mavResult.quote.fees
         },
         updatedAt: /* @__PURE__ */ new Date()
-      }).where(eq2(transactionsTable.id, tx.id));
+      }).where(eq(transactionsTable.id, tx.id));
       if (isImmediatelyFailed) {
-        const [cw] = await db.select().from(walletsTable).where(and2(eq2(walletsTable.userId, req.userId), eq2(walletsTable.currency, currency))).limit(1);
+        const [cw] = await db.select().from(walletsTable).where(and(eq(walletsTable.userId, req.userId), eq(walletsTable.currency, currency))).limit(1);
         if (cw) {
           await db.update(walletsTable).set({
             balance: (parseFloat(cw.balance) + walletDebit).toFixed(2),
             updatedAt: /* @__PURE__ */ new Date()
-          }).where(eq2(walletsTable.id, cw.id));
+          }).where(eq(walletsTable.id, cw.id));
         }
         req.log.warn({ txId: tx.id, payToken: mavResult.payToken, status: mavResult.collect.status }, "Maviance withdrawal immediately FAILED \u2014 wallet refunded");
         res.status(422).json({
@@ -82990,14 +81823,14 @@ router4.post("/withdraw", authMiddleware, transactionRateLimit, async (req, res)
         smsLink: pixResult.smsLink
       },
       updatedAt: /* @__PURE__ */ new Date()
-    }).where(eq2(transactionsTable.id, tx.id));
+    }).where(eq(transactionsTable.id, tx.id));
     if (isPixFailed) {
-      const [currentWallet] = await db.select().from(walletsTable).where(and2(eq2(walletsTable.userId, req.userId), eq2(walletsTable.currency, currency))).limit(1);
+      const [currentWallet] = await db.select().from(walletsTable).where(and(eq(walletsTable.userId, req.userId), eq(walletsTable.currency, currency))).limit(1);
       if (currentWallet) {
         await db.update(walletsTable).set({
           balance: (parseFloat(currentWallet.balance) + walletDebit).toFixed(2),
           updatedAt: /* @__PURE__ */ new Date()
-        }).where(eq2(walletsTable.id, currentWallet.id));
+        }).where(eq(walletsTable.id, currentWallet.id));
       }
       req.log.warn(
         { txId: tx.id, pixId: pixResult.pixTransactionId, pixState: pixResult.state },
@@ -83076,9 +81909,9 @@ router4.post("/card-deposit", authMiddleware, transactionRateLimit, async (req, 
         ipnBase
       }
     });
-    const [tx] = await db.select().from(transactionsTable).where(eq2(transactionsTable.id, txCardInsert[0].insertId)).limit(1);
+    const [tx] = await db.select().from(transactionsTable).where(eq(transactionsTable.id, txCardInsert[0].insertId)).limit(1);
     req.log.info({ txId: tx.id, reference, amount, currency, country }, "Card deposit created \u2014 calling Maviance e-nkap");
-    const [user] = await db.select().from(usersTable).where(eq2(usersTable.id, req.userId)).limit(1);
+    const [user] = await db.select().from(usersTable).where(eq(usersTable.id, req.userId)).limit(1);
     let order;
     try {
       order = await placeOrder({
@@ -83100,7 +81933,7 @@ router4.post("/card-deposit", authMiddleware, transactionRateLimit, async (req, 
           providerError: err instanceof Error ? err.message : String(err)
         },
         updatedAt: /* @__PURE__ */ new Date()
-      }).where(eq2(transactionsTable.id, tx.id));
+      }).where(eq(transactionsTable.id, tx.id));
       throw err;
     }
     await db.update(transactionsTable).set({
@@ -83115,7 +81948,7 @@ router4.post("/card-deposit", authMiddleware, transactionRateLimit, async (req, 
         failUrl
       },
       updatedAt: /* @__PURE__ */ new Date()
-    }).where(eq2(transactionsTable.id, tx.id));
+    }).where(eq(transactionsTable.id, tx.id));
     req.log.info({ txId: tx.id, orderTxId: order.orderTransactionId, redirectUrl: order.redirectUrl }, "Maviance e-nkap card deposit initiated");
     res.status(201).json({
       transaction: formatTx(tx),
@@ -83153,7 +81986,7 @@ router4.post("/transfer", authMiddleware, transactionRateLimit, async (req, res)
   let platformRate = 0.019;
   try {
     const pairs = [fromCurrency, toCurrency].sort().join(":");
-    const res2 = await db.execute(sql2`SELECT rate FROM conversion_fees WHERE pair = ${pairs} LIMIT 1`);
+    const res2 = await db.execute(sql`SELECT rate FROM conversion_fees WHERE pair = ${pairs} LIMIT 1`);
     if (res2.rows.length > 0) {
       platformRate = parseFloat(String(res2.rows[0].rate));
     }
@@ -83163,12 +81996,12 @@ router4.post("/transfer", authMiddleware, transactionRateLimit, async (req, res)
   const fee = Math.round(amount * globalTransferRate);
   const netAmount = amount - fee;
   try {
-    const [fromWallet] = await db.select().from(walletsTable).where(and2(eq2(walletsTable.userId, req.userId), eq2(walletsTable.currency, fromCurrency))).limit(1);
+    const [fromWallet] = await db.select().from(walletsTable).where(and(eq(walletsTable.userId, req.userId), eq(walletsTable.currency, fromCurrency))).limit(1);
     if (!fromWallet || parseFloat(fromWallet.balance) < amount) {
       res.status(400).json({ error: "InsufficientFunds", message: "Insufficient wallet balance" });
       return;
     }
-    const [toWallet] = await db.select().from(walletsTable).where(and2(eq2(walletsTable.userId, req.userId), eq2(walletsTable.currency, toCurrency))).limit(1);
+    const [toWallet] = await db.select().from(walletsTable).where(and(eq(walletsTable.userId, req.userId), eq(walletsTable.currency, toCurrency))).limit(1);
     if (!toWallet) {
       res.status(404).json({ error: "NotFound", message: "Target wallet not found" });
       return;
@@ -83186,17 +82019,17 @@ router4.post("/transfer", authMiddleware, transactionRateLimit, async (req, res)
       feeRate: globalTransferRate.toString(),
       metadata: { fromCurrency, toCurrency, initiatedAt: (/* @__PURE__ */ new Date()).toISOString() }
     });
-    const [tx] = await db.select().from(transactionsTable).where(eq2(transactionsTable.id, txTrfInsert[0].insertId)).limit(1);
+    const [tx] = await db.select().from(transactionsTable).where(eq(transactionsTable.id, txTrfInsert[0].insertId)).limit(1);
     await db.update(walletsTable).set({
       balance: (parseFloat(fromWallet.balance) - amount).toString(),
       updatedAt: /* @__PURE__ */ new Date()
-    }).where(eq2(walletsTable.id, fromWallet.id));
+    }).where(eq(walletsTable.id, fromWallet.id));
     await db.update(walletsTable).set({
       balance: (parseFloat(toWallet.balance) + netAmount).toString(),
       updatedAt: /* @__PURE__ */ new Date()
-    }).where(eq2(walletsTable.id, toWallet.id));
-    await db.update(transactionsTable).set({ status: "SUCCESS", updatedAt: /* @__PURE__ */ new Date() }).where(eq2(transactionsTable.id, tx.id));
-    const [updatedTx] = await db.select().from(transactionsTable).where(eq2(transactionsTable.id, tx.id)).limit(1);
+    }).where(eq(walletsTable.id, toWallet.id));
+    await db.update(transactionsTable).set({ status: "SUCCESS", updatedAt: /* @__PURE__ */ new Date() }).where(eq(transactionsTable.id, tx.id));
+    const [updatedTx] = await db.select().from(transactionsTable).where(eq(transactionsTable.id, tx.id)).limit(1);
     req.log.info(
       { txId: tx.id, reference, userId: req.userId, amount, fromCurrency, toCurrency, fee, netAmount },
       "Transfer SUCCESS"
@@ -83269,7 +82102,7 @@ router4.post("/crypto-deposit", authMiddleware, transactionRateLimit, async (req
       feeRate: depositFeeRate.toString(),
       metadata: { provider: "NOWPAYMENTS", initiatedAt: (/* @__PURE__ */ new Date()).toISOString() }
     });
-    const [tx] = await db.select().from(transactionsTable).where(eq2(transactionsTable.id, txUsdtDepInsert[0].insertId)).limit(1);
+    const [tx] = await db.select().from(transactionsTable).where(eq(transactionsTable.id, txUsdtDepInsert[0].insertId)).limit(1);
     let payAddress = null;
     let npPaymentId = null;
     let payAmount = amountUsdt;
@@ -83295,10 +82128,10 @@ router4.post("/crypto-deposit", authMiddleware, transactionRateLimit, async (req
           payAmount,
           initiatedAt: (/* @__PURE__ */ new Date()).toISOString()
         }
-      }).where(eq2(transactionsTable.id, tx.id));
+      }).where(eq(transactionsTable.id, tx.id));
     } catch (npErr) {
       req.log.error({ err: npErr }, "NowPayments API error");
-      await db.delete(transactionsTable).where(eq2(transactionsTable.id, tx.id));
+      await db.delete(transactionsTable).where(eq(transactionsTable.id, tx.id));
       const rawMsg = npErr?.message ?? "Erreur NowPayments inconnue";
       const detail = rawMsg.replace(/^NowPayments API error \d+:\s*/i, "");
       res.status(400).json({ error: "NowPaymentsError", message: detail });
@@ -83335,7 +82168,7 @@ router4.post("/crypto-withdraw", authMiddleware, transactionRateLimit, async (re
   const fee = parseFloat((amountUsdt * feeRate).toFixed(8));
   const netAmount = parseFloat((amountUsdt - fee).toFixed(8));
   try {
-    const [usdtWallet] = await db.select().from(walletsTable).where(and2(eq2(walletsTable.userId, req.userId), eq2(walletsTable.currency, "USDT"))).limit(1);
+    const [usdtWallet] = await db.select().from(walletsTable).where(and(eq(walletsTable.userId, req.userId), eq(walletsTable.currency, "USDT"))).limit(1);
     const lockedUsdtBal = parseFloat(usdtWallet?.locked_balance ?? "0");
     const available = usdtWallet ? parseFloat(usdtWallet.balance) - lockedUsdtBal : 0;
     if (available < amountUsdt) {
@@ -83347,7 +82180,7 @@ router4.post("/crypto-withdraw", authMiddleware, transactionRateLimit, async (re
     await db.update(walletsTable).set({
       balance: (parseFloat(usdtWallet.balance) - amountUsdt).toFixed(8),
       updatedAt: /* @__PURE__ */ new Date()
-    }).where(eq2(walletsTable.id, usdtWallet.id));
+    }).where(eq(walletsTable.id, usdtWallet.id));
     const txUsdtWdInsert = await db.insert(transactionsTable).values({
       userId: req.userId,
       type: "WITHDRAWAL",
@@ -83367,7 +82200,7 @@ router4.post("/crypto-withdraw", authMiddleware, transactionRateLimit, async (re
         initiatedAt: (/* @__PURE__ */ new Date()).toISOString()
       }
     });
-    const [tx] = await db.select().from(transactionsTable).where(eq2(transactionsTable.id, txUsdtWdInsert[0].insertId)).limit(1);
+    const [tx] = await db.select().from(transactionsTable).where(eq(transactionsTable.id, txUsdtWdInsert[0].insertId)).limit(1);
     let npPayoutId = null;
     try {
       const payCurrency = network === "TRC20" ? "usdttrc20" : "usdterc20";
@@ -83393,7 +82226,7 @@ router4.post("/crypto-withdraw", authMiddleware, transactionRateLimit, async (re
         },
         status: "SUCCESS",
         updatedAt: /* @__PURE__ */ new Date()
-      }).where(eq2(transactionsTable.id, tx.id));
+      }).where(eq(transactionsTable.id, tx.id));
     } catch (npErr) {
       const errMsg = npErr instanceof Error ? npErr.message : String(npErr);
       req.log.error({ err: npErr }, "NowPayments payout failed");
@@ -83401,7 +82234,7 @@ router4.post("/crypto-withdraw", authMiddleware, transactionRateLimit, async (re
         balance: usdtWallet.balance,
         // restore original balance
         updatedAt: /* @__PURE__ */ new Date()
-      }).where(eq2(walletsTable.id, usdtWallet.id));
+      }).where(eq(walletsTable.id, usdtWallet.id));
       await db.update(transactionsTable).set({
         status: "FAILED",
         metadata: {
@@ -83412,7 +82245,7 @@ router4.post("/crypto-withdraw", authMiddleware, transactionRateLimit, async (re
           initiatedAt: (/* @__PURE__ */ new Date()).toISOString()
         },
         updatedAt: /* @__PURE__ */ new Date()
-      }).where(eq2(transactionsTable.id, tx.id));
+      }).where(eq(transactionsTable.id, tx.id));
       res.status(503).json({
         error: "PayoutFailed",
         message: "Le retrait crypto est temporairement indisponible. Vos fonds ont \xE9t\xE9 rembours\xE9s sur votre portefeuille. Veuillez r\xE9essayer plus tard ou contacter le support."
@@ -83449,12 +82282,12 @@ router4.post("/exchange-step1", authMiddleware, transactionRateLimit, async (req
       res.status(400).json({ error: "MinimumAmount", message: `Montant minimum : ${minAmount.toLocaleString("fr")} ${fromCurrency} (\xE9quivalent \xE0 16 000 XAF)` });
       return;
     }
-    const [fromWallet] = await db.select().from(walletsTable).where(and2(eq2(walletsTable.userId, req.userId), eq2(walletsTable.currency, fromCurrency))).limit(1);
+    const [fromWallet] = await db.select().from(walletsTable).where(and(eq(walletsTable.userId, req.userId), eq(walletsTable.currency, fromCurrency))).limit(1);
     if (!fromWallet || parseFloat(fromWallet.balance) < amount) {
       res.status(400).json({ error: "InsufficientFunds", message: `Solde ${fromCurrency} insuffisant` });
       return;
     }
-    const [usdtWallet] = await db.select().from(walletsTable).where(and2(eq2(walletsTable.userId, req.userId), eq2(walletsTable.currency, "USDT"))).limit(1);
+    const [usdtWallet] = await db.select().from(walletsTable).where(and(eq(walletsTable.userId, req.userId), eq(walletsTable.currency, "USDT"))).limit(1);
     if (!usdtWallet) {
       res.status(404).json({ error: "NotFound", message: "Wallet USDT introuvable" });
       return;
@@ -83469,11 +82302,11 @@ router4.post("/exchange-step1", authMiddleware, transactionRateLimit, async (req
     await db.update(walletsTable).set({
       balance: (parseFloat(fromWallet.balance) - amount).toFixed(2),
       updatedAt: /* @__PURE__ */ new Date()
-    }).where(eq2(walletsTable.id, fromWallet.id));
+    }).where(eq(walletsTable.id, fromWallet.id));
     await db.update(walletsTable).set({
       balance: (parseFloat(usdtWallet.balance) + usdtAmount).toFixed(8),
       updatedAt: /* @__PURE__ */ new Date()
-    }).where(eq2(walletsTable.id, usdtWallet.id));
+    }).where(eq(walletsTable.id, usdtWallet.id));
     const txEx1Insert = await db.insert(transactionsTable).values({
       userId: req.userId,
       type: "TRANSFER",
@@ -83496,8 +82329,8 @@ router4.post("/exchange-step1", authMiddleware, transactionRateLimit, async (req
         completedAt: (/* @__PURE__ */ new Date()).toISOString()
       }
     });
-    const [tx] = await db.select().from(transactionsTable).where(eq2(transactionsTable.id, txEx1Insert[0].insertId)).limit(1);
-    await db.execute(sql2`
+    const [tx] = await db.select().from(transactionsTable).where(eq(transactionsTable.id, txEx1Insert[0].insertId)).limit(1);
+    await db.execute(sql`
       INSERT INTO crypto_exchanges (user_id, from_currency, to_currency, from_amount, usdt_amount, exchange_rate, fee_amount, status, tx_step1_id)
       VALUES (${req.userId}, ${fromCurrency}, 'USDT', ${amount}, ${usdtAmount}, ${rate}, ${fee}, 'STEP1_DONE', ${tx.id})
     `);
@@ -83527,7 +82360,7 @@ router4.post("/exchange-step2", authMiddleware, transactionRateLimit, async (req
   }
   const { amountUsdt, toCurrency } = parse3.data;
   try {
-    const [usdtWallet] = await db.select().from(walletsTable).where(and2(eq2(walletsTable.userId, req.userId), eq2(walletsTable.currency, "USDT"))).limit(1);
+    const [usdtWallet] = await db.select().from(walletsTable).where(and(eq(walletsTable.userId, req.userId), eq(walletsTable.currency, "USDT"))).limit(1);
     const lockedBal = parseFloat(usdtWallet?.locked_balance ?? "0");
     const totalBal = usdtWallet ? parseFloat(usdtWallet.balance) : 0;
     const available = totalBal - lockedBal;
@@ -83543,7 +82376,7 @@ router4.post("/exchange-step2", authMiddleware, transactionRateLimit, async (req
     const rate = await getEffectiveRate("USDT", toCurrency);
     const reference = generateReference();
     const countryMap = { XAF: "CM", XOF: "SN", CDF: "CD" };
-    await db.execute(sql2`
+    await db.execute(sql`
       UPDATE wallets SET locked_balance = locked_balance + ${amountUsdt}, updated_at = NOW()
       WHERE user_id = ${req.userId} AND currency = 'USDT'
     `);
@@ -83569,8 +82402,8 @@ router4.post("/exchange-step2", authMiddleware, transactionRateLimit, async (req
         pendingSince: (/* @__PURE__ */ new Date()).toISOString()
       }
     });
-    const [tx] = await db.select().from(transactionsTable).where(eq2(transactionsTable.id, txEx2Insert[0].insertId)).limit(1);
-    await db.execute(sql2`
+    const [tx] = await db.select().from(transactionsTable).where(eq(transactionsTable.id, txEx2Insert[0].insertId)).limit(1);
+    await db.execute(sql`
       INSERT INTO crypto_exchanges (user_id, from_currency, to_currency, from_amount, usdt_amount, to_amount, exchange_rate, fee_amount, status, tx_step2_id)
       VALUES (${req.userId}, 'USDT', ${toCurrency}, ${amountUsdt}, ${amountUsdt}, ${estimatedFiat}, ${rate}, ${fee}, 'PENDING_ADMIN', ${tx.id})
     `);
@@ -83602,7 +82435,7 @@ router4.post("/webhook", async (req, res) => {
   }
   const { reference, status, providerReference, metadata } = parse3.data;
   try {
-    const [tx] = await db.select().from(transactionsTable).where(eq2(transactionsTable.reference, reference)).limit(1);
+    const [tx] = await db.select().from(transactionsTable).where(eq(transactionsTable.reference, reference)).limit(1);
     if (!tx) {
       res.status(404).json({ error: "NotFound", message: "Transaction not found" });
       return;
@@ -83616,19 +82449,19 @@ router4.post("/webhook", async (req, res) => {
       providerReference: providerReference ?? tx.providerReference,
       metadata: { ...tx.metadata, webhookAt: (/* @__PURE__ */ new Date()).toISOString(), ...metadata ?? {} },
       updatedAt: /* @__PURE__ */ new Date()
-    }).where(and2(eq2(transactionsTable.id, tx.id), eq2(transactionsTable.status, "PENDING")));
+    }).where(and(eq(transactionsTable.id, tx.id), eq(transactionsTable.status, "PENDING")));
     if (affectedRows(webhookResult) === 0) {
       req.log.warn({ reference, txId: tx.id }, "Webhook: transaction already processed by another actor \u2014 skipping wallet");
       res.json({ success: true, message: "Transaction already processed" });
       return;
     }
     if (status === "SUCCESS" && tx.type === "DEPOSIT") {
-      const [wallet] = await db.select().from(walletsTable).where(and2(eq2(walletsTable.userId, tx.userId), eq2(walletsTable.currency, tx.currency))).limit(1);
+      const [wallet] = await db.select().from(walletsTable).where(and(eq(walletsTable.userId, tx.userId), eq(walletsTable.currency, tx.currency))).limit(1);
       if (wallet) {
         await db.update(walletsTable).set({
           balance: (parseFloat(wallet.balance) + parseFloat(tx.netAmount)).toString(),
           updatedAt: /* @__PURE__ */ new Date()
-        }).where(eq2(walletsTable.id, wallet.id));
+        }).where(eq(walletsTable.id, wallet.id));
       }
     }
     req.log.info({ reference, status, txId: tx.id }, "Webhook processed");
@@ -83645,13 +82478,13 @@ router4.post("/:id/notify", authMiddleware, async (req, res) => {
     return;
   }
   try {
-    const [tx] = await db.select().from(transactionsTable).where(and2(eq2(transactionsTable.id, txId), eq2(transactionsTable.userId, req.userId))).limit(1);
+    const [tx] = await db.select().from(transactionsTable).where(and(eq(transactionsTable.id, txId), eq(transactionsTable.userId, req.userId))).limit(1);
     if (!tx) {
       res.status(404).json({ error: "NotFound", message: "Transaction introuvable." });
       return;
     }
     const { usersTable: usersTable2 } = await Promise.resolve().then(() => (init_schema2(), schema_exports));
-    const [user] = await db.select({ webhookUrl: usersTable2.webhookUrl }).from(usersTable2).where(eq2(usersTable2.id, req.userId)).limit(1);
+    const [user] = await db.select({ webhookUrl: usersTable2.webhookUrl }).from(usersTable2).where(eq(usersTable2.id, req.userId)).limit(1);
     const webhookUrl = user?.webhookUrl;
     if (!webhookUrl) {
       res.status(400).json({ error: "NoWebhookUrl", message: "Aucune URL webhook configur\xE9e. Ajoutez-en une dans les param\xE8tres de votre compte." });
@@ -83717,6 +82550,7 @@ var transactions_default = router4;
 // src/routes/dashboard.ts
 var import_express5 = __toESM(require_express2(), 1);
 init_schema2();
+init_drizzle_orm();
 var router5 = (0, import_express5.Router)();
 router5.get("/summary", authMiddleware, async (req, res) => {
   const userId = req.userId;
@@ -83725,13 +82559,13 @@ router5.get("/summary", authMiddleware, async (req, res) => {
     const toParam = req.query.to;
     const fromDate = fromParam ? new Date(fromParam) : null;
     const toDate = toParam ? new Date(toParam) : null;
-    const dateFilter = and2(
-      eq2(transactionsTable.userId, userId),
-      fromDate ? gte2(transactionsTable.createdAt, fromDate) : void 0,
-      toDate ? lte2(transactionsTable.createdAt, toDate) : void 0
+    const dateFilter = and(
+      eq(transactionsTable.userId, userId),
+      fromDate ? gte(transactionsTable.createdAt, fromDate) : void 0,
+      toDate ? lte(transactionsTable.createdAt, toDate) : void 0
     );
     const [wallets, statsRows, recentTxs] = await Promise.all([
-      db.select().from(walletsTable).where(eq2(walletsTable.userId, userId)),
+      db.select().from(walletsTable).where(eq(walletsTable.userId, userId)),
       db.select({
         type: transactionsTable.type,
         status: transactionsTable.status,
@@ -83739,7 +82573,7 @@ router5.get("/summary", authMiddleware, async (req, res) => {
         totalFees: sum(transactionsTable.fee),
         txCount: count()
       }).from(transactionsTable).where(dateFilter).groupBy(transactionsTable.type, transactionsTable.status),
-      db.select().from(transactionsTable).where(dateFilter).orderBy(desc2(transactionsTable.createdAt)).limit(200)
+      db.select().from(transactionsTable).where(dateFilter).orderBy(desc(transactionsTable.createdAt)).limit(200)
     ]);
     let totalDeposited = 0;
     let totalWithdrawn = 0;
@@ -83798,7 +82632,7 @@ router5.get("/summary", authMiddleware, async (req, res) => {
 router5.get("/recent-activity", authMiddleware, async (req, res) => {
   const userId = req.userId;
   try {
-    const txs = await db.select().from(transactionsTable).where(eq2(transactionsTable.userId, userId)).orderBy(desc2(transactionsTable.createdAt)).limit(10);
+    const txs = await db.select().from(transactionsTable).where(eq(transactionsTable.userId, userId)).orderBy(desc(transactionsTable.createdAt)).limit(10);
     res.json(
       txs.map((t) => ({
         id: t.id,
@@ -83830,16 +82664,16 @@ router5.get("/volume-chart", authMiddleware, async (req, res) => {
     const sevenDaysAgo = /* @__PURE__ */ new Date();
     sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
     const rows = await db.select({
-      date: sql2`DATE(${transactionsTable.createdAt})`.as("date"),
+      date: sql`DATE(${transactionsTable.createdAt})`.as("date"),
       type: transactionsTable.type,
       total: sum(transactionsTable.amount)
     }).from(transactionsTable).where(
-      and2(
-        eq2(transactionsTable.userId, userId),
-        eq2(transactionsTable.status, "SUCCESS"),
-        gte2(transactionsTable.createdAt, sevenDaysAgo)
+      and(
+        eq(transactionsTable.userId, userId),
+        eq(transactionsTable.status, "SUCCESS"),
+        gte(transactionsTable.createdAt, sevenDaysAgo)
       )
-    ).groupBy(sql2`DATE(${transactionsTable.createdAt})`, transactionsTable.type).orderBy(sql2`DATE(${transactionsTable.createdAt})`);
+    ).groupBy(sql`DATE(${transactionsTable.createdAt})`, transactionsTable.type).orderBy(sql`DATE(${transactionsTable.createdAt})`);
     const dateMap = {};
     for (let i = 6; i >= 0; i--) {
       const d = /* @__PURE__ */ new Date();
@@ -83866,10 +82700,11 @@ var dashboard_default = router5;
 
 // src/routes/services.ts
 var import_express6 = __toESM(require_express2(), 1);
+init_drizzle_orm();
 var router6 = (0, import_express6.Router)();
 router6.get("/maviance", async (_req, res) => {
   try {
-    const result = await db.execute(sql2`
+    const result = await db.execute(sql`
       SELECT country, currency, operator, type, service_id, active, notes
       FROM maviance_services
       WHERE active = true
@@ -83963,7 +82798,7 @@ router6.post("/maviance/quote", async (req, res) => {
 });
 router6.get("/fees", authMiddleware, async (req, res) => {
   try {
-    const overrideRows = await db.execute(sql2`
+    const overrideRows = await db.execute(sql`
       SELECT country, operator, pixpay_deposit, pixpay_withdrawal, margin_deposit, margin_withdrawal
       FROM user_operator_fees
       WHERE user_id = ${req.userId}
@@ -84034,10 +82869,10 @@ router6.get("/available-operators", async (_req, res) => {
   try {
     const [pixResult, mavResult] = await Promise.all([
       db.execute(
-        sql2`SELECT operator, country, type FROM pixpay_services WHERE active = true`
+        sql`SELECT operator, country, type FROM pixpay_services WHERE active = true`
       ),
       db.execute(
-        sql2`SELECT operator, country, type FROM maviance_services WHERE active = true`
+        sql`SELECT operator, country, type FROM maviance_services WHERE active = true`
       ).catch(() => ({ rows: [] }))
     ]);
     const map2 = {};
@@ -84068,7 +82903,7 @@ router6.get("/available-operators", async (_req, res) => {
 router6.get("/card-available", async (_req, res) => {
   try {
     const result = await db.execute(
-      sql2`SELECT DISTINCT country, currency FROM maviance_services WHERE type = 'CARD' AND active = true`
+      sql`SELECT DISTINCT country, currency FROM maviance_services WHERE type = 'CARD' AND active = true`
     ).catch(() => ({ rows: [] }));
     res.json({ available: result.rows });
   } catch {
@@ -84080,6 +82915,7 @@ var services_default = router6;
 // src/routes/apikeys.ts
 var import_express7 = __toESM(require_express2(), 1);
 init_schema2();
+init_drizzle_orm();
 var import_crypto4 = require("crypto");
 var router7 = (0, import_express7.Router)();
 var KEY_TYPE_SCHEMA = external_exports.enum(["payin", "payout"]);
@@ -84103,7 +82939,7 @@ function formatKey(k) {
 }
 router7.get("/", authMiddleware, async (req, res) => {
   try {
-    const keys = await db.select().from(apiKeysTable).where(and2(eq2(apiKeysTable.userId, req.userId), eq2(apiKeysTable.active, true)));
+    const keys = await db.select().from(apiKeysTable).where(and(eq(apiKeysTable.userId, req.userId), eq(apiKeysTable.active, true)));
     res.json({ keys: keys.map(formatKey) });
   } catch (err) {
     req.log.error({ err }, "List API keys error");
@@ -84124,10 +82960,10 @@ router7.post("/", authMiddleware, async (req, res) => {
   const name = parse3.data.name ?? (type === "payin" ? "Cl\xE9 Payin" : "Cl\xE9 Payout");
   try {
     const existing = await db.select({ id: apiKeysTable.id }).from(apiKeysTable).where(
-      and2(
-        eq2(apiKeysTable.userId, req.userId),
-        eq2(apiKeysTable.active, true),
-        eq2(apiKeysTable.keyType, type)
+      and(
+        eq(apiKeysTable.userId, req.userId),
+        eq(apiKeysTable.active, true),
+        eq(apiKeysTable.keyType, type)
       )
     );
     if (existing.length >= 1) {
@@ -84139,7 +82975,7 @@ router7.post("/", authMiddleware, async (req, res) => {
     }
     const { raw, hash: hash2, prefix } = generateKey(type);
     const keyInsert = await db.insert(apiKeysTable).values({ userId: req.userId, keyHash: hash2, keyPrefix: prefix, name, keyType: type });
-    const [key] = await db.select().from(apiKeysTable).where(eq2(apiKeysTable.id, keyInsert[0].insertId)).limit(1);
+    const [key] = await db.select().from(apiKeysTable).where(eq(apiKeysTable.id, keyInsert[0].insertId)).limit(1);
     req.log.info({ userId: req.userId, keyId: key.id, type }, "API key created");
     res.status(201).json({
       id: key.id,
@@ -84162,7 +82998,7 @@ router7.get("/:id", authMiddleware, async (req, res) => {
     return;
   }
   try {
-    const [key] = await db.select().from(apiKeysTable).where(and2(eq2(apiKeysTable.id, id), eq2(apiKeysTable.userId, req.userId))).limit(1);
+    const [key] = await db.select().from(apiKeysTable).where(and(eq(apiKeysTable.id, id), eq(apiKeysTable.userId, req.userId))).limit(1);
     if (!key) {
       res.status(404).json({ error: "NotFound", message: "Cl\xE9 introuvable" });
       return;
@@ -84180,16 +83016,16 @@ router7.post("/:id/regenerate", authMiddleware, async (req, res) => {
     return;
   }
   try {
-    const [key] = await db.select().from(apiKeysTable).where(and2(eq2(apiKeysTable.id, id), eq2(apiKeysTable.userId, req.userId))).limit(1);
+    const [key] = await db.select().from(apiKeysTable).where(and(eq(apiKeysTable.id, id), eq(apiKeysTable.userId, req.userId))).limit(1);
     if (!key || !key.active) {
       res.status(404).json({ error: "NotFound", message: "Cl\xE9 introuvable ou d\xE9j\xE0 r\xE9voqu\xE9e" });
       return;
     }
-    await db.update(apiKeysTable).set({ active: false }).where(eq2(apiKeysTable.id, id));
+    await db.update(apiKeysTable).set({ active: false }).where(eq(apiKeysTable.id, id));
     const type = key.keyType ?? "payin";
     const { raw, hash: hash2, prefix } = generateKey(type);
     const newKeyInsert = await db.insert(apiKeysTable).values({ userId: req.userId, keyHash: hash2, keyPrefix: prefix, name: key.name, keyType: type });
-    const [newKey] = await db.select().from(apiKeysTable).where(eq2(apiKeysTable.id, newKeyInsert[0].insertId)).limit(1);
+    const [newKey] = await db.select().from(apiKeysTable).where(eq(apiKeysTable.id, newKeyInsert[0].insertId)).limit(1);
     req.log.info({ userId: req.userId, oldKeyId: id, newKeyId: newKey.id }, "API key regenerated");
     res.status(201).json({
       id: newKey.id,
@@ -84212,12 +83048,12 @@ router7.delete("/:id", authMiddleware, async (req, res) => {
     return;
   }
   try {
-    const [key] = await db.select().from(apiKeysTable).where(and2(eq2(apiKeysTable.id, id), eq2(apiKeysTable.userId, req.userId))).limit(1);
+    const [key] = await db.select().from(apiKeysTable).where(and(eq(apiKeysTable.id, id), eq(apiKeysTable.userId, req.userId))).limit(1);
     if (!key) {
       res.status(404).json({ error: "NotFound", message: "Cl\xE9 introuvable" });
       return;
     }
-    await db.update(apiKeysTable).set({ active: false }).where(eq2(apiKeysTable.id, id));
+    await db.update(apiKeysTable).set({ active: false }).where(eq(apiKeysTable.id, id));
     req.log.info({ userId: req.userId, keyId: id }, "API key revoked");
     res.json({ success: true, message: "Cl\xE9 r\xE9voqu\xE9e avec succ\xE8s" });
   } catch (err) {
@@ -84230,6 +83066,7 @@ var apikeys_default = router7;
 // src/routes/kyc.ts
 var import_express8 = __toESM(require_express2(), 1);
 init_schema2();
+init_drizzle_orm();
 var router8 = (0, import_express8.Router)();
 var KYC_DOC_TYPES = ["ID_FRONT", "ID_BACK"];
 var KYB_DOC_TYPES = ["KYB_STATUTS", "KYB_RCCM", "KYB_NIU", "KYB_PLAN_LOC"];
@@ -84266,7 +83103,7 @@ router8.get("/", authMiddleware, async (req, res) => {
       notes: kycDocumentsTable.notes,
       createdAt: kycDocumentsTable.createdAt,
       updatedAt: kycDocumentsTable.updatedAt
-    }).from(kycDocumentsTable).where(eq2(kycDocumentsTable.userId, req.userId));
+    }).from(kycDocumentsTable).where(eq(kycDocumentsTable.userId, req.userId));
     res.json({ profile, documents: docs });
   } catch (err) {
     req.log.error({ err }, "Get KYC error");
@@ -84303,9 +83140,9 @@ router8.post("/identity", authMiddleware, async (req, res) => {
     `, [req.userId, fullName, dateOfBirth, docType, docNumber]);
     for (const [docTypeKey, file2] of [["ID_FRONT", frontFile], ["ID_BACK", backFile], ["SELFIE", selfieFile]]) {
       if (!file2) continue;
-      const existing = await db.select({ id: kycDocumentsTable.id }).from(kycDocumentsTable).where(and2(eq2(kycDocumentsTable.userId, req.userId), eq2(kycDocumentsTable.type, docTypeKey))).limit(1);
+      const existing = await db.select({ id: kycDocumentsTable.id }).from(kycDocumentsTable).where(and(eq(kycDocumentsTable.userId, req.userId), eq(kycDocumentsTable.type, docTypeKey))).limit(1);
       if (existing.length > 0) {
-        await db.update(kycDocumentsTable).set({ fileName: file2.name, fileData: file2.data, status: "PENDING", updatedAt: /* @__PURE__ */ new Date() }).where(eq2(kycDocumentsTable.id, existing[0].id));
+        await db.update(kycDocumentsTable).set({ fileName: file2.name, fileData: file2.data, status: "PENDING", updatedAt: /* @__PURE__ */ new Date() }).where(eq(kycDocumentsTable.id, existing[0].id));
       } else {
         await db.insert(kycDocumentsTable).values({ userId: req.userId, type: docTypeKey, fileName: file2.name, fileData: file2.data, status: "PENDING" });
       }
@@ -84372,9 +83209,9 @@ router8.post("/kyb", authMiddleware, async (req, res) => {
     ];
     for (const [docTypeKey, file2] of kybDocs) {
       if (!file2) continue;
-      const existing = await db.select({ id: kycDocumentsTable.id }).from(kycDocumentsTable).where(and2(eq2(kycDocumentsTable.userId, req.userId), eq2(kycDocumentsTable.type, docTypeKey))).limit(1);
+      const existing = await db.select({ id: kycDocumentsTable.id }).from(kycDocumentsTable).where(and(eq(kycDocumentsTable.userId, req.userId), eq(kycDocumentsTable.type, docTypeKey))).limit(1);
       if (existing.length > 0) {
-        await db.update(kycDocumentsTable).set({ fileName: file2.name, fileData: file2.data, status: "PENDING", updatedAt: /* @__PURE__ */ new Date() }).where(eq2(kycDocumentsTable.id, existing[0].id));
+        await db.update(kycDocumentsTable).set({ fileName: file2.name, fileData: file2.data, status: "PENDING", updatedAt: /* @__PURE__ */ new Date() }).where(eq(kycDocumentsTable.id, existing[0].id));
       } else {
         await db.insert(kycDocumentsTable).values({ userId: req.userId, type: docTypeKey, fileName: file2.name, fileData: file2.data, status: "PENDING" });
       }
@@ -84393,7 +83230,7 @@ router8.delete("/:id", authMiddleware, async (req, res) => {
     return;
   }
   try {
-    const [doc] = await db.select().from(kycDocumentsTable).where(and2(eq2(kycDocumentsTable.id, id), eq2(kycDocumentsTable.userId, req.userId))).limit(1);
+    const [doc] = await db.select().from(kycDocumentsTable).where(and(eq(kycDocumentsTable.id, id), eq(kycDocumentsTable.userId, req.userId))).limit(1);
     if (!doc) {
       res.status(404).json({ error: "NotFound", message: "Document introuvable" });
       return;
@@ -84402,7 +83239,7 @@ router8.delete("/:id", authMiddleware, async (req, res) => {
       res.status(400).json({ error: "Forbidden", message: "Impossible de supprimer un document v\xE9rifi\xE9" });
       return;
     }
-    await db.delete(kycDocumentsTable).where(eq2(kycDocumentsTable.id, id));
+    await db.delete(kycDocumentsTable).where(eq(kycDocumentsTable.id, id));
     res.json({ success: true, message: "Document supprim\xE9" });
   } catch (err) {
     req.log.error({ err }, "KYC delete error");
@@ -84414,16 +83251,18 @@ var kyc_default = router8;
 // src/routes/admin.ts
 var import_express9 = __toESM(require_express2(), 1);
 init_schema2();
+init_drizzle_orm();
 
 // src/middlewares/adminMiddleware.ts
 init_schema2();
+init_drizzle_orm();
 async function adminMiddleware(req, res, next) {
   if (!req.userId) {
     res.status(401).json({ error: "Unauthorized", message: "Authentication required" });
     return;
   }
   try {
-    const [user] = await db.select({ role: usersTable.role }).from(usersTable).where(eq2(usersTable.id, req.userId)).limit(1);
+    const [user] = await db.select({ role: usersTable.role }).from(usersTable).where(eq(usersTable.id, req.userId)).limit(1);
     if (!user || user.role !== "ADMIN") {
       res.status(403).json({ error: "Forbidden", message: "Acc\xE8s r\xE9serv\xE9 aux administrateurs" });
       return;
@@ -84457,20 +83296,20 @@ router9.get("/stats", async (req, res) => {
       kycProfileStats,
       txByCurrency
     ] = await Promise.all([
-      db.select({ totalUsers: sql2`count(*)` }).from(usersTable),
-      db.select({ pendingKyc: sql2`count(*)` }).from(kycDocumentsTable).where(eq2(kycDocumentsTable.status, "PENDING")),
-      db.select({ totalTx: sql2`count(*)` }).from(transactionsTable),
-      db.select({ customFees: sql2`count(distinct user_id)` }).from(userFeesTable),
+      db.select({ totalUsers: sql`count(*)` }).from(usersTable),
+      db.select({ pendingKyc: sql`count(*)` }).from(kycDocumentsTable).where(eq(kycDocumentsTable.status, "PENDING")),
+      db.select({ totalTx: sql`count(*)` }).from(transactionsTable),
+      db.select({ customFees: sql`count(distinct user_id)` }).from(userFeesTable),
       db.select({
-        totalVolume: sql2`coalesce(sum(CAST(amount AS DECIMAL(30,10))), 0)`,
-        totalMargin: sql2`coalesce(sum(CAST(yookpay_margin AS DECIMAL(30,10))), 0)`,
-        totalFees: sql2`coalesce(sum(CAST(fee AS DECIMAL(30,10))), 0)`,
-        depositMargin: sql2`coalesce(sum(CASE WHEN type='DEPOSIT'    THEN CAST(yookpay_margin AS DECIMAL(30,10)) ELSE 0 END), 0)`,
-        withdrawalMargin: sql2`coalesce(sum(CASE WHEN type='WITHDRAWAL' THEN CAST(yookpay_margin AS DECIMAL(30,10)) ELSE 0 END), 0)`,
-        successTx: sql2`count(*)`
-      }).from(transactionsTable).where(eq2(transactionsTable.status, "SUCCESS")),
-      db.select({ verifiedUsers: sql2`count(distinct user_id)` }).from(kycDocumentsTable).where(eq2(kycDocumentsTable.status, "VERIFIED")),
-      db.execute(sql2`
+        totalVolume: sql`coalesce(sum(CAST(amount AS DECIMAL(30,10))), 0)`,
+        totalMargin: sql`coalesce(sum(CAST(yookpay_margin AS DECIMAL(30,10))), 0)`,
+        totalFees: sql`coalesce(sum(CAST(fee AS DECIMAL(30,10))), 0)`,
+        depositMargin: sql`coalesce(sum(CASE WHEN type='DEPOSIT'    THEN CAST(yookpay_margin AS DECIMAL(30,10)) ELSE 0 END), 0)`,
+        withdrawalMargin: sql`coalesce(sum(CASE WHEN type='WITHDRAWAL' THEN CAST(yookpay_margin AS DECIMAL(30,10)) ELSE 0 END), 0)`,
+        successTx: sql`count(*)`
+      }).from(transactionsTable).where(eq(transactionsTable.status, "SUCCESS")),
+      db.select({ verifiedUsers: sql`count(distinct user_id)` }).from(kycDocumentsTable).where(eq(kycDocumentsTable.status, "VERIFIED")),
+      db.execute(sql`
         SELECT
           SUM(CASE WHEN kyc_status = 'PENDING' THEN 1 ELSE 0 END)                    AS pending_kyc,
           SUM(CASE WHEN kyb_status = 'PENDING' THEN 1 ELSE 0 END)                    AS pending_kyb,
@@ -84480,13 +83319,13 @@ router9.get("/stats", async (req, res) => {
       `),
       db.select({
         currency: transactionsTable.currency,
-        volume: sql2`coalesce(sum(CAST(amount AS DECIMAL(30,10))), 0)`,
-        margin: sql2`coalesce(sum(CAST(yookpay_margin AS DECIMAL(30,10))), 0)`,
-        fees: sql2`coalesce(sum(CAST(fee AS DECIMAL(30,10))), 0)`,
-        depositMargin: sql2`coalesce(sum(CASE WHEN type='DEPOSIT'    THEN CAST(yookpay_margin AS DECIMAL(30,10)) ELSE 0 END), 0)`,
-        withdrawalMargin: sql2`coalesce(sum(CASE WHEN type='WITHDRAWAL' THEN CAST(yookpay_margin AS DECIMAL(30,10)) ELSE 0 END), 0)`,
-        count: sql2`count(*)`
-      }).from(transactionsTable).where(eq2(transactionsTable.status, "SUCCESS")).groupBy(transactionsTable.currency)
+        volume: sql`coalesce(sum(CAST(amount AS DECIMAL(30,10))), 0)`,
+        margin: sql`coalesce(sum(CAST(yookpay_margin AS DECIMAL(30,10))), 0)`,
+        fees: sql`coalesce(sum(CAST(fee AS DECIMAL(30,10))), 0)`,
+        depositMargin: sql`coalesce(sum(CASE WHEN type='DEPOSIT'    THEN CAST(yookpay_margin AS DECIMAL(30,10)) ELSE 0 END), 0)`,
+        withdrawalMargin: sql`coalesce(sum(CASE WHEN type='WITHDRAWAL' THEN CAST(yookpay_margin AS DECIMAL(30,10)) ELSE 0 END), 0)`,
+        count: sql`count(*)`
+      }).from(transactionsTable).where(eq(transactionsTable.status, "SUCCESS")).groupBy(transactionsTable.currency)
     ]);
     const kp = kycProfileStats.rows[0] ?? { pending_kyc: 0, pending_kyb: 0, verified_kyc: 0, verified_kyb: 0 };
     res.json({
@@ -84529,22 +83368,22 @@ router9.get("/users", async (req, res) => {
       phone: usersTable.phone,
       country: usersTable.country,
       role: usersTable.role,
-      status: sql2`coalesce(users.status, 'ACTIVE')`,
+      status: sql`coalesce(users.status, 'ACTIVE')`,
       createdAt: usersTable.createdAt
-    }).from(usersTable).orderBy(desc2(usersTable.createdAt));
+    }).from(usersTable).orderBy(desc(usersTable.createdAt));
     const wallets = await db.select().from(walletsTable);
     const walletMap = {};
     for (const w of wallets) {
       if (!walletMap[w.userId]) walletMap[w.userId] = [];
       walletMap[w.userId].push(w);
     }
-    const kycCounts = await db.select({ userId: kycDocumentsTable.userId, status: kycDocumentsTable.status, count: sql2`count(*)` }).from(kycDocumentsTable).groupBy(kycDocumentsTable.userId, kycDocumentsTable.status);
+    const kycCounts = await db.select({ userId: kycDocumentsTable.userId, status: kycDocumentsTable.status, count: sql`count(*)` }).from(kycDocumentsTable).groupBy(kycDocumentsTable.userId, kycDocumentsTable.status);
     const kycMap = {};
     for (const k of kycCounts) {
       if (!kycMap[k.userId]) kycMap[k.userId] = {};
       kycMap[k.userId][k.status] = k.count;
     }
-    const globalFees = await db.select().from(userFeesTable).where(and2(eq2(userFeesTable.country, GLOBAL_COUNTRY2), eq2(userFeesTable.operator, GLOBAL_OPERATOR2)));
+    const globalFees = await db.select().from(userFeesTable).where(and(eq(userFeesTable.country, GLOBAL_COUNTRY2), eq(userFeesTable.operator, GLOBAL_OPERATOR2)));
     const feeMap = {};
     for (const f of globalFees) {
       if (!feeMap[f.userId]) feeMap[f.userId] = {};
@@ -84578,15 +83417,15 @@ router9.get("/users/:id", async (req, res) => {
     return;
   }
   try {
-    const [user] = await db.select().from(usersTable).where(eq2(usersTable.id, userId)).limit(1);
+    const [user] = await db.select().from(usersTable).where(eq(usersTable.id, userId)).limit(1);
     if (!user) {
       res.status(404).json({ error: "NotFound", message: "Utilisateur introuvable" });
       return;
     }
-    const wallets = await db.select().from(walletsTable).where(eq2(walletsTable.userId, userId));
-    const fees = await db.select().from(userFeesTable).where(eq2(userFeesTable.userId, userId));
-    const kycDocs = await db.select({ id: kycDocumentsTable.id, type: kycDocumentsTable.type, status: kycDocumentsTable.status, fileName: kycDocumentsTable.fileName, notes: kycDocumentsTable.notes, createdAt: kycDocumentsTable.createdAt, updatedAt: kycDocumentsTable.updatedAt }).from(kycDocumentsTable).where(eq2(kycDocumentsTable.userId, userId));
-    const recentTx = await db.select().from(transactionsTable).where(eq2(transactionsTable.userId, userId)).orderBy(desc2(transactionsTable.createdAt)).limit(10);
+    const wallets = await db.select().from(walletsTable).where(eq(walletsTable.userId, userId));
+    const fees = await db.select().from(userFeesTable).where(eq(userFeesTable.userId, userId));
+    const kycDocs = await db.select({ id: kycDocumentsTable.id, type: kycDocumentsTable.type, status: kycDocumentsTable.status, fileName: kycDocumentsTable.fileName, notes: kycDocumentsTable.notes, createdAt: kycDocumentsTable.createdAt, updatedAt: kycDocumentsTable.updatedAt }).from(kycDocumentsTable).where(eq(kycDocumentsTable.userId, userId));
+    const recentTx = await db.select().from(transactionsTable).where(eq(transactionsTable.userId, userId)).orderBy(desc(transactionsTable.createdAt)).limit(10);
     const globalFees = fees.filter((f) => f.country === GLOBAL_COUNTRY2 && f.operator === GLOBAL_OPERATOR2);
     const specificFees = fees.filter((f) => !(f.country === GLOBAL_COUNTRY2 && f.operator === GLOBAL_OPERATOR2));
     const globalRateMap = {};
@@ -84638,7 +83477,7 @@ router9.get("/users/:id", async (req, res) => {
       };
     }
     const kycProfile = await db.execute(
-      sql2`SELECT kyc_status, kyb_status FROM kyc_profiles WHERE user_id = ${userId} LIMIT 1`
+      sql`SELECT kyc_status, kyb_status FROM kyc_profiles WHERE user_id = ${userId} LIMIT 1`
     );
     const kycRow = kycProfile.rows[0];
     res.json({
@@ -84675,14 +83514,14 @@ router9.put("/users/:id/global-fees", async (req, res) => {
   const { transactionType, rate } = parse3.data;
   const rateDecimal = rate / 100;
   try {
-    const existing = await db.select({ id: userFeesTable.id }).from(userFeesTable).where(and2(
-      eq2(userFeesTable.userId, userId),
-      eq2(userFeesTable.country, GLOBAL_COUNTRY2),
-      eq2(userFeesTable.operator, GLOBAL_OPERATOR2),
-      eq2(userFeesTable.transactionType, transactionType)
+    const existing = await db.select({ id: userFeesTable.id }).from(userFeesTable).where(and(
+      eq(userFeesTable.userId, userId),
+      eq(userFeesTable.country, GLOBAL_COUNTRY2),
+      eq(userFeesTable.operator, GLOBAL_OPERATOR2),
+      eq(userFeesTable.transactionType, transactionType)
     )).limit(1);
     if (existing.length > 0) {
-      await db.update(userFeesTable).set({ rate: String(rateDecimal), updatedAt: /* @__PURE__ */ new Date() }).where(eq2(userFeesTable.id, existing[0].id));
+      await db.update(userFeesTable).set({ rate: String(rateDecimal), updatedAt: /* @__PURE__ */ new Date() }).where(eq(userFeesTable.id, existing[0].id));
     } else {
       await db.insert(userFeesTable).values({
         userId,
@@ -84709,11 +83548,11 @@ router9.delete("/users/:id/global-fees/:type", async (req, res) => {
     return;
   }
   try {
-    await db.delete(userFeesTable).where(and2(
-      eq2(userFeesTable.userId, userId),
-      eq2(userFeesTable.country, GLOBAL_COUNTRY2),
-      eq2(userFeesTable.operator, GLOBAL_OPERATOR2),
-      eq2(userFeesTable.transactionType, type)
+    await db.delete(userFeesTable).where(and(
+      eq(userFeesTable.userId, userId),
+      eq(userFeesTable.country, GLOBAL_COUNTRY2),
+      eq(userFeesTable.operator, GLOBAL_OPERATOR2),
+      eq(userFeesTable.transactionType, type)
     ));
     req.log.info({ adminId: req.userId, userId, type }, "Global fee reset to default");
     res.json({ success: true, message: "Taux r\xE9initialis\xE9 au d\xE9faut" });
@@ -84743,14 +83582,14 @@ router9.put("/users/:id/fees", async (req, res) => {
   }
   const { country, operator, transactionType, rate, minFee, maxFee } = parse3.data;
   try {
-    const existing = await db.select({ id: userFeesTable.id }).from(userFeesTable).where(and2(
-      eq2(userFeesTable.userId, userId),
-      eq2(userFeesTable.country, country),
-      eq2(userFeesTable.operator, operator),
-      eq2(userFeesTable.transactionType, transactionType)
+    const existing = await db.select({ id: userFeesTable.id }).from(userFeesTable).where(and(
+      eq(userFeesTable.userId, userId),
+      eq(userFeesTable.country, country),
+      eq(userFeesTable.operator, operator),
+      eq(userFeesTable.transactionType, transactionType)
     )).limit(1);
     if (existing.length > 0) {
-      await db.update(userFeesTable).set({ rate: String(rate), minFee, maxFee, updatedAt: /* @__PURE__ */ new Date() }).where(eq2(userFeesTable.id, existing[0].id));
+      await db.update(userFeesTable).set({ rate: String(rate), minFee, maxFee, updatedAt: /* @__PURE__ */ new Date() }).where(eq(userFeesTable.id, existing[0].id));
     } else {
       await db.insert(userFeesTable).values({ userId, country, operator, transactionType, rate: String(rate), minFee, maxFee });
     }
@@ -84769,7 +83608,7 @@ router9.delete("/users/:id/fees/:feeId", async (req, res) => {
     return;
   }
   try {
-    await db.delete(userFeesTable).where(and2(eq2(userFeesTable.id, feeId), eq2(userFeesTable.userId, userId)));
+    await db.delete(userFeesTable).where(and(eq(userFeesTable.id, feeId), eq(userFeesTable.userId, userId)));
     req.log.info({ adminId: req.userId, feeId }, "Custom fee removed");
     res.json({ success: true });
   } catch (err) {
@@ -84900,12 +83739,12 @@ router9.patch("/kyc/:docId", async (req, res) => {
     return;
   }
   try {
-    const [doc] = await db.select().from(kycDocumentsTable).where(eq2(kycDocumentsTable.id, docId)).limit(1);
+    const [doc] = await db.select().from(kycDocumentsTable).where(eq(kycDocumentsTable.id, docId)).limit(1);
     if (!doc) {
       res.status(404).json({ error: "NotFound", message: "Document introuvable" });
       return;
     }
-    await db.update(kycDocumentsTable).set({ status: parse3.data.status, notes: parse3.data.notes ?? null, updatedAt: /* @__PURE__ */ new Date() }).where(eq2(kycDocumentsTable.id, docId));
+    await db.update(kycDocumentsTable).set({ status: parse3.data.status, notes: parse3.data.notes ?? null, updatedAt: /* @__PURE__ */ new Date() }).where(eq(kycDocumentsTable.id, docId));
     req.log.info({ adminId: req.userId, docId, status: parse3.data.status, userId: doc.userId }, "KYC status updated");
     res.json({ success: true, message: `Document ${parse3.data.status === "VERIFIED" ? "v\xE9rifi\xE9" : parse3.data.status === "REJECTED" ? "rejet\xE9" : "remis en attente"}` });
   } catch (err) {
@@ -85058,7 +83897,7 @@ router9.patch("/users/:id/role", async (req, res) => {
     return;
   }
   try {
-    await db.update(usersTable).set({ role: parse3.data.role }).where(eq2(usersTable.id, userId));
+    await db.update(usersTable).set({ role: parse3.data.role }).where(eq(usersTable.id, userId));
     req.log.info({ adminId: req.userId, targetUserId: userId, role: parse3.data.role }, "User role updated");
     res.json({ success: true, message: `R\xF4le mis \xE0 jour : ${parse3.data.role}` });
   } catch (err) {
@@ -85068,7 +83907,7 @@ router9.patch("/users/:id/role", async (req, res) => {
 });
 router9.get("/conversion", async (req, res) => {
   try {
-    const rows = await db.execute(sql2`SELECT * FROM conversion_fees ORDER BY pair`);
+    const rows = await db.execute(sql`SELECT * FROM conversion_fees ORDER BY pair`);
     res.json({ conversions: rows.rows });
   } catch (err) {
     req.log.error({ err }, "Admin get conversion error");
@@ -85093,7 +83932,7 @@ router9.put("/conversion/:pair", async (req, res) => {
   }
   const { rate, minAmount } = parse3.data;
   try {
-    await db.execute(sql2`
+    await db.execute(sql`
       UPDATE conversion_fees
       SET rate = ${(rate / 100).toFixed(4)}, min_amount = ${minAmount}, updated_at = NOW()
       WHERE pair = ${pair}
@@ -85122,12 +83961,12 @@ router9.patch("/users/:id/ban", async (req, res) => {
     return;
   }
   try {
-    const [user] = await db.select().from(usersTable).where(eq2(usersTable.id, userId)).limit(1);
+    const [user] = await db.select().from(usersTable).where(eq(usersTable.id, userId)).limit(1);
     if (!user) {
       res.status(404).json({ error: "NotFound", message: "Utilisateur introuvable" });
       return;
     }
-    await db.update(usersTable).set({ status: parse3.data.status }).where(eq2(usersTable.id, userId));
+    await db.update(usersTable).set({ status: parse3.data.status }).where(eq(usersTable.id, userId));
     req.log.info({ adminId: req.userId, targetUserId: userId, status: parse3.data.status }, "User ban status updated");
     res.json({
       success: true,
@@ -85146,12 +83985,12 @@ router9.post("/transactions/:id/refund-crypto", async (req, res) => {
     return;
   }
   try {
-    const [tx] = await db.select().from(transactionsTable).where(and2(eq2(transactionsTable.id, txId), eq2(transactionsTable.status, "PENDING"), eq2(transactionsTable.currency, "USDT"))).limit(1);
+    const [tx] = await db.select().from(transactionsTable).where(and(eq(transactionsTable.id, txId), eq(transactionsTable.status, "PENDING"), eq(transactionsTable.currency, "USDT"))).limit(1);
     if (!tx) {
       res.status(404).json({ error: "NotFound", message: "Transaction PENDING USDT introuvable" });
       return;
     }
-    const [wallet] = await db.select().from(walletsTable).where(and2(eq2(walletsTable.userId, tx.userId), eq2(walletsTable.currency, "USDT"))).limit(1);
+    const [wallet] = await db.select().from(walletsTable).where(and(eq(walletsTable.userId, tx.userId), eq(walletsTable.currency, "USDT"))).limit(1);
     if (!wallet) {
       res.status(404).json({ error: "NotFound", message: "Portefeuille USDT introuvable" });
       return;
@@ -85160,12 +83999,12 @@ router9.post("/transactions/:id/refund-crypto", async (req, res) => {
     await db.update(walletsTable).set({
       balance: (parseFloat(wallet.balance) + refundAmount).toFixed(8),
       updatedAt: /* @__PURE__ */ new Date()
-    }).where(eq2(walletsTable.id, wallet.id));
+    }).where(eq(walletsTable.id, wallet.id));
     await db.update(transactionsTable).set({
       status: "FAILED",
       metadata: { ...tx.metadata ?? {}, refundedAt: (/* @__PURE__ */ new Date()).toISOString(), refundedBy: "admin", reason: "Retrait rembours\xE9 manuellement" },
       updatedAt: /* @__PURE__ */ new Date()
-    }).where(eq2(transactionsTable.id, txId));
+    }).where(eq(transactionsTable.id, txId));
     req.log.info({ adminId: req.userId, txId, refundAmount }, "Crypto withdrawal refunded by admin");
     res.json({ success: true, refundAmount, message: `${refundAmount} USDT rembours\xE9s sur le portefeuille de l'utilisateur` });
   } catch (err) {
@@ -85190,14 +84029,14 @@ router9.put("/users/:id/wallets/:currency", async (req, res) => {
     return;
   }
   try {
-    const [wallet] = await db.select().from(walletsTable).where(and2(eq2(walletsTable.userId, userId), eq2(walletsTable.currency, currency))).limit(1);
+    const [wallet] = await db.select().from(walletsTable).where(and(eq(walletsTable.userId, userId), eq(walletsTable.currency, currency))).limit(1);
     if (!wallet) {
       res.status(404).json({ error: "NotFound", message: `Aucun portefeuille ${currency} pour cet utilisateur` });
       return;
     }
     const oldBalance = parseFloat(wallet.balance);
     const newBalance = parse3.data.balance;
-    await db.update(walletsTable).set({ balance: newBalance.toString(), updatedAt: /* @__PURE__ */ new Date() }).where(eq2(walletsTable.id, wallet.id));
+    await db.update(walletsTable).set({ balance: newBalance.toString(), updatedAt: /* @__PURE__ */ new Date() }).where(eq(walletsTable.id, wallet.id));
     req.log.info(
       { adminId: req.userId, targetUserId: userId, currency, oldBalance, newBalance, reason: parse3.data.reason },
       "Admin wallet balance updated"
@@ -85216,7 +84055,7 @@ router9.put("/users/:id/wallets/:currency", async (req, res) => {
 });
 router9.get("/maviance/services", async (_req, res) => {
   try {
-    const result = await db.execute(sql2`
+    const result = await db.execute(sql`
       SELECT id, operator, country, currency, type, service_id, active, notes, updated_at
       FROM maviance_services
       ORDER BY currency, country, operator, type
@@ -85243,7 +84082,7 @@ router9.put("/maviance/services", async (req, res) => {
   }
   const { operator, country, currency, type, serviceId, active, notes } = parse3.data;
   try {
-    await db.execute(sql2`
+    await db.execute(sql`
       INSERT INTO maviance_services (operator, country, currency, type, service_id, active, notes, updated_at)
       VALUES (${operator}, ${country ?? null}, ${currency}, ${type}, ${serviceId}, ${active}, ${notes ?? null}, NOW())
       ON DUPLICATE KEY UPDATE service_id = ${serviceId}, active = ${active}, notes = ${notes ?? null}, updated_at = NOW()
@@ -85257,7 +84096,7 @@ router9.put("/maviance/services", async (req, res) => {
 });
 router9.get("/provider-config", async (_req, res) => {
   try {
-    const result = await db.execute(sql2`
+    const result = await db.execute(sql`
       SELECT id, country, operator, type, provider, updated_at
       FROM payment_provider_config
       ORDER BY country, operator, type
@@ -85281,7 +84120,7 @@ router9.put("/provider-config", async (req, res) => {
   }
   const { country, operator, type, provider } = parse3.data;
   try {
-    await db.execute(sql2`
+    await db.execute(sql`
       INSERT INTO payment_provider_config (country, operator, type, provider, updated_at)
       VALUES (${country}, ${operator}, ${type}, ${provider}, NOW())
       ON DUPLICATE KEY UPDATE provider = ${provider}, updated_at = NOW()
@@ -85306,7 +84145,7 @@ router9.delete("/provider-config", async (req, res) => {
   }
   const { country, operator, type } = parse3.data;
   try {
-    await db.execute(sql2`
+    await db.execute(sql`
       DELETE FROM payment_provider_config
       WHERE country = ${country} AND operator = ${operator} AND type = ${type}
     `);
@@ -85318,7 +84157,7 @@ router9.delete("/provider-config", async (req, res) => {
 });
 router9.get("/pixpay/services", async (_req, res) => {
   try {
-    const result = await db.execute(sql2`
+    const result = await db.execute(sql`
       SELECT id, operator, country, currency, type, service_id, active, notes, updated_at
       FROM pixpay_services
       ORDER BY currency, country, operator, type
@@ -85345,7 +84184,7 @@ router9.put("/pixpay/services", async (req, res) => {
   }
   const { operator, country, currency, type, serviceId, active, notes } = parse3.data;
   try {
-    await db.execute(sql2`
+    await db.execute(sql`
       INSERT INTO pixpay_services (operator, country, currency, type, service_id, active, notes, updated_at)
       VALUES (${operator}, ${country ?? null}, ${currency}, ${type}, ${serviceId}, ${active}, ${notes ?? null}, NOW())
       ON DUPLICATE KEY UPDATE service_id = ${serviceId}, active = ${active}, notes = ${notes ?? null}, updated_at = NOW()
@@ -85359,7 +84198,7 @@ router9.put("/pixpay/services", async (req, res) => {
 });
 router9.get("/pixpay/config", async (_req, res) => {
   try {
-    const result = await db.execute(sql2`SELECT \`key\`, value, updated_at FROM platform_config ORDER BY \`key\``);
+    const result = await db.execute(sql`SELECT \`key\`, value, updated_at FROM platform_config ORDER BY \`key\``);
     res.json({ config: result.rows });
   } catch (err) {
     res.status(500).json({ error: "InternalError", message: "Impossible de charger la configuration" });
@@ -85377,7 +84216,7 @@ router9.put("/pixpay/config", async (req, res) => {
   }
   const { key, value } = parse3.data;
   try {
-    await db.execute(sql2`
+    await db.execute(sql`
       INSERT INTO platform_config (\`key\`, value, updated_at)
       VALUES (${key}, ${value}, NOW())
       ON DUPLICATE KEY UPDATE value = ${value}, updated_at = NOW()
@@ -85392,7 +84231,7 @@ router9.put("/pixpay/config", async (req, res) => {
 router9.get("/margin", async (_req, res) => {
   try {
     const result = await db.execute(
-      sql2`SELECT value FROM platform_config WHERE \`key\` = 'default_margin' LIMIT 1`
+      sql`SELECT value FROM platform_config WHERE \`key\` = 'default_margin' LIMIT 1`
     );
     const value = result.rows.length ? parseFloat(result.rows[0].value) : 0.025;
     res.json({ margin: isNaN(value) ? 0.025 : value });
@@ -85409,7 +84248,7 @@ router9.put("/margin", async (req, res) => {
   }
   const { margin } = parse3.data;
   try {
-    await db.execute(sql2`
+    await db.execute(sql`
       INSERT INTO platform_config (\`key\`, value, updated_at)
       VALUES ('default_margin', ${margin.toString()}, NOW())
       ON DUPLICATE KEY UPDATE value = ${margin.toString()}, updated_at = NOW()
@@ -85557,7 +84396,7 @@ router9.patch("/transactions/:id/status", async (req, res) => {
   }
   const { status: newStatus, notes } = parse3.data;
   try {
-    const [tx] = await db.select().from(transactionsTable).where(eq2(transactionsTable.id, id)).limit(1);
+    const [tx] = await db.select().from(transactionsTable).where(eq(transactionsTable.id, id)).limit(1);
     if (!tx) {
       res.status(404).json({ error: "NotFound", message: "Transaction introuvable" });
       return;
@@ -85583,12 +84422,12 @@ router9.patch("/transactions/:id/status", async (req, res) => {
       status: newStatus,
       metadata: { ...meta, ...adminNotes },
       updatedAt: /* @__PURE__ */ new Date()
-    }).where(and2(eq2(transactionsTable.id, tx.id), eq2(transactionsTable.status, oldStatus)));
+    }).where(and(eq(transactionsTable.id, tx.id), eq(transactionsTable.status, oldStatus)));
     if (affectedRows(updateResult) === 0) {
       res.status(409).json({ error: "Conflict", message: "Le statut a d\xE9j\xE0 \xE9t\xE9 modifi\xE9 par un autre acteur. Veuillez recharger la page." });
       return;
     }
-    const [wallet] = await db.select().from(walletsTable).where(and2(eq2(walletsTable.userId, tx.userId), eq2(walletsTable.currency, tx.currency))).limit(1);
+    const [wallet] = await db.select().from(walletsTable).where(and(eq(walletsTable.userId, tx.userId), eq(walletsTable.currency, tx.currency))).limit(1);
     if (wallet) {
       let delta = 0;
       if (tx.type === "DEPOSIT") {
@@ -85605,7 +84444,7 @@ router9.patch("/transactions/:id/status", async (req, res) => {
       }
       if (delta !== 0) {
         const newBalance = Math.max(0, parseFloat(wallet.balance) + delta);
-        await db.update(walletsTable).set({ balance: newBalance.toString(), updatedAt: /* @__PURE__ */ new Date() }).where(eq2(walletsTable.id, wallet.id));
+        await db.update(walletsTable).set({ balance: newBalance.toString(), updatedAt: /* @__PURE__ */ new Date() }).where(eq(walletsTable.id, wallet.id));
       }
     }
     const typeLabel = tx.type === "DEPOSIT" ? "D\xE9p\xF4t" : "Retrait";
@@ -85631,7 +84470,7 @@ router9.patch("/transactions/:id/status", async (req, res) => {
 });
 router9.get("/exchanges", async (req, res) => {
   try {
-    const result = await db.execute(sql2`
+    const result = await db.execute(sql`
       SELECT ce.*, u.email AS user_email, u.name AS user_name
       FROM crypto_exchanges ce
       JOIN users u ON u.id = ce.user_id
@@ -85666,7 +84505,7 @@ router9.patch("/exchanges/:id/approve", async (req, res) => {
   const id = parseInt(req.params.id);
   const { notes, finalAmount } = req.body;
   try {
-    const result = await db.execute(sql2`
+    const result = await db.execute(sql`
       SELECT ce.*, t.net_amount, t.currency, t.phone, t.user_id, t.metadata
       FROM crypto_exchanges ce
       LEFT JOIN transactions t ON t.id = ce.tx_step2_id
@@ -85681,21 +84520,21 @@ router9.patch("/exchanges/:id/approve", async (req, res) => {
     const netUsdt = parseFloat(ex.usdt_amount) - parseFloat(ex.fee_amount ?? "0");
     const currentRate = await getEffectiveRate("USDT", ex.to_currency);
     const confirmedAmount = finalAmount ?? parseFloat((netUsdt * currentRate).toFixed(2));
-    const [fiatWallet] = await db.select().from(walletsTable).where(and2(eq2(walletsTable.userId, ex.user_id), eq2(walletsTable.currency, ex.to_currency))).limit(1);
+    const [fiatWallet] = await db.select().from(walletsTable).where(and(eq(walletsTable.userId, ex.user_id), eq(walletsTable.currency, ex.to_currency))).limit(1);
     if (fiatWallet) {
       await db.update(walletsTable).set({
         balance: (parseFloat(fiatWallet.balance) + confirmedAmount).toFixed(2),
         updatedAt: /* @__PURE__ */ new Date()
-      }).where(eq2(walletsTable.id, fiatWallet.id));
+      }).where(eq(walletsTable.id, fiatWallet.id));
     }
-    await db.execute(sql2`
+    await db.execute(sql`
       UPDATE wallets SET
         balance = balance - ${ex.usdt_amount},
         locked_balance = GREATEST(0, locked_balance - ${ex.usdt_amount}),
         updated_at = NOW()
       WHERE user_id = ${ex.user_id} AND currency = 'USDT'
     `);
-    await db.execute(sql2`
+    await db.execute(sql`
       UPDATE crypto_exchanges
       SET status = 'COMPLETED', to_amount = ${confirmedAmount}, admin_notes = ${notes ?? null}, updated_at = NOW()
       WHERE id = ${id}
@@ -85711,7 +84550,7 @@ router9.patch("/exchanges/:id/approve", async (req, res) => {
           finalAmount: confirmedAmount
         },
         updatedAt: /* @__PURE__ */ new Date()
-      }).where(eq2(transactionsTable.id, ex.tx_step2_id));
+      }).where(eq(transactionsTable.id, ex.tx_step2_id));
     }
     res.json({ success: true, message: `\xC9change approuv\xE9 \u2014 ${confirmedAmount} ${ex.to_currency} cr\xE9dit\xE9s.` });
   } catch (err) {
@@ -85723,7 +84562,7 @@ router9.patch("/exchanges/:id/reject", async (req, res) => {
   const id = parseInt(req.params.id);
   const { notes } = req.body;
   try {
-    const result = await db.execute(sql2`
+    const result = await db.execute(sql`
       SELECT ce.*, t.user_id
       FROM crypto_exchanges ce
       LEFT JOIN transactions t ON t.id = ce.tx_step2_id
@@ -85735,13 +84574,13 @@ router9.patch("/exchanges/:id/reject", async (req, res) => {
       return;
     }
     const ex = result.rows[0];
-    await db.execute(sql2`
+    await db.execute(sql`
       UPDATE wallets SET
         locked_balance = GREATEST(0, locked_balance - ${ex.usdt_amount}),
         updated_at = NOW()
       WHERE user_id = ${ex.user_id} AND currency = 'USDT'
     `);
-    await db.execute(sql2`
+    await db.execute(sql`
       UPDATE crypto_exchanges
       SET status = 'REJECTED', admin_notes = ${notes ?? null}, updated_at = NOW()
       WHERE id = ${id}
@@ -85754,7 +84593,7 @@ router9.patch("/exchanges/:id/reject", async (req, res) => {
           adminNotes: notes
         },
         updatedAt: /* @__PURE__ */ new Date()
-      }).where(eq2(transactionsTable.id, ex.tx_step2_id));
+      }).where(eq(transactionsTable.id, ex.tx_step2_id));
     }
     res.json({ success: true, message: "Demande d'\xE9change rejet\xE9e \u2014 USDT d\xE9verrouill\xE9." });
   } catch (err) {
@@ -85833,7 +84672,7 @@ router9.get("/users/:id/usdt-fees", async (req, res) => {
   }
   try {
     const rows = await db.select().from(userFeesTable).where(
-      and2(eq2(userFeesTable.userId, userId), eq2(userFeesTable.country, USDT_COUNTRY))
+      and(eq(userFeesTable.userId, userId), eq(userFeesTable.country, USDT_COUNTRY))
     );
     const deposit = rows.find((r) => r.operator === USDT_OP_DEPOSIT && r.transactionType === "DEPOSIT");
     const withdraw = rows.find((r) => r.operator === USDT_OP_WITHDRAW && r.transactionType === "WITHDRAWAL");
@@ -85866,22 +84705,22 @@ router9.put("/users/:id/usdt-fees", async (req, res) => {
   async function upsertUsdtFee(operator, txType, rate) {
     if (rate === void 0) return;
     if (rate === null) {
-      await db.delete(userFeesTable).where(and2(
-        eq2(userFeesTable.userId, userId),
-        eq2(userFeesTable.country, USDT_COUNTRY),
-        eq2(userFeesTable.operator, operator),
-        eq2(userFeesTable.transactionType, txType)
+      await db.delete(userFeesTable).where(and(
+        eq(userFeesTable.userId, userId),
+        eq(userFeesTable.country, USDT_COUNTRY),
+        eq(userFeesTable.operator, operator),
+        eq(userFeesTable.transactionType, txType)
       ));
       return;
     }
-    const existing = await db.select({ id: userFeesTable.id }).from(userFeesTable).where(and2(
-      eq2(userFeesTable.userId, userId),
-      eq2(userFeesTable.country, USDT_COUNTRY),
-      eq2(userFeesTable.operator, operator),
-      eq2(userFeesTable.transactionType, txType)
+    const existing = await db.select({ id: userFeesTable.id }).from(userFeesTable).where(and(
+      eq(userFeesTable.userId, userId),
+      eq(userFeesTable.country, USDT_COUNTRY),
+      eq(userFeesTable.operator, operator),
+      eq(userFeesTable.transactionType, txType)
     )).limit(1);
     if (existing.length > 0) {
-      await db.update(userFeesTable).set({ rate: String(rate), updatedAt: /* @__PURE__ */ new Date() }).where(eq2(userFeesTable.id, existing[0].id));
+      await db.update(userFeesTable).set({ rate: String(rate), updatedAt: /* @__PURE__ */ new Date() }).where(eq(userFeesTable.id, existing[0].id));
     } else {
       await db.insert(userFeesTable).values({ userId, country: USDT_COUNTRY, operator, transactionType: txType, rate: String(rate), minFee: 0, maxFee: null });
     }
@@ -85961,6 +84800,7 @@ var admin_default = router9;
 // src/routes/ipn.ts
 var import_express10 = __toESM(require_express2(), 1);
 init_schema2();
+init_drizzle_orm();
 
 // src/lib/notify.ts
 async function createNotification(userId, type, title, body, transactionId) {
@@ -85977,12 +84817,13 @@ async function createNotification(userId, type, title, body, transactionId) {
 // src/lib/webhookDispatch.ts
 var import_crypto5 = __toESM(require("crypto"), 1);
 init_schema2();
+init_drizzle_orm();
 function dispatchWebhook(userId, payload, notificationUrl) {
   void (async () => {
     try {
       let url2 = notificationUrl ?? null;
       if (!url2) {
-        const [user] = await db.select({ webhookUrl: usersTable.webhookUrl }).from(usersTable).where(eq2(usersTable.id, userId)).limit(1);
+        const [user] = await db.select({ webhookUrl: usersTable.webhookUrl }).from(usersTable).where(eq(usersTable.id, userId)).limit(1);
         url2 = user?.webhookUrl ?? null;
       }
       if (!url2) return;
@@ -86052,7 +84893,7 @@ router10.post("/pixpay", async (req, res) => {
     return;
   }
   try {
-    const [tx] = await db.select().from(transactionsTable).where(eq2(transactionsTable.reference, reference)).limit(1);
+    const [tx] = await db.select().from(transactionsTable).where(eq(transactionsTable.reference, reference)).limit(1);
     if (!tx) {
       req.log?.warn({ reference }, "PixPay IPN: transaction not found");
       res.status(200).json({ ok: false, reason: "not_found" });
@@ -86075,7 +84916,7 @@ router10.post("/pixpay", async (req, res) => {
         ipnReceivedAt: (/* @__PURE__ */ new Date()).toISOString()
       },
       updatedAt
-    }).where(eq2(transactionsTable.id, tx.id));
+    }).where(eq(transactionsTable.id, tx.id));
     dispatchWebhook(tx.userId, buildTxPayload({ ...tx, status: newStatus, updatedAt }), getNotificationUrl(tx.metadata));
     await handleWalletAndNotify(tx, newStatus, isSuccess, isFailed, req.log);
     res.status(200).json({ ok: true, processed: newStatus });
@@ -86104,7 +84945,7 @@ router10.post("/maviance", async (req, res) => {
     return;
   }
   try {
-    const [tx] = await db.select().from(transactionsTable).where(eq2(transactionsTable.reference, reference)).limit(1);
+    const [tx] = await db.select().from(transactionsTable).where(eq(transactionsTable.reference, reference)).limit(1);
     if (!tx) {
       req.log?.warn({ reference }, "Maviance IPN: transaction not found");
       res.status(200).json({ ok: false, reason: "not_found" });
@@ -86127,7 +84968,7 @@ router10.post("/maviance", async (req, res) => {
         ipnReceivedAt: (/* @__PURE__ */ new Date()).toISOString()
       },
       updatedAt
-    }).where(eq2(transactionsTable.id, tx.id));
+    }).where(eq(transactionsTable.id, tx.id));
     dispatchWebhook(tx.userId, buildTxPayload({ ...tx, status: newStatus, updatedAt }), getNotificationUrl(tx.metadata));
     await handleWalletAndNotify(tx, newStatus, isSuccess, isFailed, req.log);
     res.status(200).json({ ok: true, processed: newStatus });
@@ -86166,7 +85007,7 @@ async function handleEnkapNotification(req, res, reference, rawStatusIn, payToke
     return;
   }
   try {
-    const [tx] = await db.select().from(transactionsTable).where(eq2(transactionsTable.reference, reference)).limit(1);
+    const [tx] = await db.select().from(transactionsTable).where(eq(transactionsTable.reference, reference)).limit(1);
     if (!tx) {
       req.log?.warn({ reference }, "E-nkap IPN: transaction not found");
       res.status(200).json({ ok: false, reason: "not_found" });
@@ -86187,7 +85028,7 @@ async function handleEnkapNotification(req, res, reference, rawStatusIn, payToke
         ipnReceivedAt: (/* @__PURE__ */ new Date()).toISOString()
       },
       updatedAt
-    }).where(and2(eq2(transactionsTable.id, tx.id), eq2(transactionsTable.status, "PENDING")));
+    }).where(and(eq(transactionsTable.id, tx.id), eq(transactionsTable.status, "PENDING")));
     const claimed = updRes[0]?.affectedRows > 0;
     if (!claimed) {
       res.status(200).json({ ok: true, note: "already_processed" });
@@ -86217,11 +85058,11 @@ async function handleWalletAndNotify(tx, newStatus, isSuccess, isFailed, log) {
   const meta = tx.metadata;
   if (isSuccess) {
     if (tx.type === "DEPOSIT" || tx.type === "CARD_DEPOSIT") {
-      const [wallet] = await db.select().from(walletsTable).where(and2(eq2(walletsTable.userId, tx.userId), eq2(walletsTable.currency, tx.currency))).limit(1);
+      const [wallet] = await db.select().from(walletsTable).where(and(eq(walletsTable.userId, tx.userId), eq(walletsTable.currency, tx.currency))).limit(1);
       if (wallet) {
         const creditAmount = parseFloat(tx.netAmount);
         const newBalance = parseFloat(wallet.balance) + creditAmount;
-        await db.update(walletsTable).set({ balance: newBalance.toFixed(2), updatedAt: /* @__PURE__ */ new Date() }).where(eq2(walletsTable.id, wallet.id));
+        await db.update(walletsTable).set({ balance: newBalance.toFixed(2), updatedAt: /* @__PURE__ */ new Date() }).where(eq(walletsTable.id, wallet.id));
         log?.info({ txId: tx.id, creditAmount, currency: tx.currency }, "IPN DEPOSIT SUCCESS - wallet credited");
       }
       const isYookLink = !!meta?.paymentLinkId;
@@ -86245,11 +85086,11 @@ async function handleWalletAndNotify(tx, newStatus, isSuccess, isFailed, log) {
     }
   } else if (isFailed) {
     if (tx.type === "WITHDRAWAL") {
-      const [wallet] = await db.select().from(walletsTable).where(and2(eq2(walletsTable.userId, tx.userId), eq2(walletsTable.currency, tx.currency))).limit(1);
+      const [wallet] = await db.select().from(walletsTable).where(and(eq(walletsTable.userId, tx.userId), eq(walletsTable.currency, tx.currency))).limit(1);
       if (wallet) {
         const refundAmount = parseFloat(tx.netAmount) + parseFloat(tx.fee);
         const newBalance = parseFloat(wallet.balance) + refundAmount;
-        await db.update(walletsTable).set({ balance: newBalance.toFixed(2), updatedAt: /* @__PURE__ */ new Date() }).where(eq2(walletsTable.id, wallet.id));
+        await db.update(walletsTable).set({ balance: newBalance.toFixed(2), updatedAt: /* @__PURE__ */ new Date() }).where(eq(walletsTable.id, wallet.id));
         log?.info({ txId: tx.id, refundAmount, currency: tx.currency }, "IPN WITHDRAWAL FAILED - wallet refunded");
       }
       await createNotification(
@@ -86275,6 +85116,7 @@ var ipn_default = router10;
 // src/routes/nowpayments-ipn.ts
 var import_express11 = __toESM(require_express2(), 1);
 init_schema2();
+init_drizzle_orm();
 var import_pino2 = __toESM(require_pino(), 1);
 var router11 = (0, import_express11.Router)();
 var logger2 = (0, import_pino2.default)({ level: "info" });
@@ -86292,7 +85134,7 @@ router11.post("/ipn", async (req, res) => {
   const actuallyPaid = parseFloat(String(body.actually_paid ?? "0"));
   logger2.info({ paymentId, status, orderId, actuallyPaid }, "NowPayments IPN received");
   try {
-    const [tx] = await db.select().from(transactionsTable).where(eq2(transactionsTable.reference, orderId)).limit(1);
+    const [tx] = await db.select().from(transactionsTable).where(eq(transactionsTable.reference, orderId)).limit(1);
     if (!tx) {
       logger2.warn({ orderId }, "NowPayments IPN: transaction not found");
       res.json({ success: true });
@@ -86305,12 +85147,12 @@ router11.post("/ipn", async (req, res) => {
     const isSuccess = ["finished", "confirmed", "partially_paid"].includes(status);
     const isFailed = ["failed", "expired", "refunded"].includes(status);
     if (isSuccess) {
-      const [wallet] = await db.select().from(walletsTable).where(and2(eq2(walletsTable.userId, tx.userId), eq2(walletsTable.currency, "USDT"))).limit(1);
+      const [wallet] = await db.select().from(walletsTable).where(and(eq(walletsTable.userId, tx.userId), eq(walletsTable.currency, "USDT"))).limit(1);
       if (wallet) {
         await db.update(walletsTable).set({
           balance: (parseFloat(wallet.balance) + parseFloat(tx.netAmount)).toFixed(8),
           updatedAt: /* @__PURE__ */ new Date()
-        }).where(eq2(walletsTable.id, wallet.id));
+        }).where(eq(walletsTable.id, wallet.id));
       }
       const successUpdatedAt = /* @__PURE__ */ new Date();
       await db.update(transactionsTable).set({
@@ -86318,7 +85160,7 @@ router11.post("/ipn", async (req, res) => {
         providerReference: paymentId,
         metadata: { ...tx.metadata, nowpaymentsStatus: status, actuallyPaid, completedAt: successUpdatedAt.toISOString() },
         updatedAt: successUpdatedAt
-      }).where(eq2(transactionsTable.id, tx.id));
+      }).where(eq(transactionsTable.id, tx.id));
       dispatchWebhook(tx.userId, buildTxPayload({ ...tx, status: "SUCCESS", updatedAt: successUpdatedAt }), getNotificationUrl(tx.metadata));
       logger2.info({ txId: tx.id, paymentId, actuallyPaid }, "NowPayments IPN: USDT credited");
     } else if (isFailed) {
@@ -86328,7 +85170,7 @@ router11.post("/ipn", async (req, res) => {
         providerReference: paymentId,
         metadata: { ...tx.metadata, nowpaymentsStatus: status, failedAt: failedUpdatedAt.toISOString() },
         updatedAt: failedUpdatedAt
-      }).where(eq2(transactionsTable.id, tx.id));
+      }).where(eq(transactionsTable.id, tx.id));
       dispatchWebhook(tx.userId, buildTxPayload({ ...tx, status: "FAILED", updatedAt: failedUpdatedAt }), getNotificationUrl(tx.metadata));
       logger2.info({ txId: tx.id, paymentId }, "NowPayments IPN: payment failed");
     } else {
@@ -86336,7 +85178,7 @@ router11.post("/ipn", async (req, res) => {
         providerReference: paymentId,
         metadata: { ...tx.metadata, nowpaymentsStatus: status },
         updatedAt: /* @__PURE__ */ new Date()
-      }).where(eq2(transactionsTable.id, tx.id));
+      }).where(eq(transactionsTable.id, tx.id));
     }
     res.json({ success: true });
   } catch (err) {
@@ -87339,20 +86181,21 @@ var support_default = router14;
 // src/routes/merchant.ts
 var import_express15 = __toESM(require_express2(), 1);
 init_schema2();
+init_drizzle_orm();
 var import_crypto7 = require("crypto");
 var router15 = (0, import_express15.Router)();
 async function resolveMerchantFromKey(rawKey) {
   const hash2 = (0, import_crypto7.createHash)("sha256").update(rawKey).digest("hex");
-  const [key] = await db.select({ id: apiKeysTable.id, userId: apiKeysTable.userId, keyType: apiKeysTable.keyType, active: apiKeysTable.active }).from(apiKeysTable).where(and2(eq2(apiKeysTable.keyHash, hash2), eq2(apiKeysTable.active, true))).limit(1);
+  const [key] = await db.select({ id: apiKeysTable.id, userId: apiKeysTable.userId, keyType: apiKeysTable.keyType, active: apiKeysTable.active }).from(apiKeysTable).where(and(eq(apiKeysTable.keyHash, hash2), eq(apiKeysTable.active, true))).limit(1);
   if (!key || key.keyType !== "payin") return null;
-  await db.update(apiKeysTable).set({ lastUsedAt: /* @__PURE__ */ new Date() }).where(eq2(apiKeysTable.id, key.id));
+  await db.update(apiKeysTable).set({ lastUsedAt: /* @__PURE__ */ new Date() }).where(eq(apiKeysTable.id, key.id));
   return { userId: key.userId, keyId: key.id };
 }
 async function resolveMerchantFromAnyKey(rawKey) {
   const hash2 = (0, import_crypto7.createHash)("sha256").update(rawKey).digest("hex");
-  const [key] = await db.select({ id: apiKeysTable.id, userId: apiKeysTable.userId, keyType: apiKeysTable.keyType, active: apiKeysTable.active }).from(apiKeysTable).where(and2(eq2(apiKeysTable.keyHash, hash2), eq2(apiKeysTable.active, true))).limit(1);
+  const [key] = await db.select({ id: apiKeysTable.id, userId: apiKeysTable.userId, keyType: apiKeysTable.keyType, active: apiKeysTable.active }).from(apiKeysTable).where(and(eq(apiKeysTable.keyHash, hash2), eq(apiKeysTable.active, true))).limit(1);
   if (!key) return null;
-  await db.update(apiKeysTable).set({ lastUsedAt: /* @__PURE__ */ new Date() }).where(eq2(apiKeysTable.id, key.id));
+  await db.update(apiKeysTable).set({ lastUsedAt: /* @__PURE__ */ new Date() }).where(eq(apiKeysTable.id, key.id));
   return { userId: key.userId, keyId: key.id, keyType: key.keyType };
 }
 var payinSchema = external_exports.object({
@@ -87396,11 +86239,11 @@ router15.post("/v1/payin", async (req, res) => {
   }
   try {
     const [userFee] = await db.select().from(userFeesTable).where(
-      and2(
-        eq2(userFeesTable.userId, merchant.userId),
-        eq2(userFeesTable.country, country),
-        eq2(userFeesTable.operator, operator),
-        eq2(userFeesTable.type, "DEPOSIT")
+      and(
+        eq(userFeesTable.userId, merchant.userId),
+        eq(userFeesTable.country, country),
+        eq(userFeesTable.operator, operator),
+        eq(userFeesTable.type, "DEPOSIT")
       )
     ).limit(1);
     const overrideRate = userFee?.rate != null ? Number(userFee.rate) : void 0;
@@ -87423,7 +86266,7 @@ router15.post("/v1/payin", async (req, res) => {
       status: "PENDING",
       metadata: { ...metadata ?? {}, ...notificationUrl ? { notificationUrl } : {} }
     });
-    const [tx] = await db.select().from(transactionsTable).where(eq2(transactionsTable.id, txInsert1[0].insertId)).limit(1);
+    const [tx] = await db.select().from(transactionsTable).where(eq(transactionsTable.id, txInsert1[0].insertId)).limit(1);
     logger.info({ merchantUserId: merchant.userId, ref: reference, amount, flow }, "Merchant payin initiated");
     const resp = {
       success: true,
@@ -87462,12 +86305,12 @@ router15.post("/v1/payout", async (req, res) => {
     return;
   }
   const hash2 = (0, import_crypto7.createHash)("sha256").update(rawKey).digest("hex");
-  const [keyRow] = await db.select({ id: apiKeysTable.id, userId: apiKeysTable.userId, keyType: apiKeysTable.keyType, active: apiKeysTable.active }).from(apiKeysTable).where(and2(eq2(apiKeysTable.keyHash, hash2), eq2(apiKeysTable.active, true))).limit(1);
+  const [keyRow] = await db.select({ id: apiKeysTable.id, userId: apiKeysTable.userId, keyType: apiKeysTable.keyType, active: apiKeysTable.active }).from(apiKeysTable).where(and(eq(apiKeysTable.keyHash, hash2), eq(apiKeysTable.active, true))).limit(1);
   if (!keyRow || keyRow.keyType !== "payout") {
     res.status(401).json({ error: "Unauthorized", message: "Cl\xE9 API invalide, r\xE9voqu\xE9e ou de type incorrect (payout requis)." });
     return;
   }
-  await db.update(apiKeysTable).set({ lastUsedAt: /* @__PURE__ */ new Date() }).where(eq2(apiKeysTable.id, keyRow.id));
+  await db.update(apiKeysTable).set({ lastUsedAt: /* @__PURE__ */ new Date() }).where(eq(apiKeysTable.id, keyRow.id));
   const merchantUserId = keyRow.userId;
   const parse3 = payoutSchema.safeParse(req.body);
   if (!parse3.success) {
@@ -87481,18 +86324,18 @@ router15.post("/v1/payout", async (req, res) => {
     return;
   }
   try {
-    const [wallet] = await db.select().from(walletsTable).where(and2(eq2(walletsTable.userId, merchantUserId), eq2(walletsTable.currency, currency))).limit(1);
+    const [wallet] = await db.select().from(walletsTable).where(and(eq(walletsTable.userId, merchantUserId), eq(walletsTable.currency, currency))).limit(1);
     if (!wallet) {
       res.status(400).json({ error: "WalletNotFound", message: `Wallet ${currency} introuvable.` });
       return;
     }
     const balance = parseFloat(wallet.balance);
     const [userFee] = await db.select().from(userFeesTable).where(
-      and2(
-        eq2(userFeesTable.userId, merchantUserId),
-        eq2(userFeesTable.country, country),
-        eq2(userFeesTable.operator, operator),
-        eq2(userFeesTable.type, "WITHDRAWAL")
+      and(
+        eq(userFeesTable.userId, merchantUserId),
+        eq(userFeesTable.country, country),
+        eq(userFeesTable.operator, operator),
+        eq(userFeesTable.type, "WITHDRAWAL")
       )
     ).limit(1);
     const overrideRate = userFee?.rate != null ? Number(userFee.rate) : void 0;
@@ -87507,7 +86350,7 @@ router15.post("/v1/payout", async (req, res) => {
       });
       return;
     }
-    await db.update(walletsTable).set({ balance: Math.max(balance - walletDebit, 0).toFixed(2), updatedAt: /* @__PURE__ */ new Date() }).where(eq2(walletsTable.id, wallet.id));
+    await db.update(walletsTable).set({ balance: Math.max(balance - walletDebit, 0).toFixed(2), updatedAt: /* @__PURE__ */ new Date() }).where(eq(walletsTable.id, wallet.id));
     const reference = generateReference();
     const txInsert2 = await db.insert(transactionsTable).values({
       userId: merchantUserId,
@@ -87524,7 +86367,7 @@ router15.post("/v1/payout", async (req, res) => {
       reference,
       metadata: { ...metadata ?? {}, ...notificationUrl ? { notificationUrl } : {} }
     });
-    const [tx] = await db.select().from(transactionsTable).where(eq2(transactionsTable.id, txInsert2[0].insertId)).limit(1);
+    const [tx] = await db.select().from(transactionsTable).where(eq(transactionsTable.id, txInsert2[0].insertId)).limit(1);
     const pixResult = await callPixPayAirtime({
       currency,
       serviceId: 1,
@@ -87532,7 +86375,7 @@ router15.post("/v1/payout", async (req, res) => {
       phone,
       customData: reference
     });
-    await db.update(transactionsTable).set({ providerReference: String(pixResult.pixTransactionId ?? "") }).where(eq2(transactionsTable.id, tx.id));
+    await db.update(transactionsTable).set({ providerReference: String(pixResult.pixTransactionId ?? "") }).where(eq(transactionsTable.id, tx.id));
     logger.info({ merchantUserId, ref: reference, walletDebit, phoneAmount }, "Merchant payout initiated");
     res.status(201).json({
       success: true,
@@ -87587,9 +86430,9 @@ router15.get("/v1/transaction/:reference", async (req, res) => {
       createdAt: transactionsTable.createdAt,
       updatedAt: transactionsTable.updatedAt
     }).from(transactionsTable).where(
-      and2(
-        eq2(transactionsTable.reference, reference),
-        eq2(transactionsTable.userId, merchant.userId)
+      and(
+        eq(transactionsTable.reference, reference),
+        eq(transactionsTable.userId, merchant.userId)
       )
     ).limit(1);
     if (!tx) {
@@ -88057,18 +86900,19 @@ async function runStartupMigrations() {
 
 // src/lib/expiryWorker.ts
 init_schema2();
+init_drizzle_orm();
 var EXPIRY_MINUTES = 8;
 var WORKER_INTERVAL_MS = 3e4;
 async function expireStaleTransactions() {
   try {
     const cutoff = new Date(Date.now() - EXPIRY_MINUTES * 60 * 1e3);
     const stale = await db.select().from(transactionsTable).where(
-      and2(
-        eq2(transactionsTable.status, "PENDING"),
-        lt2(transactionsTable.createdAt, cutoff),
-        or2(
-          isNull2(transactionsTable.operator),
-          ne2(transactionsTable.operator, "EXCHANGE")
+      and(
+        eq(transactionsTable.status, "PENDING"),
+        lt(transactionsTable.createdAt, cutoff),
+        or(
+          isNull(transactionsTable.operator),
+          ne(transactionsTable.operator, "EXCHANGE")
         )
       )
     );
@@ -88085,19 +86929,19 @@ async function expireStaleTransactions() {
             expireReason: `Aucune confirmation apr\xE8s ${EXPIRY_MINUTES} minutes`
           },
           updatedAt: expiredAt
-        }).where(and2(eq2(transactionsTable.id, tx.id), eq2(transactionsTable.status, "PENDING")));
+        }).where(and(eq(transactionsTable.id, tx.id), eq(transactionsTable.status, "PENDING")));
         const rowClaimed = affectedRows(updateResult);
         if (rowClaimed > 0) {
           dispatchWebhook(tx.userId, buildTxPayload({ ...tx, status: "FAILED", updatedAt: expiredAt }), getNotificationUrl(tx.metadata));
         }
         if (tx.type === "WITHDRAWAL") {
-          const [wallet] = await db.select().from(walletsTable).where(and2(eq2(walletsTable.userId, tx.userId), eq2(walletsTable.currency, tx.currency))).limit(1);
+          const [wallet] = await db.select().from(walletsTable).where(and(eq(walletsTable.userId, tx.userId), eq(walletsTable.currency, tx.currency))).limit(1);
           if (wallet) {
             const refund = parseFloat(tx.netAmount) + parseFloat(tx.fee);
             await db.update(walletsTable).set({
-              balance: sql2`${walletsTable.balance} + CAST(${refund.toFixed(2)} AS DECIMAL(30,10))`,
+              balance: sql`${walletsTable.balance} + CAST(${refund.toFixed(2)} AS DECIMAL(30,10))`,
               updatedAt: /* @__PURE__ */ new Date()
-            }).where(eq2(walletsTable.id, wallet.id));
+            }).where(eq(walletsTable.id, wallet.id));
             logger.info(
               { txId: tx.id, reference: tx.reference, refund, currency: tx.currency },
               "Expiry worker: WITHDRAWAL expired \u2014 wallet refunded"
