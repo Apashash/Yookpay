@@ -257,6 +257,31 @@ export function normalizeMavianceServiceNumber(phone: string, country: string): 
   return local.replace(/^0+/, "");
 }
 
+/**
+ * Maviance's `serviceNumber` is not the customer's test phone number.
+ * It is the operator's configured service number. The Maviance test-data
+ * workbook lists these separately from the scenario numbers:
+ *   - Cameroon MTN CASHOUT 20053: 677389120
+ *   - Cameroon Orange CASHOUT 30053: 697707102
+ *
+ * Keep the customer number in `customerPhonenumber`; use this value in
+ * `serviceNumber`. For routes without a documented mapping, retain the
+ * previous normalized-phone fallback until the operator's service number
+ * is configured.
+ */
+export function getMavianceServiceNumber(
+  country: string,
+  operator: string,
+  customerPhone: string,
+): string {
+  const configured: Record<string, string> = {
+    "CM:MTN": "677389120",
+    "CM:ORANGE": "697707102",
+  };
+  return configured[`${country.toUpperCase()}:${operator.toUpperCase()}`]
+    ?? normalizeMavianceServiceNumber(customerPhone, country);
+}
+
 // ─── S3P API calls ────────────────────────────────────────────────────────────
 
 export async function getServiceList(type?: string): Promise<MavianceService[]> {

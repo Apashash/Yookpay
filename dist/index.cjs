@@ -80818,6 +80818,13 @@ function normalizeMavianceServiceNumber(phone, country) {
   const local = dialCode && international.startsWith(dialCode) ? international.slice(dialCode.length) : international;
   return local.replace(/^0+/, "");
 }
+function getMavianceServiceNumber(country, operator, customerPhone) {
+  const configured = {
+    "CM:MTN": "677389120",
+    "CM:ORANGE": "697707102"
+  };
+  return configured[`${country.toUpperCase()}:${operator.toUpperCase()}`] ?? normalizeMavianceServiceNumber(customerPhone, country);
+}
 async function getServiceList(type) {
   const response = await s3pRequest("GET", "/service");
   const raw = Array.isArray(response) ? response : response?.data ?? response?.services ?? response?.result ?? [];
@@ -81511,7 +81518,7 @@ router4.post("/deposit", authMiddleware, transactionRateLimit, async (req, res) 
           amount: providerAmount,
           currency,
           phone: mavPhone,
-          serviceNumber: normalizeMavianceServiceNumber(phone, country),
+          serviceNumber: getMavianceServiceNumber(country, operator, phone),
           trid: reference
         });
       } catch (mavErr) {
@@ -81734,7 +81741,7 @@ router4.post("/withdraw", authMiddleware, transactionRateLimit, async (req, res)
           amount: pixPayAmount,
           currency,
           phone: mavPhone,
-          serviceNumber: normalizeMavianceServiceNumber(phone, country),
+          serviceNumber: getMavianceServiceNumber(country, operator, phone),
           trid: reference
         });
       } catch (mavErr) {
