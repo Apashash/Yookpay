@@ -80689,7 +80689,7 @@ var import_crypto3 = require("crypto");
 var STAGING_BASE = "https://s3p.smobilpay.staging.maviance.info/v2";
 var PROD_BASE2 = "https://s3pv2cm.smobilpay.com/v2";
 function getMavianceBaseUrl() {
-  return process.env["MAVIANCE_ENV"] === "production" ? PROD_BASE2 : STAGING_BASE;
+  return process.env["MAVIANCE_ENV"]?.toLowerCase() === "production" ? PROD_BASE2 : STAGING_BASE;
 }
 function getCredentials() {
   const publicKey = process.env["MAVIANCE_PUBLIC_KEY"];
@@ -80941,7 +80941,7 @@ var PROD_BASE3 = "https://api.enkap.maviance.info";
 function getEnkapBaseUrl() {
   const override = process.env["ENKAP_BASE_URL"];
   if (override) return override.replace(/\/+$/, "");
-  return process.env["MAVIANCE_ENV"] === "production" ? PROD_BASE3 : STAGING_BASE2;
+  return process.env["MAVIANCE_ENV"]?.toLowerCase() === "production" ? PROD_BASE3 : STAGING_BASE2;
 }
 function getEnkapCredentials() {
   const key = process.env["ENKAP_CONSUMER_KEY"];
