@@ -21,6 +21,13 @@ import {
   isMavianceSuccess,
   isMavianceFailed,
 } from "../lib/maviance";
+import { getMavianceIpnUrl } from "../lib/maviance";
+import {
+  placeOrder as enkapPlaceOrder,
+  getOrderStatusByReference as enkapStatusByRef,
+  isEnkapSuccess,
+  isEnkapFailed,
+} from "../lib/enkap";
 import { createNpPayment, getNpMinAmount } from "../lib/nowpayments";
 import { getDefaultMargin } from "../lib/marginCache";
 
@@ -556,6 +563,154 @@ router.post("/public/:token/pay", async (req, res) => {
   }
 });
 
+// POST /api/payment-links/public/:token/pay-card — public: card payment via Maviance e-nkap
+router.post("/public/:token/pay-card", async (req, res) => {
+  const schema = z.object({
+    amount:       z.number().min(1),
+    country:      z.string().min(2),
+    customerName: z.string().min(1).max(50).optional(),
+    email:        z.string().email().optional(),
+    phone:        z.string().optional(),
+  });
+  const parse = schema.safeParse(req.body);
+  if (!parse.success) {
+    res.status(400).json({ error: "ValidationError", message: parse.error.errors[0]?.message ?? "Paramètres invalides" });
+    return;
+  }
+
+  const { token } = req.params;
+  const { amount, country, customerName, email, phone } = parse.data;
+
+  const linkRes = await pgQuery<{
+    id: number; user_id: number; title: string; price_type: string; price_amount: string | null;
+    currency: string | null; countries: string; is_active: boolean | number;
+  }>(
+    "SELECT id, user_id, title, price_type, price_amount, currency, countries, is_active FROM payment_links WHERE token = $1",
+    [token]
+  );
+  if (!linkRes.rows.length || !linkRes.rows[0].is_active) {
+    res.status(404).json({ error: "NotFound", message: "Lien de paiement introuvable ou expiré" });
+    return;
+  }
+  const link = linkRes.rows[0];
+  const merchantId = link.user_id;
+  const linkCountries = parseCountries(link.countries);
+  if (linkCountries.length > 0 && !linkCountries.includes(country)) {
+    res.status(400).json({ error: "CountryNotAllowed", message: "Ce pays n'est pas accepté pour ce lien de paiement" });
+    return;
+  }
+  if (link.price_type === "FIXED" && link.price_amount) {
+    const fixedAmount = parseFloat(link.price_amount);
+    if (amount !== fixedAmount) {
+      res.status(400).json({ error: "InvalidAmount", message: `Le montant doit être exactement ${fixedAmount}` });
+      return;
+    }
+  }
+  const currency = CURRENCY_MAP[country as Country];
+  if (!currency) {
+    res.status(400).json({ error: "InvalidCountry", message: "Pays non supporté" });
+    return;
+  }
+  // e-nkap card collection only supports these currencies
+  const ENKAP_CARD_CURRENCIES = ["XAF", "NGN", "USD", "EUR", "GBP", "CAD"];
+  if (!ENKAP_CARD_CURRENCIES.includes(currency)) {
+    res.status(400).json({ error: "CurrencyNotSupported", message: `Le paiement par carte n'est pas disponible en ${currency}` });
+    return;
+  }
+  // For fixed-price links, the charge currency must match the link's currency
+  if (link.price_type === "FIXED" && link.currency && link.currency !== currency) {
+    res.status(400).json({ error: "CurrencyMismatch", message: `Ce lien est facturé en ${link.currency} — choisissez un pays correspondant` });
+    return;
+  }
+  if (amount < 100) {
+    res.status(400).json({ error: "AmountTooLow", message: `Le montant minimum par carte est de 100 ${currency}` });
+    return;
+  }
+
+  const defMargin = await getDefaultMargin();
+  const feeAmt = Math.round(amount * defMargin);
+  const walletNetAmount = Math.max(amount - feeAmt, 0);
+  const reference = generateReference();
+
+  try {
+    const txIns = await pgQuery(
+      `INSERT INTO transactions (user_id, type, status, amount, fee, net_amount, currency, country, operator, phone, reference, fee_rate, yookpay_margin, metadata)
+       VALUES ($1, 'DEPOSIT', 'PENDING', $2, $3, $4, $5, $6, 'CARD', $7, $8, $9, $10, $11)`,
+      [merchantId, amount.toString(), feeAmt.toString(), walletNetAmount.toString(),
+       currency, country, phone ?? null, reference,
+       defMargin.toString(), feeAmt.toString(),
+       JSON.stringify({
+         initiatedAt: new Date().toISOString(),
+         provider: "MAVIANCE_ENKAP",
+         paymentMethod: "CARD",
+         paymentLinkId: link.id,
+         paymentLinkToken: token,
+         paymentLinkTitle: link.title,
+       })]
+    );
+    const txSel = await pgQuery<{ id: number; status: string; currency: string; amount: string }>(
+      `SELECT id, status, currency, amount FROM transactions WHERE id = $1`,
+      [txIns.insertId]
+    );
+    const tx = txSel.rows[0];
+
+    const appUrl = process.env["APP_URL"] ?? `https://${process.env["REPLIT_DOMAINS"]?.split(",")[0] ?? "localhost:5000"}`;
+    const returnUrl = `${appUrl}/pay/${token}`;
+    const notificationUrl = getMavianceIpnUrl("/api/ipn/enkap");
+
+    let order: Awaited<ReturnType<typeof enkapPlaceOrder>>;
+    try {
+      order = await enkapPlaceOrder({
+        amount,
+        currency,
+        merchantReference: reference,
+        description: (link.title ?? "Paiement YookPay").slice(0, 50),
+        customerName: customerName ?? "Client",
+        email,
+        phoneNumber: phone,
+        langKey: "fr",
+        returnUrl,
+        notificationUrl,
+      });
+    } catch (err) {
+      await pgQuery(
+        `UPDATE transactions
+         SET status = 'FAILED',
+             metadata = JSON_MERGE_PATCH(COALESCE(metadata, '{}'), $1),
+             updated_at = NOW()
+         WHERE id = $2`,
+        [JSON.stringify({ providerError: err instanceof Error ? err.message : String(err) }), tx.id],
+      );
+      res.status(502).json({
+        error: "EnkapError",
+        message: err instanceof Error ? err.message : "Erreur lors de la connexion au service de paiement par carte",
+      });
+      return;
+    }
+
+    await pgQuery(
+      `UPDATE transactions
+       SET provider_reference = $1,
+           metadata = JSON_MERGE_PATCH(COALESCE(metadata, '{}'), $2),
+           updated_at = NOW()
+       WHERE id = $3`,
+      [order.orderTransactionId,
+       JSON.stringify({ enkapOrderTransactionId: order.orderTransactionId, enkapRedirectUrl: order.redirectUrl }),
+       tx.id],
+    );
+
+    res.status(201).json({
+      transaction: { id: tx.id, amount: parseFloat(tx.amount), currency: tx.currency, status: "PENDING" },
+      provider: "MAVIANCE_ENKAP",
+      redirectUrl: order.redirectUrl,
+      pending: true,
+      message: "Redirection vers la page de paiement sécurisée par carte...",
+    });
+  } catch (err: any) {
+    res.status(500).json({ error: "InternalError", message: err?.message ?? "Erreur lors du paiement par carte" });
+  }
+});
+
 // POST /api/payment-links/public/fee-preview — public fee calculation (no auth)
 router.post("/public/fee-preview", async (req, res) => {
   const schema = z.object({
@@ -612,6 +767,48 @@ router.get("/public/tx/:txId", async (req, res) => {
       typeof meta.mavMessage === "string" ? meta.mavMessage :
       typeof meta.mavErrorCode === "string" ? meta.mavErrorCode :
       typeof meta.expireReason === "string" ? meta.expireReason : null;
+
+    if (status === "PENDING" && meta.provider === "MAVIANCE_ENKAP") {
+      try {
+        const enkapRes = await enkapStatusByRef(row.reference);
+        if (enkapRes && typeof enkapRes.paymentStatus === "string") {
+          const isSuccess = isEnkapSuccess(enkapRes.paymentStatus);
+          const isFailed  = isEnkapFailed(enkapRes.paymentStatus);
+          if (isSuccess || isFailed) {
+            const nextStatus = isSuccess ? "SUCCESS" : "FAILED";
+            const update = await pgQuery(
+              `UPDATE transactions
+               SET status = $1,
+                   metadata = JSON_MERGE_PATCH(COALESCE(metadata, '{}'), $2),
+                   updated_at = NOW()
+               WHERE id = $3 AND status = 'PENDING'`,
+              [
+                nextStatus,
+                JSON.stringify({
+                  enkapStatus: enkapRes.paymentStatus,
+                  statusSyncedAt: new Date().toISOString(),
+                }),
+                row.id,
+              ],
+            );
+            status = nextStatus;
+            failureReason = isFailed ? `Paiement carte ${enkapRes.paymentStatus}` : null;
+            // Only the request that claims the pending row may credit the wallet.
+            if (isSuccess && update.affectedRows > 0) {
+              await pgQuery(
+                `UPDATE wallets
+                 SET balance = CAST(CAST(balance AS DECIMAL(30,10)) + CAST($1 AS DECIMAL(30,10)) AS CHAR),
+                     updated_at = NOW()
+                 WHERE user_id = $2 AND currency = $3`,
+                [row.net_amount, row.user_id, row.currency],
+              );
+            }
+          }
+        }
+      } catch (err) {
+        req.log?.warn({ err, txId }, "Payment-link e-nkap status check failed");
+      }
+    }
 
     if (status === "PENDING" && meta.provider === "MAVIANCE") {
       try {

@@ -99,7 +99,51 @@ export default function Deposit() {
   const [failureReason, setFailureReason] = useState<string | null>(null);
 
   // ─── Crypto deposit mode ──────────────────────────────────────────────────
-  const [depositMode, setDepositMode] = useState<"mobile" | "crypto">("mobile");
+  const [depositMode, setDepositMode] = useState<"mobile" | "crypto" | "card">("mobile");
+
+  // ─── Card deposit (Maviance e-nkap) ───────────────────────────────────────
+  const [cardCountry, setCardCountry] = useState("CM");
+  const [cardAmount, setCardAmount] = useState("");
+  const [cardLoading, setCardLoading] = useState(false);
+
+  // e-nkap card collection only supports these currencies
+  const CARD_CURRENCIES = ["XAF", "NGN", "USD", "EUR", "GBP", "CAD"];
+  const cardCountries = COUNTRIES.filter((c) => CARD_CURRENCIES.includes(c.currency));
+
+  const handleCardDeposit = async () => {
+    const amt = parseFloat(cardAmount);
+    if (!amt || amt < 100) {
+      toast({ variant: "destructive", title: "Montant invalide", description: "Le montant minimum est de 100" });
+      return;
+    }
+    const cc = COUNTRIES.find((c) => c.code === cardCountry);
+    if (!cc) return;
+    setCardLoading(true);
+    try {
+      const res = await customFetch<{ redirectUrl: string }>(
+        "/api/transactions/card-deposit",
+        {
+          method: "POST",
+          body: JSON.stringify({
+            amount: amt,
+            currency: cc.currency,
+            country: cardCountry,
+            redirectUrl: `${window.location.origin}/transactions`,
+          }),
+        }
+      );
+      if (res.redirectUrl) {
+        window.location.href = res.redirectUrl;
+      } else {
+        toast({ variant: "destructive", title: "Erreur", description: "Aucune page de paiement retournée." });
+      }
+    } catch (err: any) {
+      const raw = err?.error?.message || err?.message || "Erreur";
+      toast({ variant: "destructive", title: "Erreur", description: raw.replace(/^HTTP\s+\d+[^:]*:\s*/i, "") });
+    } finally {
+      setCardLoading(false);
+    }
+  };
   const [cryptoMinAmount, setCryptoMinAmount] = useState<number>(20);
   const [cryptoAmountUsdt, setCryptoAmountUsdt] = useState("20");
   const [cryptoResult, setCryptoResult] = useState<{
@@ -502,12 +546,58 @@ export default function Deposit() {
           className={`flex-1 py-2.5 text-sm font-semibold rounded-lg transition-all ${depositMode === "mobile" ? "bg-background shadow-sm text-foreground" : "text-muted-foreground hover:text-foreground"}`}>
           Mobile Money
         </button>
+        <button type="button" onClick={() => setDepositMode("card")}
+          className={`flex-1 py-2.5 text-sm font-semibold rounded-lg transition-all flex items-center justify-center gap-2 ${depositMode === "card" ? "bg-background shadow-sm text-foreground" : "text-muted-foreground hover:text-foreground"}`}>
+          <span>Carte</span>
+          <Badge className="bg-violet-500/15 text-violet-600 border-violet-300/40 text-[10px] px-1.5 py-0">Visa / MC</Badge>
+        </button>
         <button type="button" onClick={() => setDepositMode("crypto")}
           className={`flex-1 py-2.5 text-sm font-semibold rounded-lg transition-all flex items-center justify-center gap-2 ${depositMode === "crypto" ? "bg-background shadow-sm text-foreground" : "text-muted-foreground hover:text-foreground"}`}>
           <span>Dépôt Crypto</span>
           <Badge className="bg-cyan-500/15 text-cyan-600 border-cyan-300/40 text-[10px] px-1.5 py-0">USDT</Badge>
         </button>
       </div>
+
+      {/* ── Card Deposit Form (Maviance e-nkap) ── */}
+      {depositMode === "card" && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Dépôt par carte bancaire</CardTitle>
+            <CardDescription>
+              Payez avec votre carte Visa ou Mastercard via une page de paiement sécurisée.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-5">
+            <div>
+              <label className="text-sm font-medium block mb-1.5">Pays / Devise</label>
+              <select value={cardCountry} onChange={(e) => setCardCountry(e.target.value)}
+                className="w-full h-10 px-3 rounded-md border border-input bg-background text-sm focus:outline-none focus:ring-2 focus:ring-ring">
+                {cardCountries.map((c) => (
+                  <option key={c.code} value={c.code}>{c.flag} {c.name} — {c.currency}</option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="text-sm font-medium block mb-1.5">
+                Montant ({COUNTRIES.find((c) => c.code === cardCountry)?.currency ?? ""})
+              </label>
+              <Input type="number" min={100} step={1} placeholder="Minimum 100"
+                value={cardAmount} onChange={(e) => setCardAmount(e.target.value)} />
+              <p className="text-xs text-muted-foreground mt-1">Minimum : 100 {COUNTRIES.find((c) => c.code === cardCountry)?.currency ?? ""}</p>
+            </div>
+            <Alert className="border-violet-200 bg-violet-50 dark:bg-violet-900/20">
+              <Info className="h-4 w-4 text-violet-600" />
+              <AlertTitle className="text-violet-700 dark:text-violet-300 text-sm">Paiement sécurisé</AlertTitle>
+              <AlertDescription className="text-violet-600 dark:text-violet-400 text-xs mt-1">
+                Vous serez redirigé vers la page de paiement sécurisée e-nkap (Maviance) pour saisir vos informations de carte. Une fois le paiement confirmé, votre wallet sera crédité automatiquement.
+              </AlertDescription>
+            </Alert>
+            <Button className="w-full bg-violet-600 hover:bg-violet-700 font-bold" onClick={handleCardDeposit} disabled={cardLoading || !cardAmount}>
+              {cardLoading ? "Redirection en cours..." : "Payer par carte"}
+            </Button>
+          </CardContent>
+        </Card>
+      )}
 
       {/* ── Crypto Deposit Form ── */}
       {depositMode === "crypto" && (

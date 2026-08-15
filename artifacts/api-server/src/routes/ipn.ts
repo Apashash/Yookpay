@@ -7,6 +7,7 @@ import type { Request, Response } from "express";
 import { createNotification } from "../lib/notify";
 import { dispatchWebhook, buildTxPayload, getNotificationUrl } from "../lib/webhookDispatch";
 import { isMavianceSuccess, isMavianceFailed } from "../lib/maviance";
+import { isEnkapSuccess, isEnkapFailed, getOrderStatusByReference } from "../lib/enkap";
 
 const router = Router();
 
@@ -190,24 +191,46 @@ interface EnkapIpnBody {
   message?:      string;
 }
 
-router.post("/enkap", async (req: Request, res: Response) => {
-  const body = req.body as EnkapIpnBody;
-  // E-nkap may send reference in trid or orderRef
-  const reference = body.trid ?? body.orderRef;
-
-  req.log?.info(
-    { payToken: body.payToken, reference, status: body.status },
-    "E-nkap card IPN received"
-  );
+async function handleEnkapNotification(
+  req: Request,
+  res: Response,
+  reference: string | undefined,
+  rawStatusIn: string,
+  payToken?: string,
+): Promise<void> {
+  req.log?.info({ payToken, reference, status: rawStatusIn }, "E-nkap ITN received");
 
   if (!reference) {
     res.status(200).json({ ok: false, reason: "no_reference" });
     return;
   }
 
-  const rawStatus = (body.status ?? "").trim();
-  const isSuccess = isMavianceSuccess(rawStatus);
-  const isFailed  = isMavianceFailed(rawStatus);
+  let rawStatus = rawStatusIn.trim();
+  let isSuccess = isEnkapSuccess(rawStatus) || isMavianceSuccess(rawStatus);
+  let isFailed  = isEnkapFailed(rawStatus) || isMavianceFailed(rawStatus);
+
+  // Recommended by the e-nkap doc: on notification, re-query the payment
+  // status server-side before trusting it (the ITN body is unsigned).
+  if (isSuccess || isFailed) {
+    // Fail-closed: the ITN body is unsigned, so any final status (success OR
+    // failure) is only honored if the server-side status check confirms it.
+    // If verification is unavailable, ignore the ITN (e-nkap retries, and the
+    // polling endpoints will pick it up later).
+    let verified: Awaited<ReturnType<typeof getOrderStatusByReference>> | null = null;
+    try {
+      verified = await getOrderStatusByReference(reference);
+    } catch (err) {
+      req.log?.warn({ reference, err }, "E-nkap ITN: status re-verification failed");
+    }
+    if (verified && typeof verified.paymentStatus === "string") {
+      rawStatus = verified.paymentStatus;
+      isSuccess = isEnkapSuccess(rawStatus);
+      isFailed  = isEnkapFailed(rawStatus);
+    } else {
+      res.status(200).json({ ok: true, note: "verification_unavailable_ignored" });
+      return;
+    }
+  }
 
   if (!isSuccess && !isFailed) {
     res.status(200).json({ ok: true, note: "intermediate_state_ignored" });
@@ -235,21 +258,27 @@ router.post("/enkap", async (req: Request, res: Response) => {
     const newStatus = isSuccess ? "SUCCESS" : "FAILED";
     const updatedAt = new Date();
 
-    await db
+    const updRes = await db
       .update(transactionsTable)
       .set({
         status: newStatus,
-        providerReference: body.payToken ?? tx.providerReference,
+        providerReference: payToken ?? tx.providerReference,
         metadata: {
           ...(tx.metadata as object ?? {}),
           enkapStatus:    rawStatus,
-          enkapErrorCode: body.errorCode,
-          enkapMessage:   body.message,
           ipnReceivedAt:  new Date().toISOString(),
         },
         updatedAt,
       })
-      .where(eq(transactionsTable.id, tx.id));
+      .where(and(eq(transactionsTable.id, tx.id), eq(transactionsTable.status, "PENDING")));
+
+    // Only the request that actually claimed the PENDING→final transition may
+    // credit/notify (prevents double-credit when ITNs race the polling routes)
+    const claimed = (updRes as unknown as [{ affectedRows: number }])[0]?.affectedRows > 0;
+    if (!claimed) {
+      res.status(200).json({ ok: true, note: "already_processed" });
+      return;
+    }
 
     dispatchWebhook(tx.userId, buildTxPayload({ ...tx, status: newStatus, updatedAt }), getNotificationUrl(tx.metadata));
 
@@ -261,6 +290,22 @@ router.post("/enkap", async (req: Request, res: Response) => {
     req.log?.error({ err, reference }, "E-nkap IPN processing error");
     res.status(500).json({ ok: false, error: "processing_error" });
   }
+}
+
+// e-nkap ITN officiel : PUT <notificationUrl>/<merchantReference> body { status }
+router.put("/enkap/:reference", async (req: Request, res: Response) => {
+  const body = req.body as EnkapIpnBody;
+  await handleEnkapNotification(req, res, req.params["reference"], body.status ?? "", body.payToken);
+});
+// Certains environnements envoient POST — accepté aussi
+router.post("/enkap/:reference", async (req: Request, res: Response) => {
+  const body = req.body as EnkapIpnBody;
+  await handleEnkapNotification(req, res, req.params["reference"], body.status ?? "", body.payToken);
+});
+// Compatibilité : ancien format POST /enkap avec référence dans le corps
+router.post("/enkap", async (req: Request, res: Response) => {
+  const body = req.body as EnkapIpnBody;
+  await handleEnkapNotification(req, res, body.trid ?? body.orderRef, body.status ?? "", body.payToken);
 });
 
 // ─── Shared wallet/notification logic ────────────────────────────────────────

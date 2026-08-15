@@ -28,7 +28,7 @@ type LinkData = {
   countries: string[];
 };
 
-type PayMode = "mobile" | "crypto";
+type PayMode = "mobile" | "card" | "crypto";
 type PollStatus  = "PENDING" | "SUCCESS" | "FAILED";
 
 type MobileResult = {
@@ -90,6 +90,13 @@ export default function Pay() {
   const [timeLeft,     setTimeLeft]     = useState(COUNTDOWN_SECONDS);
   const [failureReason, setFailureReason] = useState<string | null>(null);
 
+  // ── Card form (Maviance e-nkap) ──
+  const [cardCountry, setCardCountry] = useState("");
+  const [cardName,    setCardName]    = useState("");
+  const [cardEmail,   setCardEmail]   = useState("");
+  const [cardAmount,  setCardAmount]  = useState("");
+  const [cardLoading, setCardLoading] = useState(false);
+
   // ── Crypto form ──
   const [cryptoMinUsdt,  setCryptoMinUsdt]  = useState(20);
   const [cryptoAmount,   setCryptoAmount]   = useState("20");
@@ -117,6 +124,48 @@ export default function Pay() {
     ? allOperators.filter((op) => activeOps[country].deposit.includes(op))
     : allOperators;
   const flow = operator ? getOperatorFlow(operator) : null;
+  const cardSelectedCountry = COUNTRIES.find((c) => c.code === cardCountry);
+  // e-nkap card collection only supports these currencies
+  const CARD_CURRENCIES = ["XAF", "NGN", "USD", "EUR", "GBP", "CAD"];
+  const cardCountries = availableCountries.filter((c) => CARD_CURRENCIES.includes(c.currency));
+
+  const handleCardSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const amt = linkData?.priceType === "FIXED" && linkData.priceAmount
+      ? linkData.priceAmount
+      : parseFloat(cardAmount);
+    if (!cardCountry || !amt || amt < 100) {
+      toast({ variant: "destructive", title: "Formulaire incomplet", description: "Sélectionnez un pays et un montant (minimum 100)." });
+      return;
+    }
+    setCardLoading(true);
+    try {
+      const res = await fetch(`/api/payment-links/public/${token}/pay-card`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          amount: amt,
+          country: cardCountry,
+          customerName: cardName || undefined,
+          email: cardEmail || undefined,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        toast({ variant: "destructive", title: "Erreur", description: data?.message ?? "Paiement par carte impossible." });
+        return;
+      }
+      if (data.redirectUrl) {
+        window.location.href = data.redirectUrl;
+      } else {
+        toast({ variant: "destructive", title: "Erreur", description: "Aucune page de paiement retournée." });
+      }
+    } catch {
+      toast({ variant: "destructive", title: "Erreur réseau", description: "Vérifiez votre connexion et réessayez." });
+    } finally {
+      setCardLoading(false);
+    }
+  };
 
   // ── Load link ──
   useEffect(() => {
@@ -485,14 +534,83 @@ export default function Pay() {
               Mobile Money
             </button>
             <button type="button"
+              onClick={() => { setPayMode("card"); setCryptoResult(null); setCryptoPoll("waiting"); }}
+              className={`flex-1 py-2.5 text-sm font-semibold rounded-lg transition-all flex items-center justify-center gap-2 ${
+                payMode === "card" ? "bg-background shadow-sm text-foreground" : "text-muted-foreground hover:text-foreground"
+              }`}>
+              <span>Carte</span>
+              <Badge className="bg-violet-500/15 text-violet-600 border-violet-300/40 text-[10px] px-1.5 py-0">Visa/MC</Badge>
+            </button>
+            <button type="button"
               onClick={() => setPayMode("crypto")}
               className={`flex-1 py-2.5 text-sm font-semibold rounded-lg transition-all flex items-center justify-center gap-2 ${
                 payMode === "crypto" ? "bg-background shadow-sm text-foreground" : "text-muted-foreground hover:text-foreground"
               }`}>
-              <span>Paiement Crypto</span>
+              <span>Crypto</span>
               <Badge className="bg-cyan-500/15 text-cyan-600 border-cyan-300/40 text-[10px] px-1.5 py-0">USDT</Badge>
             </button>
           </div>
+
+          {/* ═══════════════════════════════════════════════════════ CARTE ══ */}
+          {payMode === "card" && (
+            <form onSubmit={handleCardSubmit} className="space-y-5">
+              <div className="space-y-1.5">
+                <Label>Pays</Label>
+                <select value={cardCountry} onChange={(e) => setCardCountry(e.target.value)}
+                  className="w-full h-10 px-3 rounded-md border border-input bg-background text-sm focus:outline-none focus:ring-2 focus:ring-ring">
+                  <option value="" disabled>Sélectionnez votre pays</option>
+                  {cardCountries.map((c) => (
+                    <option key={c.code} value={c.code}>{c.flag} {c.name} — {c.currency}</option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="space-y-1.5">
+                <Label>Nom (optionnel)</Label>
+                <Input type="text" placeholder="Votre nom" value={cardName}
+                  onChange={(e) => setCardName(e.target.value)} maxLength={50} />
+              </div>
+
+              <div className="space-y-1.5">
+                <Label>Email (optionnel — pour le reçu)</Label>
+                <Input type="email" placeholder="vous@exemple.com" value={cardEmail}
+                  onChange={(e) => setCardEmail(e.target.value)} />
+              </div>
+
+              {cardCountry && (
+                <div className="space-y-1.5">
+                  <Label>
+                    {`Montant à payer${cardSelectedCountry ? ` (${cardSelectedCountry.currency})` : ""}`}
+                    {linkData.priceType === "FIXED" && (
+                      <span className="text-xs text-muted-foreground ml-2">(montant fixé par le marchand)</span>
+                    )}
+                  </Label>
+                  <Input type="number" min={100} step={1} placeholder="Minimum 100"
+                    value={linkData.priceType === "FIXED" && linkData.priceAmount ? String(linkData.priceAmount) : cardAmount}
+                    onChange={(e) => setCardAmount(e.target.value)}
+                    readOnly={linkData.priceType === "FIXED"}
+                    className={linkData.priceType === "FIXED" ? "bg-muted cursor-not-allowed" : ""}
+                  />
+                </div>
+              )}
+
+              <Alert className="border-violet-200 bg-violet-50 dark:bg-violet-900/20">
+                <Info className="h-4 w-4 text-violet-600" />
+                <AlertTitle className="text-violet-700 dark:text-violet-300 text-sm">Paiement par carte sécurisé</AlertTitle>
+                <AlertDescription className="text-violet-600 dark:text-violet-400 text-xs mt-1">
+                  Vous serez redirigé vers la page de paiement sécurisée pour saisir vos informations Visa ou Mastercard.
+                </AlertDescription>
+              </Alert>
+
+              <Button type="submit"
+                className="w-full bg-violet-600 hover:bg-violet-500 text-white font-bold"
+                disabled={cardLoading || !cardCountry}>
+                {cardLoading ? (
+                  <><Loader2 className="w-4 h-4 animate-spin mr-2" />Redirection...</>
+                ) : "Payer par carte"}
+              </Button>
+            </form>
+          )}
 
           {/* ═══════════════════════════════════════════════ MOBILE MONEY ══ */}
           {payMode === "mobile" && (

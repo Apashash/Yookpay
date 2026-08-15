@@ -1,74 +1,24 @@
 ---
-name: Maviance SmobilPay Integration
-description: Architecture and key decisions for the Maviance S3P v2 + e-nkap integration in YookPay
+name: Maviance SmobilPay + e-nkap integration
+description: S3P mobile-money flow, staging service IDs, HMAC auth, and the separate e-nkap card-payment API (OAuth2), provider selection, IPN hardening.
 ---
 
-## S3P API flow (Mobile Money)
-- 2-step: `POST /quotestd` (get quoteId) → `POST /collectstd` for both CASHOUT/DEPOSIT and CASHIN/WITHDRAWAL.
-- `GET /cashout?serviceid=...` and `GET /cashin?serviceid=...` retrieve the operation-specific payItemId; `/cashin` is not the execution endpoint in the supplied collection.
-- CASHOUT services = collect from customer = YookPay DEPOSIT → `/collectstd`
-- CASHIN services  = disburse to customer = YookPay WITHDRAWAL → `/collectstd`
-- For the supplied Mobile Money examples, status check: `GET /verifytx?trid=...`; generic docs may call the returned identifier PTN for other service categories.
+# Maviance S3P (mobile money)
+- HMAC-signed API, base staging `https://s3p.smobilpay.staging.maviance.info/v2`. Staging creds only work on staging (prod returns error 4009 with them).
+- Provider selection per country/operator via `payment_provider_config` table.
+- Countries offered (staging /service + test-data xlsx): Cameroun (MTN, Orange, EU, Yoomee — cashin+cashout), Congo-Brazzaville (MTN 100325, Airtel 10068 — cashin), Gabon (Moov 202410, Airtel 202412 — cashin), Tchad (Moov 600005/600006), RCA (Orange 600008/600009). Plus bills/topup CM (ENEO, Camwater, Canal+, DGI…).
 
-**Why:** The supplied production Postman collection places both CASHOUT and CASHIN execution under `POST /collectstd`; using `POST /cashin` for withdrawals was a real integration mismatch.
+# e-nkap (card payments) — SEPARATE API, not S3P
+**Rule:** never use S3P `/collectcard`; card collection goes through e-nkap.
+- Base staging `https://api.enkap-staging.maviance.info`; prod URL unconfirmed → override with `ENKAP_BASE_URL`; otherwise chosen by `MAVIANCE_ENV`.
+- Auth: OAuth2 client_credentials `POST /token` (Basic consumerKey:consumerSecret) → bearer token (cached in memory). Env: `ENKAP_CONSUMER_KEY`/`ENKAP_CONSUMER_SECRET`.
+- `POST /purchase/v1.2/api/order` → `{orderTransactionId, merchantReferenceId, redirectUrl}`; redirect the payer to `redirectUrl`.
+- Status: `GET /purchase/v1.2/api/order/status?orderMerchantId=<merchantRef>`. **Why:** the live API returns `{"status":"CREATED"}` (field `status`, NOT `paymentStatus` as some docs show) — normalize both.
+- Statuses: CREATED/INITIALISED/IN_PROGRESS → intermediate; CONFIRMED = success; FAILED/CANCELED = failure.
+- ITN: `PUT <notificationUrl>/<merchantReference>` body `{status}` — **unsigned**. **Rule:** fail-closed — any final status (success or failure) from the ITN must be re-verified server-side against the status endpoint before touching the transaction/wallet; if verification is unavailable, ignore (e-nkap retries, polling picks it up).
+- Currencies supported: XAF, CAD, EUR, GBP, USD, NGN.
+- Staging example keys live in the user's Postman collection ("Enkap Staging").
 
-**How to apply:** Keep operation selection in the GET endpoint used to obtain `payItemId`, then execute both mobile-money directions through `/collectstd` and verify with the integrator `trid`.
-
-## Maviance staging service IDs (Cameroon XAF)
-- MTN CM DEPOSIT (CASHOUT)    → service_id 20053
-- MTN CM WITHDRAWAL (CASHIN)  → service_id 20052
-- ORANGE CM DEPOSIT (CASHOUT) → service_id 30053
-- ORANGE CM WITHDRAWAL (CASHIN) → service_id 30052
-Stored in `maviance_services` table.
-
-## S3P authentication
-- The supplied Postman collections use `Authorization: s3pAuth ...` with timestamp, nonce, signature method and token fields.
-- Signature = Base64(HMAC-SHA1(secret, METHOD + encoded URL + encoded sorted parameters)).
-- Production base URL from the supplied collection: `https://s3pv2cm.smobilpay.com/v2`; staging remains `https://s3p.smobilpay.staging.maviance.info/v2`.
-- `GET /service` lists live services; `GET /cashout?serviceid=...` and `/cashin?serviceid=...` return payItemIds used by `/quotestd`.
-
-## Provider selection
-- Table `payment_provider_config(country, operator, type, provider)`
-- Admin sets via `PUT /api/admin/provider-config` → `{country, operator, type, provider: "PIXPAY"|"MAVIANCE"}`
-- Default is PIXPAY if no row exists (backward-compatible)
-- Per-transaction provider stored in `metadata.provider`
-
-## E-nkap (card collection)
-- Uses `POST /collectcard` with a CARD service
-- Returns `redirectUrl` for customer to complete payment
-- IPN at `POST /api/ipn/enkap`
-- Route: `POST /api/transactions/card-deposit`
-- Card service IDs must be configured in `maviance_services` with type=CARD
-
-## Required secrets
-- MAVIANCE_PUBLIC_KEY (staging: 73cf144d-...)
-- MAVIANCE_SECRET (staging: be5b2a0f-...)
-- MAVIANCE_ENV = "production" for the live YookPay deployment; staging is only for credential testing.
-
-## Phone format
-- Maviance expects international format without +: "237677389120" for Cameroon MTN
-- Maviance `serviceNumber` expects the local subscriber number without country code or leading zero: "677389120"
-- PixPay expects local format with leading 0: "0677389120"
-- `normalizeMaviancePhone()` in maviance.ts handles conversion
-
-**Why provider-in-metadata:** Status polling (GET /transactions/:id) uses `metadata.provider` to decide whether to call PixPay or Maviance verifyTx — avoids needing a separate DB column.
-
-## Runtime diagnostics
-- The admin ENV diagnostic reports the Maviance environment, selected API base URL, callback URL, and whether the two credentials are present in the running Node process.
-- On Plesk, adding variables is not enough: the Node application must be restarted before `process.env` reflects the new values.
-
-## Environment and payload compatibility
-- The current supplied credentials authenticate successfully against the staging API, not the production API. Production returns S3P error `4009` ("Access token invalid") with those credentials.
-- The staging `POST /quotestd` response uses `quoteId`; execution calls use that `quoteId` plus `customerPhonenumber`, `customerEmailaddress`, `customerName`, `customerAddress`, `serviceNumber`, and `trid`.
-- Maviance status verification uses the integrator `trid` query parameter. Do not treat the quote identifier as the transaction status identifier.
-
-**Why:** A production/staging mismatch and assuming a `payToken` response shape caused authentication and execution failures during the first live deposit test.
-
-**How to apply:** The live YookPay deployment remains on `MAVIANCE_ENV=production` as required, but do not attempt live collections until Maviance issues credentials accepted by the production endpoint.
-
-## Payment links
-- Public payment-link mobile payments must use the same `payment_provider_config` route selection as authenticated deposits; they must not call PixPay directly.
-
-**Why:** The public payment-link endpoint originally bypassed provider configuration, so switching an operator to Maviance affected standard deposits but not payment links.
-
-**How to apply:** For payment-link deposits, select the provider by country/operator/DEPOSIT, store it in transaction metadata, and poll Maviance with the transaction `trid`.
+# Testing recipe (Replit dev)
+- Replit env has no MAVIANCE/ENKAP creds by default (they live on Plesk). For e2e tests: spin up throwaway MariaDB on port 3307 in /tmp, run built `dist/index.cjs` on PORT=9090 with env inline. **Background processes are reaped between ShellExec sessions — run DB start + server start + all curl tests in ONE shell command.**
+- MariaDB grant gotcha: `'user'@'%'` doesn't cover localhost when the anonymous `''@'localhost'` user exists — create `'user'@'localhost'` too or delete anonymous users.

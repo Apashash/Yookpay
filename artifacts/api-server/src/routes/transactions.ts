@@ -25,7 +25,6 @@ import { callPixPayAirtime, getOperatorFlow, getPixPayTransactionStatus, type Pi
 import {
   initiateDeposit as mavInitDeposit,
   initiateWithdrawal as mavInitWithdrawal,
-  initiateCardDeposit as mavInitCard,
   verifyTx as mavVerifyTx,
   normalizeMaviancePhone,
   normalizeMavianceServiceNumber,
@@ -34,6 +33,8 @@ import {
   isMavianceFailed,
   MavianceApiError,
 } from "../lib/maviance";
+import { placeOrder as enkapPlaceOrder, getOrderStatusByReference as enkapStatus, isEnkapSuccess, isEnkapFailed } from "../lib/enkap";
+import { usersTable } from "@workspace/db/schema";
 import { z } from "zod";
 
 // Country code → dial code digits (no '+')
@@ -280,7 +281,16 @@ router.get("/:id", authMiddleware, async (req: AuthRequest, res) => {
         let   newStatus: "SUCCESS" | "FAILED" | null = null;
         let   syncMeta: Record<string, unknown> = {};
 
-        if (txProv === "MAVIANCE") {
+        if (txProv === "MAVIANCE_ENKAP") {
+          // e-nkap card payment: query status by merchant reference
+          const enkapRes = await enkapStatus(tx.reference);
+          if (enkapRes && typeof enkapRes.paymentStatus === "string") {
+            if (isEnkapSuccess(enkapRes.paymentStatus)) { newStatus = "SUCCESS"; }
+            else if (isEnkapFailed(enkapRes.paymentStatus)) { newStatus = "FAILED"; }
+            syncMeta = { enkapStatusSynced: enkapRes.paymentStatus, syncedAt: new Date().toISOString() };
+            req.log.info({ txId: tx.id, enkapStatus: enkapRes.paymentStatus, newStatus }, "Auto-sync from e-nkap status check");
+          }
+        } else if (txProv === "MAVIANCE") {
           // The supplied Mobile Money collection verifies CASHIN/CASHOUT
           // transactions with the integrator trid.
           const mavStatus = await mavVerifyTx(tx.reference);
@@ -1037,7 +1047,8 @@ router.post("/withdraw", authMiddleware, transactionRateLimit, async (req: AuthR
 router.post("/card-deposit", authMiddleware, transactionRateLimit, async (req: AuthRequest, res) => {
   const schema = z.object({
     amount:      z.number().min(100),
-    currency:    z.enum(["XAF", "XOF", "CDF"]),
+    // e-nkap card collection supported currencies only (no XOF/CDF)
+    currency:    z.enum(["XAF", "NGN", "USD", "EUR", "GBP", "CAD"]),
     country:     z.string().min(2),
     redirectUrl: z.string().url().optional(),
     cancelUrl:   z.string().url().optional(),
@@ -1053,16 +1064,6 @@ router.post("/card-deposit", authMiddleware, transactionRateLimit, async (req: A
   const reference = generateReference();
 
   try {
-    // Look up the Maviance CARD service for this currency
-    const serviceId = await getMavianceServiceId("CARD", currency, "CARD", country);
-    if (serviceId === null) {
-      res.status(503).json({
-        error: "ServiceNotAvailable",
-        message: `Le paiement par carte (${currency}) n'est pas encore disponible. Contactez le support YookPay.`,
-      });
-      return;
-    }
-
     // Fee for card deposits — use default margin as fee (no PixPay operator table for cards)
     const defMargin = await getDefaultMargin();
     const feeAmt    = Math.round(amount * defMargin);
@@ -1099,39 +1100,56 @@ router.post("/card-deposit", authMiddleware, transactionRateLimit, async (req: A
     });
     const [tx] = await db.select().from(transactionsTable).where(eq(transactionsTable.id, txCardInsert[0].insertId)).limit(1);
 
-    req.log.info({ txId: tx.id, reference, amount, currency, country, serviceId }, "Card deposit created — calling Maviance e-nkap");
+    req.log.info({ txId: tx.id, reference, amount, currency, country }, "Card deposit created — calling Maviance e-nkap");
 
-    const mavResult = await mavInitCard({
-      serviceId,
-      amount,
-      currency,
-      trid: reference,
-      redirectUrl: successUrl,
-      cancelUrl:   failUrl,
-    });
+    const [user] = await db.select().from(usersTable).where(eq(usersTable.id, req.userId!)).limit(1);
+
+    let order: Awaited<ReturnType<typeof enkapPlaceOrder>>;
+    try {
+      order = await enkapPlaceOrder({
+        amount,
+        currency,
+        merchantReference: reference,
+        description: "Dépôt YookPay par carte",
+        customerName: user?.name ?? "Client YookPay",
+        email: user?.email ?? undefined,
+        langKey: "fr",
+        returnUrl: successUrl,
+        notificationUrl: `${ipnBase}`,
+      });
+    } catch (err) {
+      await db.update(transactionsTable).set({
+        status: "FAILED",
+        metadata: {
+          ...(tx.metadata as object ?? {}),
+          providerError: err instanceof Error ? err.message : String(err),
+        },
+        updatedAt: new Date(),
+      }).where(eq(transactionsTable.id, tx.id));
+      throw err;
+    }
 
     await db.update(transactionsTable).set({
-      providerReference: mavResult.payToken,
+      providerReference: order.orderTransactionId,
       metadata: {
         initiatedAt: new Date().toISOString(),
         provider: "MAVIANCE_ENKAP",
         paymentMethod: "CARD",
-        mavPayToken: mavResult.payToken,
-        mavQuoteFees: mavResult.quote.fees,
-        enkapRedirectUrl: mavResult.redirectUrl,
+        enkapOrderTransactionId: order.orderTransactionId,
+        enkapRedirectUrl: order.redirectUrl,
         successUrl,
         failUrl,
       },
       updatedAt: new Date(),
     }).where(eq(transactionsTable.id, tx.id));
 
-    req.log.info({ txId: tx.id, payToken: mavResult.payToken, redirectUrl: mavResult.redirectUrl }, "Maviance e-nkap card deposit initiated");
+    req.log.info({ txId: tx.id, orderTxId: order.orderTransactionId, redirectUrl: order.redirectUrl }, "Maviance e-nkap card deposit initiated");
 
     res.status(201).json({
       transaction: formatTx(tx),
       provider: "MAVIANCE_ENKAP",
-      redirectUrl: mavResult.redirectUrl,
-      payToken: mavResult.payToken,
+      redirectUrl: order.redirectUrl,
+      payToken: order.orderTransactionId,
       message: "Redirigez l'utilisateur vers redirectUrl pour compléter le paiement par carte.",
       pending: true,
     });
