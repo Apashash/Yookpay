@@ -7,6 +7,7 @@ import { authMiddleware, type AuthRequest } from "../middlewares/authMiddleware"
 import { adminMiddleware } from "../middlewares/adminMiddleware";
 import { z } from "zod";
 import { FEE_TABLE, CURRENCY_MAP, DEFAULT_MARGIN } from "../services/feeService";
+import { getServiceList } from "../lib/maviance";
 import { getDefaultMargin, invalidateMarginCache } from "../lib/marginCache";
 import { getAllUsdtRates, setUsdtRate, USDT_PAIRS, getEffectiveRate, getExchangeFeeRate } from "../lib/adminRates";
 
@@ -982,6 +983,88 @@ router.put("/maviance/services", async (req: AuthRequest, res) => {
   } catch (err) {
     req.log.error({ err }, "Admin upsert maviance service error");
     res.status(500).json({ error: "InternalError", message: "Impossible de mettre à jour le service Maviance" });
+  }
+});
+
+// POST /admin/maviance/sync-services — fetch service list from Maviance API and auto-populate maviance_services table
+router.post("/maviance/sync-services", async (req: AuthRequest, res) => {
+  try {
+    const services = await getServiceList();
+
+    // Map Maviance service title keywords → our operator codes
+    const KEYWORD_TO_OPERATOR: [string, string][] = [
+      ["mtn", "MTN"],
+      ["orange", "ORANGE"],
+      ["camtel", "CAMTEL"],
+      ["nexttel", "NEXTTEL"],
+      ["yoomee", "YOOMEE"],
+      ["eu mobile", "EU"],
+      ["airtel", "AIRTEL"],
+      ["moov", "MOOV"],
+      ["wave", "WAVE"],
+    ];
+
+    // Map S3P currency → our country code
+    const CURRENCY_TO_COUNTRY: Record<string, string> = {
+      XAF: "CM", XOF: "SN", CDF: "CD",
+    };
+
+    // Maviance staging field names differ from what you might expect:
+    //   serviceid (string) — not id
+    //   localCur  — not currency
+    //   country   — 3-letter ISO (CMR, COG, GAB…) — map to 2-letter
+    const COUNTRY3_TO_2: Record<string, string> = {
+      CMR: "CM", COG: "CG", GAB: "GA", SEN: "SN", CIV: "CI",
+      BFA: "BF", MLI: "ML", TGO: "TG", BEN: "BJ", GIN: "GN",
+      CAF: "CF", TCD: "TD",
+    };
+
+    const synced: Array<{ serviceId: number; operator: string; country: string; currency: string; type: string; title: string }> = [];
+    const skipped: Array<{ serviceId: number | string; title: string; type: string; reason: string }> = [];
+
+    for (const svc of services as Array<Record<string, unknown>>) {
+      const title = String(svc.title ?? "").toLowerCase();
+      // Maviance uses both svc.type and sometimes svc.serviceType
+      const mavType = String(svc.type ?? svc.serviceType ?? "").toUpperCase();
+
+      // Only handle CASHOUT (= DEPOSIT) and CASHIN (= WITHDRAWAL)
+      const ourType: "DEPOSIT" | "WITHDRAWAL" | null =
+        mavType === "CASHOUT" ? "DEPOSIT" :
+        mavType === "CASHIN"  ? "WITHDRAWAL" : null;
+      const svcId = svc.serviceid ?? svc.id;
+      if (!ourType) { skipped.push({ serviceId: Number(svcId), title: String(svc.title ?? ""), type: mavType, reason: "type ignored" }); continue; }
+
+      // Currency: Maviance uses localCur
+      const currency = String(svc.localCur ?? svc.currency ?? "").toUpperCase() as "XAF" | "XOF" | "CDF";
+      if (!["XAF", "XOF", "CDF"].includes(currency)) { skipped.push({ serviceId: Number(svcId), title: String(svc.title ?? ""), type: mavType, reason: `currency ${currency} not supported` }); continue; }
+
+      // Country: 3-letter → 2-letter
+      const country3 = String(svc.country ?? "").toUpperCase();
+      const country = COUNTRY3_TO_2[country3] ?? CURRENCY_TO_COUNTRY[currency];
+      if (!country) { skipped.push({ serviceId: Number(svcId), title: String(svc.title ?? ""), type: mavType, reason: `country ${country3} not mapped` }); continue; }
+
+      const match = KEYWORD_TO_OPERATOR.find(([kw]) => title.includes(kw));
+      if (!match) { skipped.push({ serviceId: Number(svcId), title: String(svc.title ?? ""), type: mavType, reason: "operator not recognized in title" }); continue; }
+      const operator = match[1];
+
+      // Skip inactive services
+      const status = String(svc.status ?? "Active").toLowerCase();
+      if (status === "inactive") { skipped.push({ serviceId: Number(svcId), title: String(svc.title ?? ""), type: mavType, reason: "service inactive on Maviance" }); continue; }
+
+      const serviceIdNum = Number(svcId);
+      await db.execute(sql`
+        INSERT INTO maviance_services (operator, country, currency, type, service_id, active, notes, updated_at)
+        VALUES (${operator}, ${country}, ${currency}, ${ourType}, ${serviceIdNum}, true, ${String(svc.title ?? "")}, NOW())
+        ON DUPLICATE KEY UPDATE service_id = ${serviceIdNum}, active = true, notes = ${String(svc.title ?? "")}, updated_at = NOW()
+      `);
+      synced.push({ serviceId: serviceIdNum, operator, country, currency, type: ourType, title: String(svc.title ?? "") });
+    }
+
+    req.log.info({ adminId: req.userId, synced: synced.length, skipped: skipped.length }, "Maviance service sync complete");
+    res.json({ success: true, synced, skipped, total: services.length });
+  } catch (err) {
+    req.log.error({ err }, "Maviance sync-services error");
+    res.status(502).json({ error: "SyncFailed", message: err instanceof Error ? err.message : "Sync Maviance échoué" });
   }
 });
 

@@ -1,7 +1,7 @@
 import { useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { customFetch } from "@workspace/api-client-react";
-import { Activity, AlertTriangle, ArrowDownToLine, ArrowUpFromLine, CheckCircle2, CircleHelp, Globe2, MapPin, RefreshCw, ServerCog, SlidersHorizontal, XCircle } from "lucide-react";
+import { Activity, AlertTriangle, ArrowDownToLine, ArrowUpFromLine, CheckCircle2, CircleHelp, Globe2, MapPin, RefreshCw, ServerCog, SlidersHorizontal, XCircle, Download } from "lucide-react";
 import { COUNTRIES, OPERATOR_LABELS } from "@/lib/countries";
 import { useToast } from "@/hooks/use-toast";
 import { Badge } from "@/components/ui/badge";
@@ -311,6 +311,26 @@ export default function ProviderConfig() {
     ]);
   };
 
+  const syncMaviance = useMutation({
+    mutationFn: () => customFetch<{ success: boolean; synced: unknown[]; skipped: unknown[]; total: number }>(
+      "/api/admin/maviance/sync-services", { method: "POST" }
+    ),
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: MAViance_SERVICES_QUERY_KEY });
+      toast({
+        title: "Synchronisation Maviance réussie",
+        description: `${data.synced.length} service(s) synchronisé(s) sur ${data.total} récupérés depuis l'API Maviance.`,
+      });
+    },
+    onError: (error) => {
+      toast({
+        variant: "destructive",
+        title: "Sync Maviance échoué",
+        description: getErrorMessage(error, "Impossible de synchroniser les services Maviance. Vérifiez les credentials MAVIANCE_PUBLIC_KEY et MAVIANCE_SECRET."),
+      });
+    },
+  });
+
   return (
     <main className="mx-auto w-full max-w-[1440px] space-y-6 px-4 py-6 sm:px-6 lg:px-8 lg:py-8" data-testid="page-provider-config">
       <section className="relative overflow-hidden rounded-2xl border border-slate-200 bg-[linear-gradient(120deg,hsl(221_40%_17%),hsl(221_34%_24%))] px-5 py-6 text-slate-50 shadow-xl shadow-slate-900/10 sm:px-8 sm:py-8">
@@ -376,6 +396,17 @@ export default function ProviderConfig() {
               data-testid="button-refresh-provider-config"
             >
               <RefreshCw className="h-4 w-4" />
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => syncMaviance.mutate()}
+              disabled={syncMaviance.isPending}
+              className="gap-1.5 text-amber-700 border-amber-300 hover:bg-amber-50"
+              title="Synchronise les services depuis l'API Maviance (CASHOUT = dépôt, CASHIN = retrait)"
+            >
+              <Download className="h-4 w-4" />
+              <span className="hidden sm:inline">{syncMaviance.isPending ? "Sync…" : "Sync Maviance"}</span>
             </Button>
           </div>
         </CardContent>
