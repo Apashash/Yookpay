@@ -380,12 +380,19 @@ export async function runStartupMigrations(): Promise<void> {
       ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
     `);
 
+    // Use ON DUPLICATE KEY UPDATE (not INSERT IGNORE) so service IDs are
+    // always corrected to the canonical staging values even if rows already
+    // exist from a previous (broken) sync.
     await conn.execute(`
-      INSERT IGNORE INTO maviance_services (operator, country, currency, type, service_id, active, notes) VALUES
+      INSERT INTO maviance_services (operator, country, currency, type, service_id, active, notes) VALUES
         ('MTN',    'CM', 'XAF', 'DEPOSIT',    20053, 1, 'MTN MoMo CM Cash-Out/Depot (CASHOUT) → collectstd'),
         ('MTN',    'CM', 'XAF', 'WITHDRAWAL', 20052, 1, 'MTN MoMo CM Cash-In/Retrait (CASHIN) → collectstd'),
         ('ORANGE', 'CM', 'XAF', 'DEPOSIT',    30053, 1, 'Orange Money CM Cash-Out (CASHOUT) → collectstd'),
         ('ORANGE', 'CM', 'XAF', 'WITHDRAWAL', 30052, 1, 'Orange Money CM Cash-In (CASHIN) → collectstd')
+      ON DUPLICATE KEY UPDATE
+        service_id = VALUES(service_id),
+        active     = VALUES(active),
+        notes      = VALUES(notes)
     `);
 
     await conn.execute(`

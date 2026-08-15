@@ -471,11 +471,22 @@ async function getMavianceServiceId(
 
 // Helper: get admin-configured provider preference for a route
 // Returns "MAVIANCE" or "PIXPAY" (default).
+// Priority: 1) PAYMENT_PROVIDER env var (global override for Plesk)
+//           2) payment_provider_config DB table (per-route admin config)
+//           3) "PIXPAY" fallback
 async function getProviderForRoute(
   country: string,
   operator: string,
   type: "DEPOSIT" | "WITHDRAWAL",
 ): Promise<"PIXPAY" | "MAVIANCE"> {
+  // 1. Global env-var override — set PAYMENT_PROVIDER=MAVIANCE on Plesk to
+  //    bypass the DB lookup entirely. Useful when DB is unreachable or the
+  //    payment_provider_config table is not yet populated.
+  const envOverride = (process.env["PAYMENT_PROVIDER"] ?? "").toUpperCase();
+  if (envOverride === "MAVIANCE") return "MAVIANCE";
+  if (envOverride === "PIXPAY")   return "PIXPAY";
+
+  // 2. Per-route DB config
   try {
     const result = await db.execute(
       sql`SELECT provider FROM payment_provider_config

@@ -81397,6 +81397,9 @@ async function getMavianceServiceId(operator, currency, type, country) {
   return null;
 }
 async function getProviderForRoute(country, operator, type) {
+  const envOverride = (process.env["PAYMENT_PROVIDER"] ?? "").toUpperCase();
+  if (envOverride === "MAVIANCE") return "MAVIANCE";
+  if (envOverride === "PIXPAY") return "PIXPAY";
   try {
     const result = await db.execute(
       sql`SELECT provider FROM payment_provider_config
@@ -84251,6 +84254,30 @@ router9.delete("/provider-config", async (req, res) => {
     res.status(500).json({ error: "InternalError", message: "Impossible de r\xE9initialiser la configuration" });
   }
 });
+router9.get("/provider-debug", async (_req, res) => {
+  const safe = async (fn) => {
+    try {
+      return { ok: true, data: await fn() };
+    } catch (e) {
+      return { ok: false, error: String(e) };
+    }
+  };
+  const [configResult, mavianceResult] = await Promise.all([
+    safe(() => db.execute(sql`SELECT * FROM payment_provider_config ORDER BY country, operator, type`).then((r) => r.rows)),
+    safe(() => db.execute(sql`SELECT * FROM maviance_services ORDER BY country, operator, type`).then((r) => r.rows))
+  ]);
+  res.json({
+    env: {
+      PAYMENT_PROVIDER: process.env["PAYMENT_PROVIDER"] ?? "(not set \u2192 DB lookup)",
+      MAVIANCE_ENV: process.env["MAVIANCE_ENV"] ?? "(not set \u2192 staging)",
+      MAVIANCE_PUBLIC_KEY: process.env["MAVIANCE_PUBLIC_KEY"] ? "SET \u2713" : "NOT SET \u2717",
+      MAVIANCE_SECRET: process.env["MAVIANCE_SECRET"] ? "SET \u2713" : "NOT SET \u2717",
+      PIXPAY_ENV: process.env["PIXPAY_ENV"] ?? "(not set)"
+    },
+    payment_provider_config: configResult,
+    maviance_services: mavianceResult
+  });
+});
 router9.get("/pixpay/services", async (_req, res) => {
   try {
     const result = await db.execute(sql`
@@ -86968,11 +86995,15 @@ async function runStartupMigrations() {
       ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
     `);
     await conn.execute(`
-      INSERT IGNORE INTO maviance_services (operator, country, currency, type, service_id, active, notes) VALUES
+      INSERT INTO maviance_services (operator, country, currency, type, service_id, active, notes) VALUES
         ('MTN',    'CM', 'XAF', 'DEPOSIT',    20053, 1, 'MTN MoMo CM Cash-Out/Depot (CASHOUT) \u2192 collectstd'),
         ('MTN',    'CM', 'XAF', 'WITHDRAWAL', 20052, 1, 'MTN MoMo CM Cash-In/Retrait (CASHIN) \u2192 collectstd'),
         ('ORANGE', 'CM', 'XAF', 'DEPOSIT',    30053, 1, 'Orange Money CM Cash-Out (CASHOUT) \u2192 collectstd'),
         ('ORANGE', 'CM', 'XAF', 'WITHDRAWAL', 30052, 1, 'Orange Money CM Cash-In (CASHIN) \u2192 collectstd')
+      ON DUPLICATE KEY UPDATE
+        service_id = VALUES(service_id),
+        active     = VALUES(active),
+        notes      = VALUES(notes)
     `);
     await conn.execute(`
       CREATE TABLE IF NOT EXISTS payment_provider_config (

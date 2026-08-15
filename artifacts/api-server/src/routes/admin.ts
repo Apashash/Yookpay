@@ -1171,6 +1171,32 @@ router.delete("/provider-config", async (req: AuthRequest, res) => {
   }
 });
 
+// GET /admin/provider-debug — diagnostic: show raw DB state for provider routing
+// Visit /api/admin/provider-debug (logged in as admin) to diagnose why a provider is selected.
+router.get("/provider-debug", async (_req, res) => {
+  const safe = async (fn: () => Promise<any>) => {
+    try { return { ok: true, data: await fn() }; }
+    catch (e: unknown) { return { ok: false, error: String(e) }; }
+  };
+
+  const [configResult, mavianceResult] = await Promise.all([
+    safe(() => db.execute(sql`SELECT * FROM payment_provider_config ORDER BY country, operator, type`).then((r: any) => r.rows)),
+    safe(() => db.execute(sql`SELECT * FROM maviance_services ORDER BY country, operator, type`).then((r: any) => r.rows)),
+  ]);
+
+  res.json({
+    env: {
+      PAYMENT_PROVIDER:    process.env["PAYMENT_PROVIDER"]   ?? "(not set → DB lookup)",
+      MAVIANCE_ENV:        process.env["MAVIANCE_ENV"]        ?? "(not set → staging)",
+      MAVIANCE_PUBLIC_KEY: process.env["MAVIANCE_PUBLIC_KEY"] ? "SET ✓" : "NOT SET ✗",
+      MAVIANCE_SECRET:     process.env["MAVIANCE_SECRET"]     ? "SET ✓" : "NOT SET ✗",
+      PIXPAY_ENV:          process.env["PIXPAY_ENV"]          ?? "(not set)",
+    },
+    payment_provider_config: configResult,
+    maviance_services:       mavianceResult,
+  });
+});
+
 // ─── PixPay Services Configuration ─────────────────────────────────────────────
 
 // GET /admin/pixpay/services — list all pixpay_services rows
