@@ -271,6 +271,30 @@ export async function getServiceList(type?: string): Promise<MavianceService[]> 
   ) as MavianceService[];
 }
 
+export interface MaviancePayItem {
+  payItemId:  string;
+  serviceid:  string;
+  merchant:   string;
+  amountType: string;
+  [key: string]: unknown;
+}
+
+/**
+ * Retrieve all available pay items for a given operation type.
+ * GET /cashout  → items usable for DEPOSIT  (collect FROM customer mobile wallet)
+ * GET /cashin   → items usable for WITHDRAWAL (disburse TO customer mobile wallet)
+ *
+ * These endpoints return different service IDs from /service:
+ *   e.g. MTN CM CASHOUT serviceid=20053 vs MTN CM CASHIN serviceid=20052
+ */
+export async function getPayItems(operation: "CASHOUT" | "CASHIN"): Promise<MaviancePayItem[]> {
+  const response = await s3pRequest<unknown>("GET", `/${operation.toLowerCase()}`);
+  const raw = Array.isArray(response)
+    ? response
+    : ((response as any)?.data ?? (response as any)?.items ?? (response as any)?.result ?? []);
+  return (Array.isArray(raw) ? raw : []) as MaviancePayItem[];
+}
+
 type MavianceOperation = "CASHIN" | "CASHOUT";
 
 async function getPayItemId(serviceId: number, operation: MavianceOperation): Promise<string> {

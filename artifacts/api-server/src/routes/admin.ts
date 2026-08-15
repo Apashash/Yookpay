@@ -7,7 +7,7 @@ import { authMiddleware, type AuthRequest } from "../middlewares/authMiddleware"
 import { adminMiddleware } from "../middlewares/adminMiddleware";
 import { z } from "zod";
 import { FEE_TABLE, CURRENCY_MAP, DEFAULT_MARGIN } from "../services/feeService";
-import { getServiceList } from "../lib/maviance";
+import { getServiceList, getPayItems } from "../lib/maviance";
 import { getDefaultMargin, invalidateMarginCache } from "../lib/marginCache";
 import { getAllUsdtRates, setUsdtRate, USDT_PAIRS, getEffectiveRate, getExchangeFeeRate } from "../lib/adminRates";
 
@@ -986,82 +986,112 @@ router.put("/maviance/services", async (req: AuthRequest, res) => {
   }
 });
 
-// POST /admin/maviance/sync-services — fetch service list from Maviance API and auto-populate maviance_services table
+// POST /admin/maviance/sync-services
+// Correct flow per Maviance docs:
+//   GET /cashout  → all pay items for COLLECTING from customer  (= YookPay DEPOSIT)
+//   GET /cashin   → all pay items for DISBURSING to customer    (= YookPay WITHDRAWAL)
+//
+// These endpoints use DIFFERENT service IDs from GET /service.
+// Example: MTN CM cashout serviceid=20053, MTN CM cashin serviceid=20052.
+// The mapping from merchant code → operator+country is hardcoded here because
+// the /cashout & /cashin responses do not include country or currency fields.
 router.post("/maviance/sync-services", async (req: AuthRequest, res) => {
   try {
-    const services = await getServiceList();
-
-    // Map Maviance service title keywords → our operator codes
-    const KEYWORD_TO_OPERATOR: [string, string][] = [
-      ["mtn", "MTN"],
-      ["orange", "ORANGE"],
-      ["camtel", "CAMTEL"],
-      ["nexttel", "NEXTTEL"],
-      ["yoomee", "YOOMEE"],
-      ["eu mobile", "EU"],
-      ["airtel", "AIRTEL"],
-      ["moov", "MOOV"],
-      ["wave", "WAVE"],
-    ];
-
-    // Map S3P currency → our country code
-    const CURRENCY_TO_COUNTRY: Record<string, string> = {
-      XAF: "CM", XOF: "SN", CDF: "CD",
+    // Merchant code → { operator, country, currency }
+    // Built from Maviance staging API observations + known countries covered.
+    const MERCHANT_MAP: Record<string, { operator: string; country: string; currency: string }> = {
+      // ── Cameroon (CM) — XAF ────────────────────────────────────────────────
+      "MTNMOMO":        { operator: "MTN",    country: "CM", currency: "XAF" },
+      "CMMTN":          { operator: "MTN",    country: "CM", currency: "XAF" },
+      "CMORANGEOM":     { operator: "ORANGE", country: "CM", currency: "XAF" },
+      "CMORANGEMOMO":   { operator: "ORANGE", country: "CM", currency: "XAF" },
+      "CMYOOMEE":       { operator: "YOOMEE", country: "CM", currency: "XAF" },
+      "YOOMEE":         { operator: "YOOMEE", country: "CM", currency: "XAF" },
+      "NEXTTELMOMO":    { operator: "NEXTTEL",country: "CM", currency: "XAF" },
+      "NEXTTEL":        { operator: "NEXTTEL",country: "CM", currency: "XAF" },
+      "CAMTEL":         { operator: "CAMTEL", country: "CM", currency: "XAF" },
+      "EUMOBILE":       { operator: "EU",     country: "CM", currency: "XAF" },
+      // ── Congo-Brazzaville (CG) — XAF ────────────────────────────────────────
+      "CGMTNMOMO":      { operator: "MTN",    country: "CG", currency: "XAF" },
+      "CGAIRTELMONEY":  { operator: "AIRTEL", country: "CG", currency: "XAF" },
+      "CGMOOVMONEY":    { operator: "MOOV",   country: "CG", currency: "XAF" },
+      // ── Gabon (GA) — XAF ─────────────────────────────────────────────────────
+      "GABMOOVMONEY":   { operator: "MOOV",   country: "GA", currency: "XAF" },
+      "GABAIRTELMONEY": { operator: "AIRTEL", country: "GA", currency: "XAF" },
+      "GABMTNMOMO":     { operator: "MTN",    country: "GA", currency: "XAF" },
+      // ── Centrafrique (CF) — XAF ───────────────────────────────────────────────
+      "CFAIRTELMONEY":  { operator: "AIRTEL", country: "CF", currency: "XAF" },
+      "CFMOOVMONEY":    { operator: "MOOV",   country: "CF", currency: "XAF" },
+      "CFMTNMOMO":      { operator: "MTN",    country: "CF", currency: "XAF" },
+      // ── Tchad (TD) — XAF ──────────────────────────────────────────────────────
+      "TDAIRTELMONEY":  { operator: "AIRTEL", country: "TD", currency: "XAF" },
+      "TDMOOVMONEY":    { operator: "MOOV",   country: "TD", currency: "XAF" },
+      "TDMTNMOMO":      { operator: "MTN",    country: "TD", currency: "XAF" },
+      // ── Sénégal (SN) — XOF ────────────────────────────────────────────────────
+      "SNFREEOM":       { operator: "FREE",   country: "SN", currency: "XOF" },
+      "SNORANGEMOM":    { operator: "ORANGE", country: "SN", currency: "XOF" },
+      "SNWAVEMONEY":    { operator: "WAVE",   country: "SN", currency: "XOF" },
+      "SNEXPRESSO":     { operator: "EXPRESSO",country:"SN", currency: "XOF" },
+      // ── Côte d'Ivoire (CI) — XOF ──────────────────────────────────────────────
+      "CIORANGEMOM":    { operator: "ORANGE", country: "CI", currency: "XOF" },
+      "CIMTNMOMO":      { operator: "MTN",    country: "CI", currency: "XOF" },
+      "CIMOOVMONEY":    { operator: "MOOV",   country: "CI", currency: "XOF" },
+      "CIMOVEMONEY":    { operator: "MOOV",   country: "CI", currency: "XOF" },
+      "CIWAVEMONEY":    { operator: "WAVE",   country: "CI", currency: "XOF" },
+      // ── RDC Congo (CD) — CDF ──────────────────────────────────────────────────
+      "CDAIRTELMONEY":  { operator: "AIRTEL", country: "CD", currency: "CDF" },
+      "CDORANGEMOM":    { operator: "ORANGE", country: "CD", currency: "CDF" },
+      "CDMTNMOMO":      { operator: "MTN",    country: "CD", currency: "CDF" },
     };
 
-    // Maviance staging field names differ from what you might expect:
-    //   serviceid (string) — not id
-    //   localCur  — not currency
-    //   country   — 3-letter ISO (CMR, COG, GAB…) — map to 2-letter
-    const COUNTRY3_TO_2: Record<string, string> = {
-      CMR: "CM", COG: "CG", GAB: "GA", SEN: "SN", CIV: "CI",
-      BFA: "BF", MLI: "ML", TGO: "TG", BEN: "BJ", GIN: "GN",
-      CAF: "CF", TCD: "TD",
+    // Fetch CASHOUT (= DEPOSIT) and CASHIN (= WITHDRAWAL) items in parallel
+    const [cashoutItems, cashinItems] = await Promise.all([
+      getPayItems("CASHOUT"),
+      getPayItems("CASHIN"),
+    ]);
+
+    const synced: Array<{ serviceId: number; operator: string; country: string; currency: string; type: string; merchant: string }> = [];
+    const skipped: Array<{ serviceId: string; merchant: string; type: string; reason: string }> = [];
+
+    const processItems = async (
+      items: typeof cashoutItems,
+      ourType: "DEPOSIT" | "WITHDRAWAL",
+    ) => {
+      for (const item of items) {
+        const merchant = String(item.merchant ?? "").toUpperCase();
+        const info = MERCHANT_MAP[merchant];
+        if (!info) {
+          skipped.push({ serviceId: item.serviceid, merchant, type: ourType, reason: `Merchant "${merchant}" non mappé — ajoutez-le à MERCHANT_MAP` });
+          continue;
+        }
+        const serviceIdNum = Number(item.serviceid);
+        if (!serviceIdNum) {
+          skipped.push({ serviceId: item.serviceid, merchant, type: ourType, reason: "serviceid invalide" });
+          continue;
+        }
+        const notes = `payItemId=${item.payItemId} amountType=${item.amountType}`;
+        await db.execute(sql`
+          INSERT INTO maviance_services (operator, country, currency, type, service_id, active, notes, updated_at)
+          VALUES (${info.operator}, ${info.country}, ${info.currency}, ${ourType}, ${serviceIdNum}, true, ${notes}, NOW())
+          ON DUPLICATE KEY UPDATE service_id = ${serviceIdNum}, active = true, notes = ${notes}, updated_at = NOW()
+        `);
+        synced.push({ serviceId: serviceIdNum, operator: info.operator, country: info.country, currency: info.currency, type: ourType, merchant });
+      }
     };
 
-    const synced: Array<{ serviceId: number; operator: string; country: string; currency: string; type: string; title: string }> = [];
-    const skipped: Array<{ serviceId: number | string; title: string; type: string; reason: string }> = [];
+    await processItems(cashoutItems, "DEPOSIT");
+    await processItems(cashinItems,  "WITHDRAWAL");
 
-    for (const svc of services as Array<Record<string, unknown>>) {
-      const title = String(svc.title ?? "").toLowerCase();
-      // Maviance uses both svc.type and sometimes svc.serviceType
-      const mavType = String(svc.type ?? svc.serviceType ?? "").toUpperCase();
-
-      // Only handle CASHOUT (= DEPOSIT) and CASHIN (= WITHDRAWAL)
-      const ourType: "DEPOSIT" | "WITHDRAWAL" | null =
-        mavType === "CASHOUT" ? "DEPOSIT" :
-        mavType === "CASHIN"  ? "WITHDRAWAL" : null;
-      const svcId = svc.serviceid ?? svc.id;
-      if (!ourType) { skipped.push({ serviceId: Number(svcId), title: String(svc.title ?? ""), type: mavType, reason: "type ignored" }); continue; }
-
-      // Currency: Maviance uses localCur
-      const currency = String(svc.localCur ?? svc.currency ?? "").toUpperCase() as "XAF" | "XOF" | "CDF";
-      if (!["XAF", "XOF", "CDF"].includes(currency)) { skipped.push({ serviceId: Number(svcId), title: String(svc.title ?? ""), type: mavType, reason: `currency ${currency} not supported` }); continue; }
-
-      // Country: 3-letter → 2-letter
-      const country3 = String(svc.country ?? "").toUpperCase();
-      const country = COUNTRY3_TO_2[country3] ?? CURRENCY_TO_COUNTRY[currency];
-      if (!country) { skipped.push({ serviceId: Number(svcId), title: String(svc.title ?? ""), type: mavType, reason: `country ${country3} not mapped` }); continue; }
-
-      const match = KEYWORD_TO_OPERATOR.find(([kw]) => title.includes(kw));
-      if (!match) { skipped.push({ serviceId: Number(svcId), title: String(svc.title ?? ""), type: mavType, reason: "operator not recognized in title" }); continue; }
-      const operator = match[1];
-
-      // Skip inactive services
-      const status = String(svc.status ?? "Active").toLowerCase();
-      if (status === "inactive") { skipped.push({ serviceId: Number(svcId), title: String(svc.title ?? ""), type: mavType, reason: "service inactive on Maviance" }); continue; }
-
-      const serviceIdNum = Number(svcId);
-      await db.execute(sql`
-        INSERT INTO maviance_services (operator, country, currency, type, service_id, active, notes, updated_at)
-        VALUES (${operator}, ${country}, ${currency}, ${ourType}, ${serviceIdNum}, true, ${String(svc.title ?? "")}, NOW())
-        ON DUPLICATE KEY UPDATE service_id = ${serviceIdNum}, active = true, notes = ${String(svc.title ?? "")}, updated_at = NOW()
-      `);
-      synced.push({ serviceId: serviceIdNum, operator, country, currency, type: ourType, title: String(svc.title ?? "") });
-    }
-
-    req.log.info({ adminId: req.userId, synced: synced.length, skipped: skipped.length }, "Maviance service sync complete");
-    res.json({ success: true, synced, skipped, total: services.length });
+    req.log.info(
+      { adminId: req.userId, synced: synced.length, skipped: skipped.length, cashout: cashoutItems.length, cashin: cashinItems.length },
+      "Maviance service sync complete",
+    );
+    res.json({
+      success: true,
+      synced,
+      skipped,
+      total: { cashout: cashoutItems.length, cashin: cashinItems.length },
+    });
   } catch (err) {
     req.log.error({ err }, "Maviance sync-services error");
     res.status(502).json({ error: "SyncFailed", message: err instanceof Error ? err.message : "Sync Maviance échoué" });
