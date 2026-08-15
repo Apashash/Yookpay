@@ -14,7 +14,7 @@ const STAGING_BASE = "https://s3p.smobilpay.staging.maviance.info/v2";
 const PROD_BASE    = "https://s3pv2cm.smobilpay.com/v2";
 
 export function getMavianceBaseUrl(): string {
-  return process.env["MAVIANCE_ENV"] === "production" ? PROD_BASE : STAGING_BASE;
+  return process.env["MAVIANCE_ENV"]?.toLowerCase() === "production" ? PROD_BASE : STAGING_BASE;
 }
 
 function getCredentials(): { publicKey: string; secret: string } {

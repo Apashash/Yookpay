@@ -20,7 +20,7 @@ const PROD_BASE    = "https://api.enkap.maviance.info";
 export function getEnkapBaseUrl(): string {
   const override = process.env["ENKAP_BASE_URL"];
   if (override) return override.replace(/\/+$/, "");
-  return process.env["MAVIANCE_ENV"] === "production" ? PROD_BASE : STAGING_BASE;
+  return process.env["MAVIANCE_ENV"]?.toLowerCase() === "production" ? PROD_BASE : STAGING_BASE;
 }
 
 function getEnkapCredentials(): { key: string; secret: string } {
