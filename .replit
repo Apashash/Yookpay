@@ -1,4 +1,4 @@
-modules = ["nodejs-20", "web", "bash"]
+modules = ["nodejs-20", "web", "bash", "python-base-3.13"]
 
 [[artifacts]]
 id = "artifacts/api-server"
@@ -56,7 +56,7 @@ channel = "stable-25_05"
 [userenv.shared]
 APP_URL = "https://b.o.p.ashtechpay.top"
 PIXPAY_ENV = "production"
-MAVIANCE_ENV = "production"
+MAVIANCE_ENV = "staging"
 MAVIANCE_IPN_BASE_URL = "https://b.o.p.ashtechpay.top"
 PIXPAY_IPN_BASE_URL = "https://b.o.p.ashtechpay.top"
 
