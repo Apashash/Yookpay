@@ -134,6 +134,22 @@ function getErrorMessage(error: unknown, fallback: string) {
   return fallback;
 }
 
+function asArray<T>(value: unknown): T[] {
+  return Array.isArray(value) ? value : [];
+}
+
+function formatDateTime(value: string) {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "date inconnue";
+  return date.toLocaleString("fr-FR", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}
+
 function hasActiveService(services: ProviderService[], country: string, operator: string, type: TransactionType) {
   return services.some((service) => {
     const countryMatches = service.country === country || !service.country;
@@ -218,10 +234,10 @@ export default function ProviderConfig() {
     },
   });
 
-  const config = configQuery.data?.config ?? [];
-  const mavianceServices = mavianceQuery.data?.services ?? [];
-  const pixpayServices = pixpayQuery.data?.services ?? [];
-  const pawapayServices = pawapayQuery.data?.services ?? [];
+  const config = asArray<ProviderConfig>(configQuery.data?.config);
+  const mavianceServices = asArray<ProviderService>(mavianceQuery.data?.services);
+  const pixpayServices = asArray<ProviderService>(pixpayQuery.data?.services);
+  const pawapayServices = asArray<ProviderService>(pawapayQuery.data?.services);
   const pawapayStatus = pawapayStatusQuery.data;
   const pawapayBalanceData = pawapayBalancesQuery.data;
   const pawapayBalances = Array.isArray(pawapayBalanceData)
@@ -245,18 +261,20 @@ export default function ProviderConfig() {
       ]),
     );
     for (const service of pawapayServices) {
-      if (!service.active || !service.country) continue;
-      const existing = countries.get(service.country);
-      const meta = PAWAPAY_COUNTRY_META[service.country];
+      const countryCode = typeof service.country === "string" ? service.country.trim().toUpperCase() : "";
+      const operator = typeof service.operator === "string" ? service.operator.trim().toUpperCase() : "";
+      if (!service.active || countryCode.length !== 2 || !operator) continue;
+      const existing = countries.get(countryCode);
+      const meta = PAWAPAY_COUNTRY_META[countryCode];
       const country = existing ?? {
-        code: service.country,
-        name: meta?.name ?? service.country,
+        code: countryCode,
+        name: meta?.name ?? countryCode,
         flag: meta?.flag ?? "🌍",
         currency: service.currency || meta?.currency || "—",
         operators: [],
       };
-      if (!country.operators.includes(service.operator)) country.operators.push(service.operator);
-      countries.set(service.country, country);
+      if (!country.operators.includes(operator)) country.operators.push(operator);
+      countries.set(countryCode, country);
     }
     return [...countries.values()].sort((a, b) => a.name.localeCompare(b.name, "fr"));
   }, [pawapayServices]);
@@ -458,7 +476,7 @@ export default function ProviderConfig() {
             </div>
             <p className="text-xs text-muted-foreground mb-1">
               {pawapayStatus?.lastSyncAt
-                ? `Dernière synchro: ${new Date(pawapayStatus.lastSyncAt).toLocaleString('fr-FR', { dateStyle: 'short', timeStyle: 'short' })}`
+                ? `Dernière synchro: ${formatDateTime(pawapayStatus.lastSyncAt)}`
                 : "Synchronise les services et balances pawaPay."}
             </p>
             <div className="flex items-center justify-between mt-auto">
