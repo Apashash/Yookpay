@@ -59,6 +59,7 @@ PIXPAY_ENV = "production"
 MAVIANCE_ENV = "staging"
 MAVIANCE_IPN_BASE_URL = "https://b.o.p.ashtechpay.top"
 PIXPAY_IPN_BASE_URL = "https://b.o.p.ashtechpay.top"
+PAWAPAY_ENV = "production"
 
 [userenv.development]
 

@@ -1,3 +1,4 @@
 - [Maviance SmobilPay Integration](maviance-integration.md) — S3P flow, staging service IDs, HMAC auth, provider selection via payment_provider_config table, e-nkap card collection.
 - [Maviance test phone fields](maviance-test-phone-fields.md) — customer test numbers and operator serviceNumber are distinct fields; never send the scenario phone as both.
 - [MySQL migration lessons](mysql-migration-lessons.md) — drizzle/mysql2 result shapes ([0].insertId/affectedRows), pgQuery compat layer, local MariaDB test recipe, Plesk deploy via committed dist/.
+- [pawaPay direct production](pawapay-direct-production.md) — use pawaPay’s direct production deposit/payout API; do not route customers through hosted Checkout.
