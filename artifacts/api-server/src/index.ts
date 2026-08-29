@@ -53,6 +53,8 @@ async function startServer(): Promise<void> {
   logger.info(`[ENV CHECK] MAVIANCE_ENV = ${mavianceEnv}`);
   logger.info(`[ENV CHECK] MAVIANCE_PUBLIC_KEY = ${process.env["MAVIANCE_PUBLIC_KEY"] ? "SET ✓" : "NOT SET ✗"}`);
   logger.info(`[ENV CHECK] MAVIANCE_SECRET     = ${process.env["MAVIANCE_SECRET"]     ? "SET ✓" : "NOT SET ✗"}`);
+  logger.info(`[ENV CHECK] PAWAPAY_ENV = ${process.env["PAWAPAY_ENV"] ?? "sandbox (default)"}`);
+  logger.info(`[ENV CHECK] PAWAPAY_API_TOKEN = ${process.env["PAWAPAY_API_TOKEN"] ? "SET ✓" : "NOT SET ✗"}`);
 
   const dbUrl = process.env.MYSQL_DATABASE_URL || process.env.DATABASE_URL;
 

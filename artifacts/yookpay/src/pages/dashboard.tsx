@@ -205,7 +205,7 @@ export default function Dashboard() {
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
         {sortedWallets.map((wallet) => {
           const meta = walletMeta[wallet.currency] ?? {
-            label: wallet.currency,
+            label: wallet.country ? `${wallet.country} · ${wallet.currency}` : wallet.currency,
             gradient: "from-slate-600 to-slate-700",
             border: "border-slate-400/30",
             badge: "bg-white/15 text-white",
@@ -215,14 +215,14 @@ export default function Dashboard() {
             <div
               key={wallet.id}
               className={`relative overflow-hidden rounded-2xl bg-gradient-to-br ${meta.gradient} ${meta.border} border p-5 shadow-lg`}
-              data-testid={`wallet-card-${wallet.currency}`}
+              data-testid={`wallet-card-${wallet.country ?? "global"}-${wallet.currency}-${wallet.id}`}
             >
               <div className="absolute -top-6 -right-6 w-28 h-28 rounded-full bg-white/10" />
               <div className="absolute -bottom-8 -right-2 w-20 h-20 rounded-full bg-white/5" />
 
               <div className="relative flex items-center justify-between mb-4">
                 <span className={`text-sm font-bold px-3 py-1 rounded-full ${meta.badge} backdrop-blur-sm tracking-widest`}>
-                  {wallet.currency}
+                  {wallet.country ? `${wallet.country} · ${wallet.currency}` : wallet.currency}
                 </span>
                 <div className="flex items-center gap-1.5">
                   <div className={`w-2 h-2 rounded-full ${meta.dot} animate-pulse`} />
@@ -236,7 +236,7 @@ export default function Dashboard() {
 
               <div
                 className="relative text-3xl font-extrabold text-white tracking-tight"
-                data-testid={`text-balance-${wallet.currency}`}
+                data-testid={`text-balance-${wallet.country ?? "global"}-${wallet.currency}-${wallet.id}`}
               >
                 {formatCurrency(wallet.balance, wallet.currency)}
               </div>

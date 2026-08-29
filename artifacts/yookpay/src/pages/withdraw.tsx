@@ -161,7 +161,7 @@ export default function Withdraw() {
   // USDT wallet balance (for crypto section)
   const usdtBalance = parseFloat(
     String(
-      (walletsData as { currency: string; balance: unknown }[] | undefined)
+      (walletsData as { country?: string; currency: string; balance: unknown }[] | undefined)
         ?.find((w) => w.currency === "USDT")?.balance ?? 0
     )
   );
@@ -172,8 +172,8 @@ export default function Withdraw() {
   const walletBalance = walletCurrency
     ? parseFloat(
         String(
-          (walletsData as { currency: string; balance: unknown }[] | undefined)
-            ?.find((w) => w.currency === walletCurrency)?.balance ?? 0
+          (walletsData as { country?: string; currency: string; balance: unknown }[] | undefined)
+            ?.find((w) => w.country === country && w.currency === walletCurrency)?.balance ?? 0
         )
       )
     : 0;

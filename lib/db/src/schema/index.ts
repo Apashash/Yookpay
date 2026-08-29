@@ -14,3 +14,4 @@ export * from "./crypto-exchanges";
 export * from "./user-operator-fees";
 export * from "./payment-links";
 export * from "./notifications";
+export * from "./pawapay-services";

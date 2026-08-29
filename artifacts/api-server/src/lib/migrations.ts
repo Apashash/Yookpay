@@ -201,14 +201,39 @@ export async function runStartupMigrations(): Promise<void> {
       ALTER TABLE wallets ADD COLUMN IF NOT EXISTS locked_balance DECIMAL(18,2) NOT NULL DEFAULT 0
     `);
 
+    // Wallet identity includes country.  Add the constraint before new country
+    // wallets are created; existing installations had one row per currency.
+    // Legacy deployments could contain duplicate jurisdiction wallets. Preserve
+    // funds by aggregating them before enforcing the identity constraint.
+    await conn.execute(`CREATE TEMPORARY TABLE IF NOT EXISTS wallet_keep AS SELECT MIN(id) id, user_id,currency,country,SUM(balance) balance,SUM(locked_balance) locked_balance FROM wallets GROUP BY user_id,currency,country`);
+    await conn.execute(`UPDATE wallets w JOIN wallet_keep k ON w.id=k.id SET w.balance=k.balance,w.locked_balance=k.locked_balance`);
+    await conn.execute(`DELETE w FROM wallets w JOIN wallet_keep k ON w.user_id=k.user_id AND w.currency=k.currency AND w.country=k.country AND w.id<>k.id`);
+    await conn.execute(`DROP TEMPORARY TABLE IF EXISTS wallet_keep`);
+    await conn.execute(`
+      CREATE UNIQUE INDEX IF NOT EXISTS wallets_user_currency_country_uq
+      ON wallets (user_id, currency, country)
+    `);
+
     // 8b. Create USDT wallets for all existing users that don't have one
     await conn.execute(`
       INSERT INTO wallets (user_id, currency, balance, locked_balance, country)
       SELECT u.id, 'USDT', 0, 0, 'ZZ'
       FROM users u
       WHERE NOT EXISTS (
-        SELECT 1 FROM wallets w WHERE w.user_id = u.id AND w.currency = 'USDT'
+        SELECT 1 FROM wallets w WHERE w.user_id = u.id AND w.currency = 'USDT' AND w.country = 'ZZ'
       )
+    `);
+    // Idempotently provision country-scoped fiat wallets for existing accounts.
+    await conn.execute(`
+      INSERT IGNORE INTO wallets (user_id, currency, balance, locked_balance, country)
+      SELECT u.id, c.currency, 0, 0, c.country
+      FROM users u
+      CROSS JOIN (
+        SELECT 'CM' country, 'XAF' currency UNION ALL SELECT 'CG','XAF' UNION ALL SELECT 'GA','XAF'
+        UNION ALL SELECT 'BJ','XOF' UNION ALL SELECT 'BF','XOF' UNION ALL SELECT 'CI','XOF'
+        UNION ALL SELECT 'GM','GMD' UNION ALL SELECT 'GN','GNF' UNION ALL SELECT 'ML','XOF'
+        UNION ALL SELECT 'SN','XOF' UNION ALL SELECT 'TG','XOF' UNION ALL SELECT 'CD','CDF'
+      ) c
     `);
 
     // 8c. crypto_exchanges
@@ -405,6 +430,23 @@ export async function runStartupMigrations(): Promise<void> {
         updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
         PRIMARY KEY (id),
         UNIQUE KEY provider_config_uq (country, operator, type)
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+    `);
+    await conn.execute(`
+      CREATE TABLE IF NOT EXISTS pawapay_services (
+        id INT NOT NULL AUTO_INCREMENT, operator VARCHAR(30) NOT NULL, country VARCHAR(5) NOT NULL,
+        currency VARCHAR(10) NOT NULL, type VARCHAR(20) NOT NULL, provider_code VARCHAR(80) NOT NULL,
+        active TINYINT(1) NOT NULL DEFAULT 1, notes TEXT DEFAULT NULL,
+        created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP, updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+        PRIMARY KEY (id), UNIQUE KEY pawapay_services_uq (operator, country, currency, type)
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+    `);
+    await conn.execute(`
+      CREATE TABLE IF NOT EXISTS wallet_ledger (
+        id BIGINT NOT NULL AUTO_INCREMENT, transaction_id INT NOT NULL, wallet_id INT NOT NULL,
+        movement_type VARCHAR(20) NOT NULL, amount DECIMAL(18,2) NOT NULL, created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        PRIMARY KEY(id), UNIQUE KEY wallet_ledger_tx_movement_uq(transaction_id,movement_type),
+        KEY wallet_ledger_wallet_idx(wallet_id)
       ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
     `);
 

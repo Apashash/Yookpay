@@ -8,8 +8,41 @@ import { createNotification } from "../lib/notify";
 import { dispatchWebhook, buildTxPayload, getNotificationUrl } from "../lib/webhookDispatch";
 import { isMavianceSuccess, isMavianceFailed } from "../lib/maviance";
 import { isEnkapSuccess, isEnkapFailed, getOrderStatusByReference } from "../lib/enkap";
+import { getOrCreateWallet } from "../lib/wallets";
+import { getDepositStatus, getPayoutStatus, pawaFinalStatus, pawaResultStatus } from "../lib/pawapay";
+import { settleProviderTransaction } from "../lib/walletSettlement";
 
 const router = Router();
+
+// pawaPay callbacks are matched by their immutable provider UUID. Only final
+// COMPLETED/FAILED states can settle a YookPay transaction.
+router.post("/pawapay", async (req: Request, res: Response) => {
+  const body = req.body as { depositId?: string; payoutId?: string; status?: string; failureReason?: unknown };
+  const providerReference = body.depositId ?? body.payoutId;
+  if (!providerReference) { res.status(200).json({ ok: true, note: "invalid_reference" }); return; }
+  try {
+    const [tx] = await db.select().from(transactionsTable).where(eq(transactionsTable.providerReference, providerReference)).limit(1);
+    if (!tx) { res.status(200).json({ ok: false, reason: "not_found" }); return; }
+
+    // Never trust the unauthenticated callback body for a financial state
+    // transition. Re-read the immutable transaction from pawaPay with our
+    // bearer token and settle only the authoritative final state.
+    const verifiedResult = pawaResultStatus(
+      tx.type === "WITHDRAWAL"
+        ? await getPayoutStatus(providerReference)
+        : await getDepositStatus(providerReference),
+    );
+    const status = pawaFinalStatus(verifiedResult.status);
+    if (!status) { res.status(200).json({ ok: true, note: "verified_non_final_state" }); return; }
+
+    const claimed = await settleProviderTransaction(tx.id, status);
+    if (!claimed) { res.status(200).json({ ok: true, note: "already_processed" }); return; }
+    dispatchWebhook(tx.userId, buildTxPayload({ ...tx, status, updatedAt: new Date() }), getNotificationUrl(tx.metadata));
+    // Financial movement is already in the durable ledger transaction.
+    await handleWalletAndNotify(tx, status, false, false, req.log);
+    res.status(200).json({ ok: true, processed: status });
+  } catch (err) { req.log?.error({ err, providerReference }, "pawaPay IPN processing error"); res.status(500).json({ ok: false, error: "processing_error" }); }
+});
 
 // ─── PixPay IPN ───────────────────────────────────────────────────────────────
 
@@ -321,11 +354,7 @@ async function handleWalletAndNotify(
 
   if (isSuccess) {
     if (tx.type === "DEPOSIT" || tx.type === "CARD_DEPOSIT") {
-      const [wallet] = await db
-        .select()
-        .from(walletsTable)
-        .where(and(eq(walletsTable.userId, tx.userId), eq(walletsTable.currency, tx.currency)))
-        .limit(1);
+      const wallet = await getOrCreateWallet(tx.userId, tx.currency, tx.country);
 
       if (wallet) {
         const creditAmount = parseFloat(tx.netAmount);
@@ -360,11 +389,7 @@ async function handleWalletAndNotify(
     }
   } else if (isFailed) {
     if (tx.type === "WITHDRAWAL") {
-      const [wallet] = await db
-        .select()
-        .from(walletsTable)
-        .where(and(eq(walletsTable.userId, tx.userId), eq(walletsTable.currency, tx.currency)))
-        .limit(1);
+      const wallet = await getOrCreateWallet(tx.userId, tx.currency, tx.country);
 
       if (wallet) {
         const refundAmount = parseFloat(tx.netAmount) + parseFloat(tx.fee);

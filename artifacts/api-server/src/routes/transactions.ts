@@ -36,6 +36,10 @@ import {
 import { placeOrder as enkapPlaceOrder, getOrderStatusByReference as enkapStatus, isEnkapSuccess, isEnkapFailed } from "../lib/enkap";
 import { usersTable } from "@workspace/db/schema";
 import { z } from "zod";
+import { randomUUID } from "crypto";
+import { reserveWithdrawal, settleProviderTransaction } from "../lib/walletSettlement";
+import { getOrCreateWallet } from "../lib/wallets";
+import { initiateDeposit as pawaDeposit, initiatePayout as pawaPayout, getDepositStatus as pawaDepositStatus, getPayoutStatus as pawaPayoutStatus, normalizePawaPayPhone, pawaFinalStatus, pawaResultStatus } from "../lib/pawapay";
 
 // Country code → dial code digits (no '+')
 const DIAL_CODES: Record<string, string> = {
@@ -305,6 +309,13 @@ router.get("/:id", authMiddleware, async (req: AuthRequest, res) => {
             };
             req.log.info({ txId: tx.id, mavStatus: mavStatus.status, trid: tx.reference, newStatus }, "Auto-sync from Maviance verifyTx");
           }
+        } else if (txProv === "PAWAPAY") {
+          const pawaStatus = tx.type === "WITHDRAWAL"
+            ? await pawaPayoutStatus(tx.providerReference)
+            : await pawaDepositStatus(tx.providerReference);
+          const state = pawaResultStatus(pawaStatus);
+          newStatus = pawaFinalStatus(state.status);
+          syncMeta = { pawaStatusSynced: state.status, syncedAt: new Date().toISOString() };
         } else {
           // PixPay: verify by transaction ID
           const pixStatus = await getPixPayTransactionStatus(tx.providerReference, tx.currency);
@@ -317,6 +328,11 @@ router.get("/:id", authMiddleware, async (req: AuthRequest, res) => {
         }
 
         if (newStatus) {
+          if (txProv === "PAWAPAY") {
+            await settleProviderTransaction(tx.id, newStatus);
+            const [updated] = await db.select().from(transactionsTable).where(eq(transactionsTable.id, id)).limit(1);
+            if (updated) { res.json(formatTx(updated)); return; }
+          }
           const syncResult = await db
             .update(transactionsTable)
             .set({
@@ -330,8 +346,7 @@ router.get("/:id", authMiddleware, async (req: AuthRequest, res) => {
           const rowClaimed = affectedRows(syncResult) > 0;
 
           if (rowClaimed && newStatus === "SUCCESS" && (tx.type === "DEPOSIT" || tx.type === "CARD_DEPOSIT")) {
-            const [wallet] = await db.select().from(walletsTable)
-              .where(and(eq(walletsTable.userId, tx.userId), eq(walletsTable.currency, tx.currency))).limit(1);
+            const wallet = await getOrCreateWallet(tx.userId, tx.currency, tx.country);
             if (wallet) {
               const credit = parseFloat(tx.netAmount);
               await db.update(walletsTable)
@@ -340,8 +355,7 @@ router.get("/:id", authMiddleware, async (req: AuthRequest, res) => {
               req.log.info({ txId: tx.id, credit, currency: tx.currency }, "Auto-sync DEPOSIT credited wallet");
             }
           } else if (rowClaimed && newStatus === "FAILED" && tx.type === "WITHDRAWAL") {
-            const [wallet] = await db.select().from(walletsTable)
-              .where(and(eq(walletsTable.userId, tx.userId), eq(walletsTable.currency, tx.currency))).limit(1);
+            const wallet = await getOrCreateWallet(tx.userId, tx.currency, tx.country);
             if (wallet) {
               const refund = parseFloat(tx.netAmount) + parseFloat(tx.fee);
               await db.update(walletsTable)
@@ -468,6 +482,14 @@ async function getMavianceServiceId(
   }
   return null;
 }
+async function getPawaPayProviderCode(operator: string, currency: string, type: "DEPOSIT" | "WITHDRAWAL", country: string): Promise<string | null> {
+  try {
+    const result = await db.execute(sql`SELECT provider_code FROM pawapay_services
+      WHERE operator=${operator.toUpperCase()} AND currency=${currency.toUpperCase()} AND type=${type}
+      AND country=${country.toUpperCase()} AND active=true LIMIT 1`);
+    return result.rows[0] ? String((result.rows[0] as { provider_code: unknown }).provider_code) : null;
+  } catch { return null; }
+}
 
 // Helper: get admin-configured provider preference for a route
 // Returns "MAVIANCE" or "PIXPAY" (default).
@@ -478,13 +500,14 @@ async function getProviderForRoute(
   country: string,
   operator: string,
   type: "DEPOSIT" | "WITHDRAWAL",
-): Promise<"PIXPAY" | "MAVIANCE"> {
+): Promise<"PIXPAY" | "MAVIANCE" | "PAWAPAY"> {
   // 1. Global env-var override — set PAYMENT_PROVIDER=MAVIANCE on Plesk to
   //    bypass the DB lookup entirely. Useful when DB is unreachable or the
   //    payment_provider_config table is not yet populated.
   const envOverride = (process.env["PAYMENT_PROVIDER"] ?? "").toUpperCase();
   if (envOverride === "MAVIANCE") return "MAVIANCE";
   if (envOverride === "PIXPAY")   return "PIXPAY";
+  if (envOverride === "PAWAPAY") return "PAWAPAY";
 
   // 2. Per-route DB config
   try {
@@ -498,6 +521,7 @@ async function getProviderForRoute(
     if (result.rows.length > 0) {
       const p = String((result.rows[0] as { provider: unknown }).provider).toUpperCase();
       if (p === "MAVIANCE") return "MAVIANCE";
+      if (p === "PAWAPAY") return "PAWAPAY";
     }
   } catch {
     // table may not exist yet → default PixPay
@@ -568,7 +592,9 @@ router.post("/deposit", authMiddleware, transactionRateLimit, async (req: AuthRe
     const provider = await getProviderForRoute(country, operator, "DEPOSIT");
 
     // Check service availability in the selected provider's table
-    const serviceId = provider === "MAVIANCE"
+    const serviceId = provider === "PAWAPAY"
+      ? await getPawaPayProviderCode(operator, currency, "DEPOSIT", country)
+      : provider === "MAVIANCE"
       ? await getMavianceServiceId(operator, currency, "DEPOSIT", country)
       : await getPixPayServiceId(operator, currency, "DEPOSIT", country);
 
@@ -614,13 +640,25 @@ router.post("/deposit", authMiddleware, transactionRateLimit, async (req: AuthRe
       `Deposit transaction created — calling ${provider}`
     );
 
+    if (provider === "PAWAPAY") {
+      const pawaId = randomUUID();
+      await db.update(transactionsTable).set({ providerReference: pawaId, metadata: { ...(tx.metadata as object), provider: "PAWAPAY", pawaInitiatedAt: new Date().toISOString() }, updatedAt: new Date() }).where(and(eq(transactionsTable.id, tx.id), eq(transactionsTable.status, "PENDING")));
+      try {
+        const result = await pawaDeposit({ amount: providerAmount, currency, phone: normalizePawaPayPhone(phone, country), provider: String(serviceId), depositId: pawaId });
+        const state = pawaResultStatus(result); const final = state.status.toUpperCase() === "REJECTED" ? "FAILED" : pawaFinalStatus(state.status);
+        await db.update(transactionsTable).set({ providerReference: state.depositId ?? pawaId, metadata: { ...(tx.metadata as object), provider: "PAWAPAY", pawaStatus: state.status, pawaFailureCode: state.failureReason?.failureCode }, updatedAt: new Date() }).where(and(eq(transactionsTable.id, tx.id), eq(transactionsTable.status, "PENDING")));
+        if (final) await settleProviderTransaction(tx.id, final);
+        if (final === "FAILED") { res.status(422).json({ error: "ProviderFailed", message: state.failureReason?.failureMessage ?? "Dépôt refusé" }); return; }
+        res.status(201).json({ transaction: formatTx(tx), feeBreakdown, feeBearer, provider: "PAWAPAY", pending: true, message: "Validez le paiement Mobile Money sur votre téléphone." }); return;
+      } catch (err) { await db.update(transactionsTable).set({ metadata: { ...(tx.metadata as object), pawaTransportError: err instanceof Error ? err.message : "pawaPay unavailable" }, updatedAt: new Date() }).where(and(eq(transactionsTable.id, tx.id), eq(transactionsTable.status, "PENDING"))); res.status(202).json({ transaction: formatTx(tx), provider: "PAWAPAY", pending: true, message: "Demande en cours de réconciliation." }); return; }
+    }
     // ─── Maviance deposit ───────────────────────────────────────────────────
     if (provider === "MAVIANCE") {
       const mavPhone = normalizeMaviancePhone(phone, country);
       let mavResult: Awaited<ReturnType<typeof mavInitDeposit>>;
       try {
         mavResult = await mavInitDeposit({
-          serviceId,
+          serviceId: serviceId as number,
           amount: providerAmount,
           currency,
           phone: mavPhone,
@@ -685,7 +723,7 @@ router.post("/deposit", authMiddleware, transactionRateLimit, async (req: AuthRe
     // ─── PixPay deposit (default) ────────────────────────────────────────────
     const pixParams: PixPayCallParams = {
       currency,
-      serviceId,
+      serviceId: serviceId as number,
       amount: providerAmount,
       phone: normalizePhone(phone, country),
       customData: reference,
@@ -790,11 +828,7 @@ router.post("/withdraw", authMiddleware, transactionRateLimit, async (req: AuthR
   const reference = generateReference();
 
   try {
-    const [wallet] = await db
-      .select()
-      .from(walletsTable)
-      .where(and(eq(walletsTable.userId, req.userId!), eq(walletsTable.currency, currency)))
-      .limit(1);
+    const wallet = await getOrCreateWallet(req.userId!, currency, country);
 
     const balance = wallet ? parseFloat(wallet.balance) : 0;
 
@@ -843,7 +877,9 @@ router.post("/withdraw", authMiddleware, transactionRateLimit, async (req: AuthR
     // ─── Provider selection ──────────────────────────────────────────────────
     const provider = await getProviderForRoute(country, operator, "WITHDRAWAL");
 
-    const serviceId = provider === "MAVIANCE"
+    const serviceId = provider === "PAWAPAY"
+      ? await getPawaPayProviderCode(operator, currency, "WITHDRAWAL", country)
+      : provider === "MAVIANCE"
       ? await getMavianceServiceId(operator, currency, "WITHDRAWAL", country)
       : await getPixPayServiceId(operator, currency, "WITHDRAWAL", country);
 
@@ -858,7 +894,7 @@ router.post("/withdraw", authMiddleware, transactionRateLimit, async (req: AuthR
 
     // Deduct wallet BEFORE calling provider (IPN/expiry will refund on FAILED)
     const newBalance = parseFloat(wallet.balance) - walletDebit;
-    await db
+    if (provider !== "PAWAPAY") await db
       .update(walletsTable)
       .set({ balance: Math.max(newBalance, 0).toFixed(2), updatedAt: new Date() })
       .where(eq(walletsTable.id, wallet.id));
@@ -882,19 +918,42 @@ router.post("/withdraw", authMiddleware, transactionRateLimit, async (req: AuthR
         metadata: { initiatedAt: new Date().toISOString(), feeBearer, flow, walletDebit, providerAmount: pixPayAmount, provider },
       });
     const [tx] = await db.select().from(transactionsTable).where(eq(transactionsTable.id, txWdInsert[0].insertId)).limit(1);
+    if (provider === "PAWAPAY") {
+      try {
+        await reserveWithdrawal(tx.id, wallet.id, walletDebit);
+      } catch {
+        await db.update(transactionsTable)
+          .set({ status: "FAILED", updatedAt: new Date() })
+          .where(and(eq(transactionsTable.id, tx.id), eq(transactionsTable.status, "PENDING")));
+        res.status(400).json({ error: "InsufficientFunds", message: "Solde insuffisant ou modifié simultanément." });
+        return;
+      }
+    }
 
     req.log.info(
       { txId: tx.id, reference, userId: req.userId, amount, providerAmount: pixPayAmount, walletDebit, currency, operator, flow, feeBearer, provider },
       `Withdrawal transaction created — wallet reserved — calling ${provider}`
     );
 
+    if (provider === "PAWAPAY") {
+      const pawaId = randomUUID();
+      await db.update(transactionsTable).set({ providerReference: pawaId, metadata: { ...(tx.metadata as object), provider: "PAWAPAY", pawaInitiatedAt: new Date().toISOString() }, updatedAt: new Date() }).where(and(eq(transactionsTable.id, tx.id), eq(transactionsTable.status, "PENDING")));
+      try {
+        const result = await pawaPayout({ amount: pixPayAmount, currency, phone: normalizePawaPayPhone(phone, country), provider: String(serviceId), payoutId: pawaId });
+        const state = pawaResultStatus(result); const final = state.status.toUpperCase() === "REJECTED" ? "FAILED" : pawaFinalStatus(state.status);
+        await db.update(transactionsTable).set({ providerReference: state.payoutId ?? pawaId, metadata: { ...(tx.metadata as object), provider: "PAWAPAY", pawaStatus: state.status, pawaFailureCode: state.failureReason?.failureCode }, updatedAt: new Date() }).where(and(eq(transactionsTable.id, tx.id), eq(transactionsTable.status, "PENDING")));
+        if (final) await settleProviderTransaction(tx.id, final);
+        if (final === "FAILED") { res.status(422).json({ error: "ProviderFailed", message: state.failureReason?.failureMessage ?? "Retrait refusé" }); return; }
+        res.status(201).json({ transaction: formatTx(tx), feeBreakdown, feeBearer, provider: "PAWAPAY", pending: true, message: "Retrait en cours." }); return;
+      } catch (err) { await db.update(transactionsTable).set({ metadata: { ...(tx.metadata as object), pawaTransportError: err instanceof Error ? err.message : "pawaPay unavailable" }, updatedAt: new Date() }).where(and(eq(transactionsTable.id, tx.id), eq(transactionsTable.status, "PENDING"))); res.status(202).json({ transaction: formatTx(tx), provider: "PAWAPAY", pending: true, message: "Retrait en cours de réconciliation." }); return; }
+    }
     // ─── Maviance withdrawal ─────────────────────────────────────────────────
     if (provider === "MAVIANCE") {
       const mavPhone = normalizeMaviancePhone(phone, country);
       let mavResult: Awaited<ReturnType<typeof mavInitWithdrawal>>;
       try {
         mavResult = await mavInitWithdrawal({
-          serviceId,
+          serviceId: serviceId as number,
           amount: pixPayAmount,
           currency,
           phone: mavPhone,
@@ -903,8 +962,7 @@ router.post("/withdraw", authMiddleware, transactionRateLimit, async (req: AuthR
         });
       } catch (mavErr) {
         // Refund wallet immediately on provider call failure
-        const [cw] = await db.select().from(walletsTable)
-          .where(and(eq(walletsTable.userId, req.userId!), eq(walletsTable.currency, currency))).limit(1);
+        const cw = await getOrCreateWallet(req.userId!, currency, country);
         if (cw) {
           await db.update(walletsTable).set({
             balance: (parseFloat(cw.balance) + walletDebit).toFixed(2),
@@ -938,8 +996,7 @@ router.post("/withdraw", authMiddleware, transactionRateLimit, async (req: AuthR
 
       if (isImmediatelyFailed) {
         // Refund wallet
-        const [cw] = await db.select().from(walletsTable)
-          .where(and(eq(walletsTable.userId, req.userId!), eq(walletsTable.currency, currency))).limit(1);
+        const cw = await getOrCreateWallet(req.userId!, currency, country);
         if (cw) {
           await db.update(walletsTable).set({
             balance: (parseFloat(cw.balance) + walletDebit).toFixed(2),
@@ -969,7 +1026,7 @@ router.post("/withdraw", authMiddleware, transactionRateLimit, async (req: AuthR
     // ─── PixPay withdrawal (default) ─────────────────────────────────────────
     const pixParams: PixPayCallParams = {
       currency,
-      serviceId,
+      serviceId: serviceId as number,
       amount: pixPayAmount,
       phone: normalizePhone(phone, country),
       customData: reference,
@@ -1010,8 +1067,7 @@ router.post("/withdraw", authMiddleware, transactionRateLimit, async (req: AuthR
 
     if (isPixFailed) {
       // Refund the wallet since the withdrawal failed immediately
-      const [currentWallet] = await db.select().from(walletsTable)
-        .where(and(eq(walletsTable.userId, req.userId!), eq(walletsTable.currency, currency))).limit(1);
+      const currentWallet = await getOrCreateWallet(req.userId!, currency, country);
       if (currentWallet) {
         await db.update(walletsTable).set({
           balance: (parseFloat(currentWallet.balance) + walletDebit).toFixed(2),
@@ -1818,11 +1874,7 @@ router.post("/webhook", async (req, res) => {
     }
 
     if (status === "SUCCESS" && tx.type === "DEPOSIT") {
-      const [wallet] = await db
-        .select()
-        .from(walletsTable)
-        .where(and(eq(walletsTable.userId, tx.userId), eq(walletsTable.currency, tx.currency)))
-        .limit(1);
+      const wallet = await getOrCreateWallet(tx.userId, tx.currency, tx.country);
 
       if (wallet) {
         await db

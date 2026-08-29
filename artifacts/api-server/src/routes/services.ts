@@ -234,13 +234,16 @@ router.get("/fees", authMiddleware, async (req: AuthRequest, res) => {
 // GET /services/available-operators — active operators per country (union of PixPay + Maviance)
 router.get("/available-operators", async (_req, res) => {
   try {
-    // Merge services from both providers; operator appears once even if in both
-    const [pixResult, mavResult] = await Promise.all([
+    // Merge services from all configured providers; operator appears once.
+    const [pixResult, mavResult, pawaResult] = await Promise.all([
       db.execute<{ operator: string; country: string; type: string }>(
         sql`SELECT operator, country, type FROM pixpay_services WHERE active = true`
       ),
       db.execute<{ operator: string; country: string; type: string }>(
         sql`SELECT operator, country, type FROM maviance_services WHERE active = true`
+      ).catch(() => ({ rows: [] as Array<{ operator: string; country: string; type: string }> })),
+      db.execute<{ operator: string; country: string; type: string }>(
+        sql`SELECT operator, country, type FROM pawapay_services WHERE active = true`
       ).catch(() => ({ rows: [] as Array<{ operator: string; country: string; type: string }> })),
     ]);
 
@@ -266,6 +269,9 @@ router.get("/available-operators", async (_req, res) => {
     }
     for (const row of mavResult.rows as Array<{ operator: string; country: string | null; type: string }>) {
       addRow(row, "MAVIANCE");
+    }
+    for (const row of pawaResult.rows as Array<{ operator: string; country: string | null; type: string }>) {
+      addRow(row, "PAWAPAY");
     }
 
     res.json({ available: map });

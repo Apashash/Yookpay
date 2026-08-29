@@ -14,6 +14,7 @@ import {
   type TransactionType,
 } from "../services/feeService";
 import { callPixPayAirtime, getOperatorFlow } from "../lib/pixpay";
+import { getOrCreateWallet } from "../lib/wallets";
 
 const router = Router();
 
@@ -202,11 +203,7 @@ router.post("/v1/payout", async (req, res) => {
   }
 
   try {
-    const [wallet] = await db
-      .select()
-      .from(walletsTable)
-      .where(and(eq(walletsTable.userId, merchantUserId), eq(walletsTable.currency, currency)))
-      .limit(1);
+    const wallet = await getOrCreateWallet(merchantUserId, currency, country);
 
     if (!wallet) {
       res.status(400).json({ error: "WalletNotFound", message: `Wallet ${currency} introuvable.` });

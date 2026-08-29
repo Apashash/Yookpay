@@ -10,6 +10,8 @@ import { FEE_TABLE, CURRENCY_MAP, DEFAULT_MARGIN } from "../services/feeService"
 import { getServiceList, getPayItems } from "../lib/maviance";
 import { getDefaultMargin, invalidateMarginCache } from "../lib/marginCache";
 import { getAllUsdtRates, setUsdtRate, USDT_PAIRS, getEffectiveRate, getExchangeFeeRate } from "../lib/adminRates";
+import { getOrCreateWallet } from "../lib/wallets";
+import { getActiveConfiguration, getWalletBalances } from "../lib/pawapay";
 
 const router = Router();
 
@@ -1100,6 +1102,71 @@ router.post("/maviance/sync-services", async (req: AuthRequest, res) => {
 
 // ─── Provider preference config ──────────────────────────────────────────────
 
+router.get("/pawapay/services", async (_req, res) => {
+  try {
+    const result = await db.execute(sql`SELECT id, operator, country, currency, type, provider_code, active, notes, updated_at FROM pawapay_services ORDER BY country, operator, type`);
+    res.json({ services: result.rows });
+  } catch { res.status(500).json({ error: "InternalError", message: "Impossible de charger les services pawaPay" }); }
+});
+router.get("/pawapay/active-configuration", async (_req, res) => {
+  try { res.json({ configuration: await getActiveConfiguration() }); }
+  catch (err) { res.status(502).json({ error: "ProviderError", message: err instanceof Error ? err.message : "pawaPay configuration unavailable" }); }
+});
+router.post("/pawapay/sync-services", async (req: AuthRequest, res) => {
+  try {
+    const configuration = await getActiveConfiguration() as any;
+    const synced: Array<{ country: string; operator: string; currency: string; type: string; providerCode: string }> = [];
+    const alpha2: Record<string, string> = { BEN:"BJ", BFA:"BF", CMR:"CM", COD:"CD", COG:"CG", CIV:"CI", GAB:"GA", GMB:"GM", GIN:"GN", MLI:"ML", SEN:"SN", TGO:"TG" };
+    const operatorName = (value: string) => {
+      const v = value.toUpperCase();
+      if (v.includes("ORANGE")) return "ORANGE"; if (v.includes("AIRTEL")) return "AIRTEL";
+      if (v.includes("MOOV")) return "MOOV"; if (v.includes("WAVE")) return "WAVE";
+      if (v.includes("MTN")) return "MTN"; if (v.includes("VODACOM") || v.includes("MPESA")) return "VODACOM";
+      return v.replace(/_[A-Z]{3}$/, "");
+    };
+    // A successful active-conf response is the authoritative snapshot.
+    await db.execute(sql`UPDATE pawapay_services SET active=false, updated_at=NOW()`);
+    for (const countryConfig of configuration?.countries ?? []) {
+      const country = alpha2[String(countryConfig.country ?? "").toUpperCase()];
+      if (!country) continue;
+      for (const provider of countryConfig.providers ?? []) {
+        const providerCode = String(provider.provider ?? provider.code ?? "");
+        const operator = operatorName(String(provider.displayName ?? providerCode));
+        for (const currencyConfig of provider.currencies ?? []) {
+          const currency = String(currencyConfig.currency ?? "").toUpperCase();
+          const operationTypes = currencyConfig.operationTypes ?? [];
+          for (const entry of operationTypes) {
+            const operation = typeof entry === "string" ? entry : String(entry.operationType ?? Object.keys(entry)[0] ?? "");
+            const op = operation.toUpperCase();
+            const type = op === "PAYOUT" ? "WITHDRAWAL" : ["DEPOSIT", "PUSH_DEPOSIT", "USSD_DEPOSIT"].includes(op) ? "DEPOSIT" : null;
+            if (!type || !currency || !providerCode) continue;
+            const duplicate = synced.some((s) => s.country === country && s.operator === operator && s.currency === currency && s.type === type);
+            if (duplicate) continue;
+            await db.execute(sql`INSERT INTO pawapay_services (operator,country,currency,type,provider_code,active,notes) VALUES (${operator},${country},${currency},${type},${providerCode},true,${String(provider.displayName ?? providerCode)}) ON DUPLICATE KEY UPDATE provider_code=${providerCode},active=true,notes=${String(provider.displayName ?? providerCode)},updated_at=NOW()`);
+            synced.push({ country, operator, currency, type, providerCode });
+          }
+        }
+      }
+    }
+    res.json({ success: true, synced, total: synced.length, configuration });
+  } catch (err) { req.log.error({ err }, "pawaPay service sync error"); res.status(502).json({ error: "SyncFailed", message: err instanceof Error ? err.message : "pawaPay sync failed" }); }
+});
+router.get("/pawapay/wallet-balance", async (_req, res) => {
+  try {
+    const raw = await getWalletBalances() as any;
+    const alpha2: Record<string, string> = { BEN:"BJ", BFA:"BF", CMR:"CM", COD:"CD", COG:"CG", CIV:"CI", GAB:"GA", GMB:"GM", GIN:"GN", MLI:"ML", SEN:"SN", TGO:"TG" };
+    const rows = Array.isArray(raw) ? raw : raw.walletBalances ?? raw.balances ?? [];
+    const services = await db.execute(sql`SELECT DISTINCT country, provider_code FROM pawapay_services WHERE active=true`);
+    const balances = rows.map((row: any) => {
+      const country = alpha2[String(row.country ?? row.countryCode ?? "").toUpperCase()] ?? row.country;
+      return { country, countryCode: country, currency: row.currency, balance: row.balance ?? row.availableBalance ?? "0",
+        activeProviders: services.rows.filter((s: any) => s.country === country).map((s: any) => s.provider_code) };
+    });
+    res.json({ balances });
+  }
+  catch (err) { res.status(502).json({ error: "ProviderError", message: err instanceof Error ? err.message : "pawaPay wallet balances unavailable" }); }
+});
+
 // GET /admin/provider-config — list all provider preferences
 router.get("/provider-config", async (_req, res) => {
   try {
@@ -1120,7 +1187,7 @@ router.put("/provider-config", async (req: AuthRequest, res) => {
     country:  z.string().length(2).toUpperCase(),
     operator: z.string().min(2).toUpperCase(),
     type:     z.enum(["DEPOSIT", "WITHDRAWAL"]),
-    provider: z.enum(["PIXPAY", "MAVIANCE"]),
+    provider: z.enum(["PIXPAY", "MAVIANCE", "PAWAPAY"]),
   });
 
   const parse = schema.safeParse(req.body);
@@ -1491,9 +1558,7 @@ router.patch("/transactions/:id/status", async (req: AuthRequest, res) => {
     }
 
     // ── Wallet adjustments ──────────────────────────────────────────────────
-    const [wallet] = await db.select().from(walletsTable)
-      .where(and(eq(walletsTable.userId, tx.userId), eq(walletsTable.currency, tx.currency)))
-      .limit(1);
+    const wallet = await getOrCreateWallet(tx.userId, tx.currency, tx.country);
 
     if (wallet) {
       let delta = 0;
@@ -1884,6 +1949,8 @@ router.get("/env-check", (req: AuthRequest, res) => {
     { name: "MAVIANCE_SECRET",        value: process.env.MAVIANCE_SECRET,        required: false },
     { name: "MAVIANCE_ENV",           value: process.env.MAVIANCE_ENV,           required: false },
     { name: "MAVIANCE_IPN_BASE_URL",  value: process.env.MAVIANCE_IPN_BASE_URL,  required: false },
+    { name: "PAWAPAY_API_TOKEN",      value: process.env.PAWAPAY_API_TOKEN,      required: false },
+    { name: "PAWAPAY_ENV",            value: process.env.PAWAPAY_ENV,            required: false },
     { name: "PIXPAY_IPN_BASE_URL",    value: process.env.PIXPAY_IPN_BASE_URL,    required: false },
     { name: "NOWPAYMENTS_API_KEY",    value: process.env.NOWPAYMENTS_API_KEY,    required: false },
     { name: "NOWPAYMENTS_IPN_SECRET", value: process.env.NOWPAYMENTS_IPN_SECRET, required: false },

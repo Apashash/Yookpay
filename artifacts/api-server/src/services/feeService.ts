@@ -79,7 +79,7 @@ export const FEE_TABLE: Record<Country, FeeTable> = {
 
 export const CURRENCY_MAP: Record<Country, string> = {
   CM: "XAF", CG: "XAF", GA: "XAF",
-  SN: "XOF", BJ: "XOF", BF: "XOF", CI: "XOF", GM: "XOF", GN: "XOF", ML: "XOF", TG: "XOF",
+  SN: "XOF", BJ: "XOF", BF: "XOF", CI: "XOF", GM: "GMD", GN: "GNF", ML: "XOF", TG: "XOF",
   CD: "CDF",
 };
 

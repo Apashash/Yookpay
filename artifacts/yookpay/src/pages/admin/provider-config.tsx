@@ -11,7 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Skeleton } from "@/components/ui/skeleton";
 
 type TransactionType = "DEPOSIT" | "WITHDRAWAL";
-type Provider = "PIXPAY" | "MAVIANCE";
+type Provider = "PIXPAY" | "MAVIANCE" | "PAWAPAY";
 
 type ProviderConfig = {
   country: string;
@@ -33,9 +33,20 @@ type ServiceResponse = {
   services: ProviderService[];
 };
 
+type PawaPayWalletBalance = {
+  country?: string;
+  countryCode?: string;
+  currency: string;
+  balance: number | string;
+  activeProviders?: string[];
+  providers?: string[];
+};
+
 const CONFIG_QUERY_KEY = ["admin", "provider-config"];
 const MAViance_SERVICES_QUERY_KEY = ["admin", "maviance-services"];
 const PIXPAY_SERVICES_QUERY_KEY = ["admin", "pixpay-services"];
+const PAWAPAY_SERVICES_QUERY_KEY = ["admin", "pawapay-services"];
+const PAWAPAY_BALANCES_QUERY_KEY = ["admin", "pawapay-wallet-balances"];
 
 const OPERATION_META: Record<TransactionType, {
   label: string;
@@ -67,6 +78,11 @@ const PROVIDER_META: Record<Provider, { label: string; accent: string; mark: str
     label: "Maviance",
     accent: "border-amber-200 bg-amber-50/80 text-amber-900",
     mark: "MV",
+  },
+  PAWAPAY: {
+    label: "pawaPay",
+    accent: "border-violet-200 bg-violet-50/80 text-violet-900",
+    mark: "PW",
   },
 };
 
@@ -151,6 +167,7 @@ function OperationControl({
   selectedProvider,
   pixpayAvailable,
   mavianceAvailable,
+  pawapayAvailable,
   isPending,
   onChange,
 }: {
@@ -160,13 +177,13 @@ function OperationControl({
   selectedProvider: Provider;
   pixpayAvailable: boolean;
   mavianceAvailable: boolean;
+  pawapayAvailable: boolean;
   isPending: boolean;
   onChange: (provider: Provider) => void;
 }) {
   const { label, description, Icon } = OPERATION_META[type];
-  const currentProviderAvailable = type === "DEPOSIT"
-    ? selectedProvider === "PIXPAY" ? pixpayAvailable : mavianceAvailable
-    : selectedProvider === "PIXPAY" ? pixpayAvailable : mavianceAvailable;
+  const availability = { PIXPAY: pixpayAvailable, MAVIANCE: mavianceAvailable, PAWAPAY: pawapayAvailable };
+  const currentProviderAvailable = availability[selectedProvider];
 
   return (
     <div className="rounded-xl border border-border/75 bg-background/75 p-3.5 shadow-[0_1px_2px_hsl(var(--foreground)/.03)]" data-testid={`operation-${country}-${operator.toLowerCase()}-${type.toLowerCase()}`}>
@@ -186,7 +203,7 @@ function OperationControl({
           {currentProviderAvailable ? "Opérationnelle" : "À configurer"}
         </Badge>
       </div>
-      <div className="flex gap-2">
+      <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
         <ProviderChoice
           provider="PIXPAY"
           selected={selectedProvider === "PIXPAY"}
@@ -207,8 +224,18 @@ function OperationControl({
           operator={operator}
           type={type}
         />
+        <ProviderChoice
+          provider="PAWAPAY"
+          selected={selectedProvider === "PAWAPAY"}
+          available={pawapayAvailable}
+          disabled={isPending || !pawapayAvailable}
+          onSelect={() => onChange("PAWAPAY")}
+          country={country}
+          operator={operator}
+          type={type}
+        />
       </div>
-      {!pixpayAvailable && !mavianceAvailable && (
+      {!pixpayAvailable && !mavianceAvailable && !pawapayAvailable && (
         <div className="mt-2.5 flex items-start gap-1.5 text-[11px] leading-4 text-orange-700">
           <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
           <span>Aucun service actif. Configurez un service fournisseur avant d’activer cette opération.</span>
@@ -235,6 +262,14 @@ export default function ProviderConfig() {
   const pixpayQuery = useQuery({
     queryKey: PIXPAY_SERVICES_QUERY_KEY,
     queryFn: () => customFetch<ServiceResponse>("/api/admin/pixpay/services"),
+  });
+  const pawapayQuery = useQuery({
+    queryKey: PAWAPAY_SERVICES_QUERY_KEY,
+    queryFn: () => customFetch<ServiceResponse>("/api/admin/pawapay/services"),
+  });
+  const pawapayBalancesQuery = useQuery({
+    queryKey: PAWAPAY_BALANCES_QUERY_KEY,
+    queryFn: () => customFetch<PawaPayWalletBalance[] | { wallets?: PawaPayWalletBalance[]; balances?: PawaPayWalletBalance[] }>("/api/admin/pawapay/wallet-balance"),
   });
 
   const updateProvider = useMutation({
@@ -266,8 +301,13 @@ export default function ProviderConfig() {
   const config = configQuery.data?.config ?? [];
   const mavianceServices = mavianceQuery.data?.services ?? [];
   const pixpayServices = pixpayQuery.data?.services ?? [];
-  const isLoading = configQuery.isLoading || mavianceQuery.isLoading || pixpayQuery.isLoading;
-  const hasError = configQuery.isError || mavianceQuery.isError || pixpayQuery.isError;
+  const pawapayServices = pawapayQuery.data?.services ?? [];
+  const pawapayBalanceData = pawapayBalancesQuery.data;
+  const pawapayBalances = Array.isArray(pawapayBalanceData)
+    ? pawapayBalanceData
+    : pawapayBalanceData?.wallets ?? pawapayBalanceData?.balances ?? [];
+  const isLoading = configQuery.isLoading || mavianceQuery.isLoading || pixpayQuery.isLoading || pawapayQuery.isLoading;
+  const hasError = configQuery.isError || mavianceQuery.isError || pixpayQuery.isError || pawapayQuery.isError;
 
   const visibleCountries = useMemo(
     () => selectedCountry === "ALL" ? [...COUNTRIES] : COUNTRIES.filter((country) => country.code === selectedCountry),
@@ -291,11 +331,12 @@ export default function ProviderConfig() {
         for (const type of ["DEPOSIT", "WITHDRAWAL"] as TransactionType[]) {
           if (hasActiveService(pixpayServices, country.code, operator, type)) count += 1;
           if (hasActiveService(mavianceServices, country.code, operator, type)) count += 1;
+          if (hasActiveService(pawapayServices, country.code, operator, type)) count += 1;
         }
       }
     }
     return count;
-  }, [mavianceServices, pixpayServices, visibleCountries]);
+  }, [mavianceServices, pawapayServices, pixpayServices, visibleCountries]);
 
   const handleProviderChange = (country: string, operator: string, type: TransactionType, provider: Provider) => {
     const key = `${country}-${operator}-${type}`;
@@ -308,6 +349,8 @@ export default function ProviderConfig() {
       queryClient.invalidateQueries({ queryKey: CONFIG_QUERY_KEY }),
       queryClient.invalidateQueries({ queryKey: MAViance_SERVICES_QUERY_KEY }),
       queryClient.invalidateQueries({ queryKey: PIXPAY_SERVICES_QUERY_KEY }),
+      queryClient.invalidateQueries({ queryKey: PAWAPAY_SERVICES_QUERY_KEY }),
+      queryClient.invalidateQueries({ queryKey: PAWAPAY_BALANCES_QUERY_KEY }),
     ]);
   };
 
@@ -329,6 +372,22 @@ export default function ProviderConfig() {
         description: getErrorMessage(error, "Impossible de synchroniser les services Maviance. Vérifiez les credentials MAVIANCE_PUBLIC_KEY et MAVIANCE_SECRET."),
       });
     },
+  });
+  const syncPawaPay = useMutation({
+    mutationFn: () => customFetch<{ success: boolean; synced?: unknown[]; total?: number }>("/api/admin/pawapay/sync-services", { method: "POST" }),
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: PAWAPAY_SERVICES_QUERY_KEY });
+      queryClient.invalidateQueries({ queryKey: PAWAPAY_BALANCES_QUERY_KEY });
+      toast({
+        title: "Synchronisation pawaPay réussie",
+        description: `${data.synced?.length ?? data.total ?? 0} service(s) pawaPay synchronisé(s).`,
+      });
+    },
+    onError: (error) => toast({
+      variant: "destructive",
+      title: "Sync pawaPay échoué",
+      description: getErrorMessage(error, "Impossible de synchroniser les services pawaPay."),
+    }),
   });
 
   return (
@@ -408,6 +467,18 @@ export default function ProviderConfig() {
               <Download className="h-4 w-4" />
               <span className="hidden sm:inline">{syncMaviance.isPending ? "Sync…" : "Sync Maviance"}</span>
             </Button>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => syncPawaPay.mutate()}
+              disabled={syncPawaPay.isPending}
+              data-testid="button-sync-pawapay"
+              className="gap-1.5 border-violet-300 text-violet-700 hover:bg-violet-50"
+              title="Synchronise les services depuis pawaPay"
+            >
+              <Download className="h-4 w-4" />
+              <span className="hidden sm:inline">{syncPawaPay.isPending ? "Sync…" : "Sync pawaPay"}</span>
+            </Button>
           </div>
         </CardContent>
       </Card>
@@ -454,6 +525,34 @@ export default function ProviderConfig() {
           </CardContent>
         </Card>
       ) : (
+        <>
+        <Card className="overflow-hidden border-border/70 shadow-sm" data-testid="card-pawapay-wallet-balances">
+          <CardHeader className="border-b bg-violet-50/40 px-4 py-5 sm:px-6">
+            <CardTitle className="flex items-center gap-2 text-lg">
+              <span className="flex h-7 w-7 items-center justify-center rounded-md bg-violet-600 text-[10px] font-bold text-white">PW</span>
+              Wallets pawaPay par pays
+            </CardTitle>
+            <CardDescription>Soldes pawaPay disponibles et fournisseurs actifs par marché.</CardDescription>
+          </CardHeader>
+          <CardContent className="p-0">
+            <div className="hidden grid-cols-[1.4fr_1fr_.7fr_1.2fr] gap-4 border-b bg-muted/25 px-5 py-3 text-[10px] font-semibold uppercase tracking-[.14em] text-muted-foreground sm:grid">
+              <span>Pays</span><span>Solde</span><span>Devise</span><span>Fournisseurs actifs</span>
+            </div>
+            <div className="divide-y">
+              {pawapayBalances.length ? pawapayBalances.map((wallet, index) => {
+                const code = wallet.countryCode ?? wallet.country ?? "";
+                const country = COUNTRIES.find((item) => item.code === code);
+                const providers = wallet.activeProviders ?? wallet.providers ?? [];
+                return <div key={`${code}-${wallet.currency}-${index}`} className="grid gap-2 px-4 py-3.5 sm:grid-cols-[1.4fr_1fr_.7fr_1.2fr] sm:items-center sm:gap-4 sm:px-5" data-testid={`row-pawapay-wallet-${code || index}`}>
+                  <div className="flex items-center gap-2.5"><span className="text-xl">{country?.flag ?? "🌍"}</span><span className="font-medium">{country?.name ?? (code || "—")}</span></div>
+                  <span className="font-mono font-semibold tabular-nums" data-testid={`text-pawapay-balance-${code || index}`}>{Number(wallet.balance ?? 0).toLocaleString("fr-FR")}</span>
+                  <span className="text-sm text-muted-foreground">{wallet.currency}</span>
+                  <div className="flex flex-wrap gap-1.5">{providers.length ? providers.map((provider) => <Badge key={provider} variant="outline" className="border-violet-200 bg-violet-50 text-violet-800">{provider}</Badge>) : <span className="text-xs text-muted-foreground">Aucun</span>}</div>
+                </div>;
+              }) : <div className="px-5 py-8 text-center text-sm text-muted-foreground">Aucun wallet pawaPay disponible.</div>}
+            </div>
+          </CardContent>
+        </Card>
         <Card className="overflow-hidden border-border/70 shadow-sm">
           <CardHeader className="border-b bg-muted/25 px-4 py-5 sm:px-6">
             <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
@@ -519,6 +618,7 @@ export default function ProviderConfig() {
                                 selectedProvider={getConfiguredProvider(config, country.code, operator, type)}
                                 pixpayAvailable={hasActiveService(pixpayServices, country.code, operator, type)}
                                 mavianceAvailable={hasActiveService(mavianceServices, country.code, operator, type)}
+                                pawapayAvailable={hasActiveService(pawapayServices, country.code, operator, type)}
                                 isPending={isPending}
                                 onChange={(provider) => handleProviderChange(country.code, operator, type, provider)}
                               />
@@ -534,6 +634,7 @@ export default function ProviderConfig() {
             </div>
           </CardContent>
         </Card>
+        </>
       )}
 
       <div className="flex items-start gap-3 rounded-xl border border-sky-200/80 bg-sky-50/55 px-4 py-3.5 text-sm text-sky-950">

@@ -39,6 +39,7 @@ CREATE TABLE IF NOT EXISTS `wallets` (
   `country` VARCHAR(10) NOT NULL,
   `updated_at` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`),
+  UNIQUE KEY `wallets_user_currency_country_uq` (`user_id`, `currency`, `country`),
   CONSTRAINT `wallets_user_id_fk` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
@@ -329,6 +330,20 @@ CREATE TABLE IF NOT EXISTS `payment_provider_config` (
   `updated_at` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`),
   UNIQUE KEY `provider_config_uq` (`country`, `operator`, `type`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS `pawapay_services` (
+  `id` INT NOT NULL AUTO_INCREMENT, `operator` VARCHAR(30) NOT NULL, `country` VARCHAR(5) NOT NULL,
+  `currency` VARCHAR(10) NOT NULL, `type` VARCHAR(20) NOT NULL, `provider_code` VARCHAR(80) NOT NULL,
+  `active` TINYINT(1) NOT NULL DEFAULT 1, `notes` TEXT DEFAULT NULL,
+  `created_at` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP, `updated_at` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`), UNIQUE KEY `pawapay_services_uq` (`operator`,`country`,`currency`,`type`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS `wallet_ledger` (
+ `id` BIGINT NOT NULL AUTO_INCREMENT, `transaction_id` INT NOT NULL, `wallet_id` INT NOT NULL,
+ `movement_type` VARCHAR(20) NOT NULL, `amount` DECIMAL(18,2) NOT NULL, `created_at` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+ PRIMARY KEY (`id`), UNIQUE KEY `wallet_ledger_tx_movement_uq` (`transaction_id`,`movement_type`), KEY `wallet_ledger_wallet_idx` (`wallet_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 -- ============================================================

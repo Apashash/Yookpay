@@ -30,6 +30,8 @@ import {
 } from "../lib/enkap";
 import { createNpPayment, getNpMinAmount } from "../lib/nowpayments";
 import { getDefaultMargin } from "../lib/marginCache";
+import { initiateDeposit as pawaDeposit, normalizePawaPayPhone, pawaFinalStatus, pawaResultStatus } from "../lib/pawapay";
+import { settleProviderTransaction } from "../lib/walletSettlement";
 
 const router = Router();
 
@@ -88,19 +90,27 @@ async function getMavianceServiceId(
   if (!r.rows.length) return null;
   return r.rows[0].service_id;
 }
+async function getPawaPayProviderCode(operator: string, currency: string, type: "DEPOSIT" | "WITHDRAWAL", country: string): Promise<string | null> {
+  const r = await pgQuery<{ provider_code: string }>(
+    `SELECT provider_code FROM pawapay_services WHERE operator=$1 AND currency=$2 AND type=$3 AND country=$4 AND active=true LIMIT 1`,
+    [operator.toUpperCase(), currency.toUpperCase(), type, country.toUpperCase()],
+  ).catch(() => ({ rows: [] as { provider_code: string }[] }));
+  return r.rows[0]?.provider_code ?? null;
+}
 
 async function getProviderForRoute(
   country: string,
   operator: string,
   type: "DEPOSIT" | "WITHDRAWAL",
-): Promise<"PIXPAY" | "MAVIANCE"> {
+): Promise<"PIXPAY" | "MAVIANCE" | "PAWAPAY"> {
   try {
     const r = await pgQuery<{ provider: string }>(
       `SELECT provider FROM payment_provider_config
        WHERE country = $1 AND operator = $2 AND type = $3 LIMIT 1`,
       [country.toUpperCase(), operator.toUpperCase(), type],
     );
-    return r.rows[0]?.provider?.toUpperCase() === "MAVIANCE" ? "MAVIANCE" : "PIXPAY";
+    const provider = r.rows[0]?.provider?.toUpperCase();
+    return provider === "MAVIANCE" || provider === "PAWAPAY" ? provider : "PIXPAY";
   } catch {
     return "PIXPAY";
   }
@@ -406,7 +416,9 @@ router.post("/public/:token/pay", async (req, res) => {
   }
 
   const provider = await getProviderForRoute(country, operator, "DEPOSIT");
-  const serviceId = provider === "MAVIANCE"
+  const serviceId = provider === "PAWAPAY"
+    ? await getPawaPayProviderCode(operator, currency, "DEPOSIT", country)
+    : provider === "MAVIANCE"
     ? await getMavianceServiceId(operator, currency, "DEPOSIT", country)
     : await getPixPayServiceId(operator, currency, "DEPOSIT", country);
   if (serviceId === null) {
@@ -456,11 +468,24 @@ router.post("/public/:token/pay", async (req, res) => {
     );
     const tx = txSel.rows[0];
 
+    if (provider === "PAWAPAY") {
+      const pawaId = crypto.randomUUID();
+      await pgQuery("UPDATE transactions SET provider_reference=$1, updated_at=NOW() WHERE id=$2 AND status='PENDING'", [pawaId, tx.id]);
+      try {
+        const result = await pawaDeposit({ amount: providerAmount, currency, phone: normalizePawaPayPhone(phone, country), provider: String(serviceId), depositId: pawaId });
+        const state = pawaResultStatus(result); const final = state.status.toUpperCase() === "REJECTED" ? "FAILED" : pawaFinalStatus(state.status);
+        await pgQuery(`UPDATE transactions SET provider_reference=$1, metadata=JSON_MERGE_PATCH(COALESCE(metadata, '{}'), $2), updated_at=NOW() WHERE id=$3 AND status='PENDING'`,
+          [state.depositId ?? pawaId, JSON.stringify({ pawaStatus: state.status, pawaFailureCode: state.failureReason?.failureCode }), tx.id]);
+        if (final) await settleProviderTransaction(tx.id, final);
+        if (final === "FAILED") { res.status(422).json({ error: "PawaPayError", message: state.failureReason?.failureMessage ?? "Paiement refusé" }); return; }
+        res.status(201).json({ transaction: { id: tx.id, amount: parseFloat(tx.amount), currency: tx.currency, status: "PENDING" }, provider: "PAWAPAY", pending: true, message: "Validez le paiement Mobile Money sur votre téléphone." }); return;
+      } catch (err) { await pgQuery("UPDATE transactions SET metadata=JSON_MERGE_PATCH(COALESCE(metadata, '{}'), $1), updated_at=NOW() WHERE id=$2 AND status='PENDING'", [JSON.stringify({ pawaTransportError: err instanceof Error ? err.message : "pawaPay unavailable" }), tx.id]); res.status(202).json({ transaction: { id: tx.id, amount: parseFloat(tx.amount), currency: tx.currency, status: "PENDING" }, provider: "PAWAPAY", pending: true, message: "Paiement en cours de réconciliation." }); return; }
+    }
     if (provider === "MAVIANCE") {
       let mavResult: Awaited<ReturnType<typeof mavInitDeposit>>;
       try {
         mavResult = await mavInitDeposit({
-          serviceId,
+          serviceId: serviceId as number,
           amount: providerAmount,
           currency,
           phone: normalizeMaviancePhone(phone, country),
@@ -522,7 +547,7 @@ router.post("/public/:token/pay", async (req, res) => {
 
     const pixParams: PixPayCallParams = {
       currency,
-      serviceId,
+      serviceId: serviceId as number,
       amount: providerAmount,
       phone: normalizePhone(phone, country),
       customData: reference,

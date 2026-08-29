@@ -18,6 +18,7 @@ type EnvCheckResult = {
   nodeEnv: string;
   pixpayEnv: string;
   mavianceEnv: string;
+  pawapayEnv?: string;
   providers: {
     maviance: {
       ready: boolean;
@@ -28,6 +29,12 @@ type EnvCheckResult = {
     };
     pixpay: {
       callbackUrl: string | null;
+    };
+    pawapay?: {
+      ready: boolean;
+      apiTokenSet?: boolean;
+      baseUrl?: string;
+      callbackUrl?: string | null;
     };
   };
   keys: EnvKey[];
@@ -76,7 +83,7 @@ export default function EnvCheck() {
                   : `${missing.length} clé(s) manquante(s) · ${withWarnings.length} avertissement(s)`}
               </p>
               <p className="text-xs text-muted-foreground mt-0.5">
-                 NODE_ENV : <strong>{data.nodeEnv}</strong> · PixPay env : <strong>{data.pixpayEnv}</strong> · Maviance env : <strong>{data.mavianceEnv}</strong>
+                 NODE_ENV : <strong>{data.nodeEnv}</strong> · PixPay env : <strong>{data.pixpayEnv}</strong> · Maviance env : <strong>{data.mavianceEnv}</strong>{data.pawapayEnv ? <> · pawaPay env : <strong>{data.pawapayEnv}</strong></> : ""}
                 {dataUpdatedAt ? ` · vérifié à ${new Date(dataUpdatedAt).toLocaleTimeString("fr-FR")}` : ""}
               </p>
             </div>
@@ -85,7 +92,7 @@ export default function EnvCheck() {
       )}
 
       {!isLoading && data && (
-        <div className="grid gap-4 md:grid-cols-2">
+        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
           <Card className={data.providers.maviance.ready ? "border-green-500/40 bg-green-500/5" : "border-amber-500/40 bg-amber-500/5"}>
             <CardHeader className="pb-3">
               <CardTitle className="flex items-center gap-2 text-base">
@@ -129,6 +136,23 @@ export default function EnvCheck() {
               )}
             </CardContent>
           </Card>
+          <Card className={data.providers.pawapay?.ready ? "border-violet-500/40 bg-violet-500/5" : "border-amber-500/40 bg-amber-500/5"}>
+            <CardHeader className="pb-3">
+              <CardTitle className="flex items-center gap-2 text-base">
+                {data.providers.pawapay?.ready ? <CheckCircle2 className="h-5 w-5 text-green-600" /> : <AlertTriangle className="h-5 w-5 text-amber-600" />}
+                pawaPay
+              </CardTitle>
+              <CardDescription>État de la configuration pawaPay reçue par le serveur.</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-3 text-sm">
+              <div className="flex items-center justify-between gap-3">
+                <span className="text-muted-foreground">Clé API</span>
+                <Badge variant={data.providers.pawapay?.ready ? "default" : "outline"}>{data.providers.pawapay?.ready ? "Détectée" : "Manquante"}</Badge>
+              </div>
+              <div className="space-y-1"><span className="text-xs text-muted-foreground">API utilisée</span><code className="block break-all rounded bg-muted px-2 py-1 text-[11px]">{data.providers.pawapay?.baseUrl ?? "Non configurée"}</code></div>
+              <div className="space-y-1"><span className="text-xs text-muted-foreground">Callback</span><code className="block break-all rounded bg-muted px-2 py-1 text-[11px]">{data.providers.pawapay?.callbackUrl ?? "Non configuré"}</code></div>
+            </CardContent>
+          </Card>
 
           <Card>
             <CardHeader className="pb-3">
@@ -141,6 +165,10 @@ export default function EnvCheck() {
                 <code className="block break-all rounded bg-muted px-2 py-1 text-[11px]">
                   {data.providers.maviance.callbackUrl ?? "Non configuré"}
                 </code>
+              </div>
+              <div className="space-y-1">
+                <span className="text-xs text-muted-foreground">pawaPay</span>
+                <code className="block break-all rounded bg-muted px-2 py-1 text-[11px]">{data.providers.pawapay?.callbackUrl ?? "Non configuré"}</code>
               </div>
               <div className="space-y-1">
                 <span className="text-xs text-muted-foreground">PixPay</span>

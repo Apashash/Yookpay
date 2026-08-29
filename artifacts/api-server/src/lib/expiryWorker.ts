@@ -1,9 +1,10 @@
-import { affectedRows } from "./dbResult";
 import { db } from "@workspace/db";
-import { transactionsTable, walletsTable } from "@workspace/db/schema";
-import { and, eq, lt, or, isNull, ne, sql } from "drizzle-orm";
+import { transactionsTable } from "@workspace/db/schema";
+import { and, eq, lt, or, isNull, ne } from "drizzle-orm";
 import { logger } from "./logger";
 import { dispatchWebhook, buildTxPayload, getNotificationUrl } from "./webhookDispatch";
+import { getDepositStatus, getPayoutStatus, pawaFinalStatus, pawaResultStatus } from "./pawapay";
+import { settleProviderTransaction } from "./walletSettlement";
 
 const EXPIRY_MINUTES = 8;
 const WORKER_INTERVAL_MS = 30_000; // check every 30 seconds
@@ -35,50 +36,60 @@ async function expireStaleTransactions(): Promise<void> {
 
     for (const tx of stale) {
       try {
-        const expiredAt = new Date();
-        const updateResult = await db
-          .update(transactionsTable)
-          .set({
-            status: "FAILED",
-            metadata: {
-              ...(tx.metadata as object ?? {}),
-              expiredAt: expiredAt.toISOString(),
-              expireReason: `Aucune confirmation après ${EXPIRY_MINUTES} minutes`,
-            },
-            updatedAt: expiredAt,
-          })
-          .where(and(eq(transactionsTable.id, tx.id), eq(transactionsTable.status, "PENDING")));
+        const metadata = (tx.metadata as Record<string, unknown> | null) ?? {};
+        const isPawaPay = String(metadata.provider ?? "").toUpperCase() === "PAWAPAY";
 
-        // Dispatch webhook only if we actually claimed this row (prevent double-fire)
-        const rowClaimed = affectedRows(updateResult);
-        if (rowClaimed > 0) {
-          dispatchWebhook(tx.userId, buildTxPayload({ ...tx, status: "FAILED", updatedAt: expiredAt }), getNotificationUrl(tx.metadata));
-        }
-
-        // Refund wallet for WITHDRAWAL that timed out
-        if (tx.type === "WITHDRAWAL") {
-          const [wallet] = await db
-            .select()
-            .from(walletsTable)
-            .where(and(eq(walletsTable.userId, tx.userId), eq(walletsTable.currency, tx.currency)))
-            .limit(1);
-
-          if (wallet) {
-            const refund = parseFloat(tx.netAmount) + parseFloat(tx.fee);
-            await db
-              .update(walletsTable)
-              .set({
-                balance: sql`${walletsTable.balance} + CAST(${refund.toFixed(2)} AS DECIMAL(30,10))`,
-                updatedAt: new Date(),
-              })
-              .where(eq(walletsTable.id, wallet.id));
-
-            logger.info(
-              { txId: tx.id, reference: tx.reference, refund, currency: tx.currency },
-              "Expiry worker: WITHDRAWAL expired — wallet refunded",
+        // pawaPay may legitimately remain ACCEPTED for longer than our local
+        // timeout. Never fail/refund it without an authoritative provider
+        // final state, otherwise a late payout could complete after a refund.
+        if (isPawaPay) {
+          if (!tx.providerReference) {
+            logger.warn({ txId: tx.id }, "Expiry worker: pawaPay transaction has no provider reference; keeping pending");
+            continue;
+          }
+          try {
+            const providerResult = pawaResultStatus(
+              tx.type === "WITHDRAWAL"
+                ? await getPayoutStatus(tx.providerReference)
+                : await getDepositStatus(tx.providerReference),
+            );
+            const verifiedStatus = pawaFinalStatus(providerResult.status);
+            if (!verifiedStatus) {
+              logger.info(
+                { txId: tx.id, providerStatus: providerResult.status },
+                "Expiry worker: pawaPay transaction is still non-final",
+              );
+              continue;
+            }
+            const settled = await settleProviderTransaction(tx.id, verifiedStatus);
+            if (settled) {
+              dispatchWebhook(
+                tx.userId,
+                buildTxPayload({ ...tx, status: verifiedStatus, updatedAt: new Date() }),
+                getNotificationUrl(tx.metadata),
+              );
+            }
+          } catch (providerErr) {
+            logger.warn(
+              { providerErr, txId: tx.id },
+              "Expiry worker: pawaPay verification unavailable; keeping transaction pending",
             );
           }
-        } else {
+          continue;
+        }
+
+        const expiredAt = new Date();
+        await db.update(transactionsTable).set({
+          metadata: {
+            ...metadata,
+            expiredAt: expiredAt.toISOString(),
+            expireReason: `Aucune confirmation après ${EXPIRY_MINUTES} minutes`,
+          },
+          updatedAt: expiredAt,
+        }).where(and(eq(transactionsTable.id, tx.id), eq(transactionsTable.status, "PENDING")));
+        const settled = await settleProviderTransaction(tx.id, "FAILED");
+        if (settled) {
+          dispatchWebhook(tx.userId, buildTxPayload({ ...tx, status: "FAILED", updatedAt: expiredAt }), getNotificationUrl(tx.metadata));
           logger.info(
             { txId: tx.id, reference: tx.reference, type: tx.type },
             "Expiry worker: transaction expired",

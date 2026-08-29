@@ -46,10 +46,20 @@ router.post("/register", authRateLimit, async (req, res) => {
       .values({ email, passwordHash, name, phone, country });
     const [user] = await db.select().from(usersTable).where(eq(usersTable.id, userInsert[0].insertId)).limit(1);
 
-    // Create wallets for all four currencies (including USDT)
+    // Wallet identity includes country, so every supported fiat jurisdiction
+    // gets its own balance; USDT remains the global ZZ wallet.
     await db.insert(walletsTable).values([
       { userId: user.id, currency: "XAF", balance: "0", country: "CM" },
+      { userId: user.id, currency: "XAF", balance: "0", country: "CG" },
+      { userId: user.id, currency: "XAF", balance: "0", country: "GA" },
+      { userId: user.id, currency: "XOF", balance: "0", country: "BJ" },
+      { userId: user.id, currency: "XOF", balance: "0", country: "BF" },
+      { userId: user.id, currency: "XOF", balance: "0", country: "CI" },
+      { userId: user.id, currency: "GMD", balance: "0", country: "GM" },
+      { userId: user.id, currency: "GNF", balance: "0", country: "GN" },
+      { userId: user.id, currency: "XOF", balance: "0", country: "ML" },
       { userId: user.id, currency: "XOF", balance: "0", country: "SN" },
+      { userId: user.id, currency: "XOF", balance: "0", country: "TG" },
       { userId: user.id, currency: "CDF", balance: "0", country: "CD" },
       { userId: user.id, currency: "USDT", balance: "0", country: "ZZ" },
     ]);
