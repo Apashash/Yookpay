@@ -18759,14 +18759,14 @@ var require_etag = __commonJS({
   "../../node_modules/.pnpm/etag@1.8.1/node_modules/etag/index.js"(exports2, module2) {
     "use strict";
     module2.exports = etag;
-    var crypto5 = require("crypto");
+    var crypto6 = require("crypto");
     var Stats = require("fs").Stats;
     var toString = Object.prototype.toString;
     function entitytag(entity) {
       if (entity.length === 0) {
         return '"0-2jmj7l5rSw0yVb/vlWAYkK/YBwk"';
       }
-      var hash2 = crypto5.createHash("sha1").update(entity, "utf8").digest("base64").substring(0, 27);
+      var hash2 = crypto6.createHash("sha1").update(entity, "utf8").digest("base64").substring(0, 27);
       var len = typeof entity === "string" ? Buffer.byteLength(entity, "utf8") : entity.length;
       return '"' + len.toString(16) + "-" + hash2 + '"';
     }
@@ -21587,11 +21587,11 @@ var require_negotiator = __commonJS({
     var preferredMediaTypes = require_mediaType();
     module2.exports = Negotiator;
     module2.exports.Negotiator = Negotiator;
-    function Negotiator(request) {
+    function Negotiator(request2) {
       if (!(this instanceof Negotiator)) {
-        return new Negotiator(request);
+        return new Negotiator(request2);
       }
-      this.request = request;
+      this.request = request2;
     }
     Negotiator.prototype.charset = function charset(available) {
       var set2 = this.charsets(available);
@@ -22181,17 +22181,17 @@ var require_content_disposition = __commonJS({
 // ../../node_modules/.pnpm/cookie-signature@1.2.2/node_modules/cookie-signature/index.js
 var require_cookie_signature = __commonJS({
   "../../node_modules/.pnpm/cookie-signature@1.2.2/node_modules/cookie-signature/index.js"(exports2) {
-    var crypto5 = require("crypto");
+    var crypto6 = require("crypto");
     exports2.sign = function(val, secret) {
       if ("string" != typeof val) throw new TypeError("Cookie value must be provided as a string.");
       if (null == secret) throw new TypeError("Secret key must be provided.");
-      return val + "." + crypto5.createHmac("sha256", secret).update(val).digest("base64").replace(/\=+$/, "");
+      return val + "." + crypto6.createHmac("sha256", secret).update(val).digest("base64").replace(/\=+$/, "");
     };
     exports2.unsign = function(input, secret) {
       if ("string" != typeof input) throw new TypeError("Signed cookie string must be provided.");
       if (null == secret) throw new TypeError("Secret key must be provided.");
       var tentativeValue = input.slice(0, input.lastIndexOf(".")), expectedInput = exports2.sign(tentativeValue, secret), expectedBuffer = Buffer.from(expectedInput), inputBuffer = Buffer.from(input);
-      return expectedBuffer.length === inputBuffer.length && crypto5.timingSafeEqual(expectedBuffer, inputBuffer) ? tentativeValue : false;
+      return expectedBuffer.length === inputBuffer.length && crypto6.timingSafeEqual(expectedBuffer, inputBuffer) ? tentativeValue : false;
     };
   }
 });
@@ -40446,9 +40446,9 @@ var require_binlog_dump = __commonJS({
 var require_auth_41 = __commonJS({
   "../../node_modules/.pnpm/mysql2@3.23.3_@types+node@25.3.5/node_modules/mysql2/lib/auth_41.js"(exports2) {
     "use strict";
-    var crypto5 = require("crypto");
+    var crypto6 = require("crypto");
     function sha1(msg, msg1, msg2) {
-      const hash2 = crypto5.createHash("sha1");
+      const hash2 = crypto6.createHash("sha1");
       hash2.update(msg);
       if (msg1) {
         hash2.update(msg1);
@@ -42400,7 +42400,7 @@ var require_sha256_password = __commonJS({
   "../../node_modules/.pnpm/mysql2@3.23.3_@types+node@25.3.5/node_modules/mysql2/lib/auth_plugins/sha256_password.js"(exports2, module2) {
     "use strict";
     var PLUGIN_NAME = "sha256_password";
-    var crypto5 = require("crypto");
+    var crypto6 = require("crypto");
     var { xorRotating } = require_auth_41();
     var Tls = require("tls");
     var REQUEST_SERVER_KEY_PACKET = Buffer.from([1]);
@@ -42409,7 +42409,7 @@ var require_sha256_password = __commonJS({
     var STATE_FINAL = -1;
     function encrypt(password, scramble, key) {
       const stage1 = xorRotating(Buffer.from(`${password}\0`, "utf8"), scramble);
-      return crypto5.publicEncrypt(
+      return crypto6.publicEncrypt(
         {
           key,
           oaepHash: "sha1"
@@ -42461,7 +42461,7 @@ var require_caching_sha2_password = __commonJS({
   "../../node_modules/.pnpm/mysql2@3.23.3_@types+node@25.3.5/node_modules/mysql2/lib/auth_plugins/caching_sha2_password.js"(exports2, module2) {
     "use strict";
     var PLUGIN_NAME = "caching_sha2_password";
-    var crypto5 = require("crypto");
+    var crypto6 = require("crypto");
     var { xor, xorRotating } = require_auth_41();
     var REQUEST_SERVER_KEY_PACKET = Buffer.from([2]);
     var FAST_AUTH_SUCCESS_PACKET = Buffer.from([3]);
@@ -42471,7 +42471,7 @@ var require_caching_sha2_password = __commonJS({
     var STATE_WAIT_SERVER_KEY = 2;
     var STATE_FINAL = -1;
     function sha256(msg) {
-      const hash2 = crypto5.createHash("sha256");
+      const hash2 = crypto6.createHash("sha256");
       hash2.update(msg);
       return hash2.digest();
     }
@@ -42486,11 +42486,11 @@ var require_caching_sha2_password = __commonJS({
     }
     function encrypt(password, scramble, key) {
       const stage1 = xorRotating(Buffer.from(`${password}\0`, "utf8"), scramble);
-      return crypto5.publicEncrypt(
+      return crypto6.publicEncrypt(
         {
           key,
           oaepHash: "sha1",
-          padding: crypto5.constants.RSA_PKCS1_OAEP_PADDING
+          padding: crypto6.constants.RSA_PKCS1_OAEP_PADDING
         },
         stage1
       );
@@ -50423,6 +50423,9 @@ var init_foreign_keys2 = __esm({
 });
 
 // ../../node_modules/.pnpm/drizzle-orm@0.45.1_@types+pg@8.18.0_mysql2@3.23.3_@types+node@25.3.5__pg@8.20.0/node_modules/drizzle-orm/mysql-core/indexes.js
+function uniqueIndex(name) {
+  return new IndexBuilderOn(name, true);
+}
 var IndexBuilderOn, IndexBuilder, Index;
 var init_indexes = __esm({
   "../../node_modules/.pnpm/drizzle-orm@0.45.1_@types+pg@8.18.0_mysql2@3.23.3_@types+node@25.3.5__pg@8.20.0/node_modules/drizzle-orm/mysql-core/indexes.js"() {
@@ -66888,7 +66891,9 @@ var init_wallets = __esm({
       lockedBalance: decimal("locked_balance", { precision: 18, scale: 2 }).notNull().default("0"),
       country: varchar("country", { length: 10 }).notNull(),
       updatedAt: timestamp("updated_at").defaultNow().notNull()
-    });
+    }, (table) => [
+      uniqueIndex("wallets_user_currency_country_uq").on(table.userId, table.currency, table.country)
+    ]);
     insertWalletSchema = createInsertSchema(walletsTable).omit({
       id: true,
       updatedAt: true
@@ -67262,6 +67267,27 @@ var init_notifications = __esm({
   }
 });
 
+// ../../lib/db/src/schema/pawapay-services.ts
+var pawapayServicesTable;
+var init_pawapay_services = __esm({
+  "../../lib/db/src/schema/pawapay-services.ts"() {
+    "use strict";
+    init_mysql_core();
+    pawapayServicesTable = mysqlTable("pawapay_services", {
+      id: int("id").autoincrement().primaryKey(),
+      operator: varchar("operator", { length: 30 }).notNull(),
+      country: varchar("country", { length: 5 }).notNull(),
+      currency: varchar("currency", { length: 10 }).notNull(),
+      type: varchar("type", { length: 20 }).notNull(),
+      providerCode: varchar("provider_code", { length: 80 }).notNull(),
+      active: boolean("active").notNull().default(true),
+      notes: text("notes"),
+      createdAt: timestamp("created_at").defaultNow().notNull(),
+      updatedAt: timestamp("updated_at").defaultNow().notNull()
+    }, (table) => [uniqueIndex("pawapay_services_uq").on(table.operator, table.country, table.currency, table.type)]);
+  }
+});
+
 // ../../lib/db/src/schema/index.ts
 var schema_exports = {};
 __export(schema_exports, {
@@ -67284,6 +67310,7 @@ __export(schema_exports, {
   kycDocumentsTable: () => kycDocumentsTable,
   kycProfilesTable: () => kycProfilesTable,
   notificationsTable: () => notificationsTable,
+  pawapayServicesTable: () => pawapayServicesTable,
   paymentLinksTable: () => paymentLinksTable,
   pixpayServicesTable: () => pixpayServicesTable,
   platformConfigTable: () => platformConfigTable,
@@ -67314,6 +67341,7 @@ var init_schema2 = __esm({
     init_user_operator_fees();
     init_payment_links();
     init_notifications();
+    init_pawapay_services();
   }
 });
 
@@ -67625,14 +67653,14 @@ var require_buffer_equal_constant_time = __commonJS({
 var require_jwa = __commonJS({
   "../../node_modules/.pnpm/jwa@2.0.1/node_modules/jwa/index.js"(exports2, module2) {
     var Buffer3 = require_safe_buffer().Buffer;
-    var crypto5 = require("crypto");
+    var crypto6 = require("crypto");
     var formatEcdsa = require_ecdsa_sig_formatter();
     var util2 = require("util");
     var MSG_INVALID_ALGORITHM = '"%s" is not a valid algorithm.\n  Supported algorithms are:\n  "HS256", "HS384", "HS512", "RS256", "RS384", "RS512", "PS256", "PS384", "PS512", "ES256", "ES384", "ES512" and "none".';
     var MSG_INVALID_SECRET = "secret must be a string or buffer";
     var MSG_INVALID_VERIFIER_KEY = "key must be a string or a buffer";
     var MSG_INVALID_SIGNER_KEY = "key must be a string, a buffer or an object";
-    var supportsKeyObjects = typeof crypto5.createPublicKey === "function";
+    var supportsKeyObjects = typeof crypto6.createPublicKey === "function";
     if (supportsKeyObjects) {
       MSG_INVALID_VERIFIER_KEY += " or a KeyObject";
       MSG_INVALID_SECRET += "or a KeyObject";
@@ -67722,17 +67750,17 @@ var require_jwa = __commonJS({
       return function sign(thing, secret) {
         checkIsSecretKey(secret);
         thing = normalizeInput(thing);
-        var hmac = crypto5.createHmac("sha" + bits, secret);
+        var hmac = crypto6.createHmac("sha" + bits, secret);
         var sig = (hmac.update(thing), hmac.digest("base64"));
         return fromBase64(sig);
       };
     }
     var bufferEqual;
-    var timingSafeEqual = "timingSafeEqual" in crypto5 ? function timingSafeEqual2(a, b) {
+    var timingSafeEqual = "timingSafeEqual" in crypto6 ? function timingSafeEqual2(a, b) {
       if (a.byteLength !== b.byteLength) {
         return false;
       }
-      return crypto5.timingSafeEqual(a, b);
+      return crypto6.timingSafeEqual(a, b);
     } : function timingSafeEqual2(a, b) {
       if (!bufferEqual) {
         bufferEqual = require_buffer_equal_constant_time();
@@ -67749,7 +67777,7 @@ var require_jwa = __commonJS({
       return function sign(thing, privateKey) {
         checkIsPrivateKey(privateKey);
         thing = normalizeInput(thing);
-        var signer = crypto5.createSign("RSA-SHA" + bits);
+        var signer = crypto6.createSign("RSA-SHA" + bits);
         var sig = (signer.update(thing), signer.sign(privateKey, "base64"));
         return fromBase64(sig);
       };
@@ -67759,7 +67787,7 @@ var require_jwa = __commonJS({
         checkIsPublicKey(publicKey);
         thing = normalizeInput(thing);
         signature = toBase64(signature);
-        var verifier = crypto5.createVerify("RSA-SHA" + bits);
+        var verifier = crypto6.createVerify("RSA-SHA" + bits);
         verifier.update(thing);
         return verifier.verify(publicKey, signature, "base64");
       };
@@ -67768,11 +67796,11 @@ var require_jwa = __commonJS({
       return function sign(thing, privateKey) {
         checkIsPrivateKey(privateKey);
         thing = normalizeInput(thing);
-        var signer = crypto5.createSign("RSA-SHA" + bits);
+        var signer = crypto6.createSign("RSA-SHA" + bits);
         var sig = (signer.update(thing), signer.sign({
           key: privateKey,
-          padding: crypto5.constants.RSA_PKCS1_PSS_PADDING,
-          saltLength: crypto5.constants.RSA_PSS_SALTLEN_DIGEST
+          padding: crypto6.constants.RSA_PKCS1_PSS_PADDING,
+          saltLength: crypto6.constants.RSA_PSS_SALTLEN_DIGEST
         }, "base64"));
         return fromBase64(sig);
       };
@@ -67782,12 +67810,12 @@ var require_jwa = __commonJS({
         checkIsPublicKey(publicKey);
         thing = normalizeInput(thing);
         signature = toBase64(signature);
-        var verifier = crypto5.createVerify("RSA-SHA" + bits);
+        var verifier = crypto6.createVerify("RSA-SHA" + bits);
         verifier.update(thing);
         return verifier.verify({
           key: publicKey,
-          padding: crypto5.constants.RSA_PKCS1_PSS_PADDING,
-          saltLength: crypto5.constants.RSA_PSS_SALTLEN_DIGEST
+          padding: crypto6.constants.RSA_PKCS1_PSS_PADDING,
+          saltLength: crypto6.constants.RSA_PSS_SALTLEN_DIGEST
         }, signature, "base64");
       };
     }
@@ -79298,8 +79326,8 @@ var validations = {
    *
    * @returns {void}
    */
-  trustProxy(request) {
-    if (request.app.get("trust proxy") === true) {
+  trustProxy(request2) {
+    if (request2.app.get("trust proxy") === true) {
       throw new ValidationError(
         "ERR_ERL_PERMISSIVE_TRUST_PROXY",
         `The Express 'trust proxy' setting is true, which allows anyone to trivially bypass IP-based rate limiting.`
@@ -79316,8 +79344,8 @@ var validations = {
    *
    * @returns {void}
    */
-  xForwardedForHeader(request) {
-    if (request.headers["x-forwarded-for"] && request.app.get("trust proxy") === false) {
+  xForwardedForHeader(request2) {
+    if (request2.headers["x-forwarded-for"] && request2.app.get("trust proxy") === false) {
       throw new ValidationError(
         "ERR_ERL_UNEXPECTED_X_FORWARDED_FOR",
         `The 'X-Forwarded-For' header is set but the Express 'trust proxy' setting is false (default). This could indicate a misconfiguration which would prevent express-rate-limit from accurately identifying users.`
@@ -79331,8 +79359,8 @@ var validations = {
    *
    * @returns {void}
    */
-  forwardedHeader(request) {
-    if (request.headers.forwarded && request.ip === request.socket?.remoteAddress) {
+  forwardedHeader(request2) {
+    if (request2.headers.forwarded && request2.ip === request2.socket?.remoteAddress) {
       throw new ValidationError(
         "ERR_ERL_FORWARDED_HEADER",
         `The 'Forwarded' header (standardized X-Forwarded-For) is set but currently being ignored. Add a custom keyGenerator to use a value from this header.`
@@ -79374,11 +79402,11 @@ var validations = {
    *
    * @returns {void}
    */
-  singleCount(request, store, key) {
-    let storeKeys = singleCountKeys.get(request);
+  singleCount(request2, store, key) {
+    let storeKeys = singleCountKeys.get(request2);
     if (!storeKeys) {
       storeKeys = /* @__PURE__ */ new Map();
-      singleCountKeys.set(request, storeKeys);
+      singleCountKeys.set(request2, storeKeys);
     }
     const storeKey = store.localKeys ? store : store.constructor.name;
     let keys = storeKeys.get(storeKey);
@@ -79711,10 +79739,10 @@ var parseOptions = (passedOptions) => {
     message: "Too many requests, please try again later.",
     statusCode: 429,
     legacyHeaders: passedOptions.headers ?? true,
-    identifier(request, _response) {
+    identifier(request2, _response) {
       let duration3 = "";
       const property = config2.requestPropertyName;
-      const { limit } = request[property];
+      const { limit } = request2[property];
       const seconds = config2.windowMs / 1e3;
       const minutes = config2.windowMs / (1e3 * 60);
       const hours = config2.windowMs / (1e3 * 60 * 60);
@@ -79730,25 +79758,25 @@ var parseOptions = (passedOptions) => {
     skipSuccessfulRequests: false,
     requestWasSuccessful: (_request, response) => response.statusCode < 400,
     skip: (_request, _response) => false,
-    async keyGenerator(request, response) {
-      validations2.ip(request.ip);
-      validations2.trustProxy(request);
-      validations2.xForwardedForHeader(request);
-      validations2.forwardedHeader(request);
-      const ip = request.ip;
+    async keyGenerator(request2, response) {
+      validations2.ip(request2.ip);
+      validations2.trustProxy(request2);
+      validations2.xForwardedForHeader(request2);
+      validations2.forwardedHeader(request2);
+      const ip = request2.ip;
       let subnet = 56;
       if ((0, import_node_net2.isIPv6)(ip)) {
-        subnet = typeof config2.ipv6Subnet === "function" ? await config2.ipv6Subnet(request, response) : config2.ipv6Subnet;
+        subnet = typeof config2.ipv6Subnet === "function" ? await config2.ipv6Subnet(request2, response) : config2.ipv6Subnet;
         if (typeof config2.ipv6Subnet === "function")
           validations2.ipv6Subnet(subnet);
       }
       return ipKeyGenerator(ip, subnet);
     },
     ipv6Subnet: 56,
-    async handler(request, response, _next, _optionsUsed) {
+    async handler(request2, response, _next, _optionsUsed) {
       response.status(config2.statusCode);
       const message = typeof config2.message === "function" ? await config2.message(
-        request,
+        request2,
         response
       ) : config2.message;
       if (!response.writableEnded) response.send(message);
@@ -79773,9 +79801,9 @@ var parseOptions = (passedOptions) => {
   }
   return config2;
 };
-var handleAsyncErrors = (fn) => async (request, response, next) => {
+var handleAsyncErrors = (fn) => async (request2, response, next) => {
   try {
-    await Promise.resolve(fn(request, response, next)).catch(next);
+    await Promise.resolve(fn(request2, response, next)).catch(next);
   } catch (error40) {
     next(error40);
   }
@@ -79787,17 +79815,17 @@ var rateLimit = (passedOptions) => {
   config2.validations.unsharedStore(config2.store);
   if (typeof config2.store.init === "function") config2.store.init(options);
   const middleware = handleAsyncErrors(
-    async (request, response, next) => {
+    async (request2, response, next) => {
       const closePromise = config2.skipFailedRequests && new Promise((resolve) => response.once("close", resolve));
       const finishPromise = (config2.skipFailedRequests || config2.skipSuccessfulRequests) && new Promise((resolve) => response.once("finish", resolve));
       const errorPromise = config2.skipFailedRequests && new Promise((resolve) => response.once("error", resolve));
-      const skip = await config2.skip(request, response);
+      const skip = await config2.skip(request2, response);
       if (skip) {
         next();
         return;
       }
-      const augmentedRequest = request;
-      const key = await config2.keyGenerator(request, response);
+      const augmentedRequest = request2;
+      const key = await config2.keyGenerator(request2, response);
       let totalHits = 0;
       let resetTime;
       try {
@@ -79816,8 +79844,8 @@ var rateLimit = (passedOptions) => {
         throw error40;
       }
       config2.validations.positiveHits(totalHits);
-      config2.validations.singleCount(request, config2.store, key);
-      const retrieveLimit = typeof config2.limit === "function" ? config2.limit(request, response) : config2.limit;
+      config2.validations.singleCount(request2, config2.store, key);
+      const retrieveLimit = typeof config2.limit === "function" ? config2.limit(request2, response) : config2.limit;
       const limit = await retrieveLimit;
       config2.validations.limit(limit);
       const info = {
@@ -79848,7 +79876,7 @@ var rateLimit = (passedOptions) => {
             break;
           }
           case "draft-8": {
-            const retrieveName = typeof config2.identifier === "function" ? config2.identifier(request, response) : config2.identifier;
+            const retrieveName = typeof config2.identifier === "function" ? config2.identifier(request2, response) : config2.identifier;
             const name = await retrieveName;
             config2.validations.headersResetTime(info.resetTime);
             setDraft8Headers(response, info, config2.windowMs, name, key);
@@ -79871,7 +79899,7 @@ var rateLimit = (passedOptions) => {
         if (config2.skipFailedRequests) {
           if (finishPromise) {
             void finishPromise.then(async () => {
-              if (!await config2.requestWasSuccessful(request, response))
+              if (!await config2.requestWasSuccessful(request2, response))
                 await decrementKey();
             });
           }
@@ -79889,7 +79917,7 @@ var rateLimit = (passedOptions) => {
         if (config2.skipSuccessfulRequests) {
           if (finishPromise) {
             void finishPromise.then(async () => {
-              if (await config2.requestWasSuccessful(request, response))
+              if (await config2.requestWasSuccessful(request2, response))
                 await decrementKey();
             });
           }
@@ -79900,7 +79928,7 @@ var rateLimit = (passedOptions) => {
         if (config2.legacyHeaders || config2.standardHeaders) {
           setRetryAfterHeader(response, info, config2.windowMs);
         }
-        config2.handler(request, response, next, options);
+        config2.handler(request2, response, next, options);
         return;
       }
       next();
@@ -79979,7 +80007,16 @@ router2.post("/register", authRateLimit, async (req, res) => {
     const [user] = await db.select().from(usersTable).where(eq(usersTable.id, userInsert[0].insertId)).limit(1);
     await db.insert(walletsTable).values([
       { userId: user.id, currency: "XAF", balance: "0", country: "CM" },
+      { userId: user.id, currency: "XAF", balance: "0", country: "CG" },
+      { userId: user.id, currency: "XAF", balance: "0", country: "GA" },
+      { userId: user.id, currency: "XOF", balance: "0", country: "BJ" },
+      { userId: user.id, currency: "XOF", balance: "0", country: "BF" },
+      { userId: user.id, currency: "XOF", balance: "0", country: "CI" },
+      { userId: user.id, currency: "GMD", balance: "0", country: "GM" },
+      { userId: user.id, currency: "GNF", balance: "0", country: "GN" },
+      { userId: user.id, currency: "XOF", balance: "0", country: "ML" },
       { userId: user.id, currency: "XOF", balance: "0", country: "SN" },
+      { userId: user.id, currency: "XOF", balance: "0", country: "TG" },
       { userId: user.id, currency: "CDF", balance: "0", country: "CD" },
       { userId: user.id, currency: "USDT", balance: "0", country: "ZZ" }
     ]);
@@ -80457,8 +80494,8 @@ var CURRENCY_MAP = {
   BJ: "XOF",
   BF: "XOF",
   CI: "XOF",
-  GM: "XOF",
-  GN: "XOF",
+  GM: "GMD",
+  GN: "GNF",
   ML: "XOF",
   TG: "XOF",
   CD: "CDF"
@@ -80605,13 +80642,13 @@ async function callPixPayAirtime(params) {
     body["redirect_error_url"] = params.redirectErrorUrl ?? "";
   }
   const pixpayEnv = process.env["PIXPAY_ENV"] ?? "sandbox (d\xE9faut)";
-  const baseUrl = getBaseUrl();
+  const baseUrl2 = getBaseUrl();
   const apiKeyHint = apiKey2.length > 8 ? `${apiKey2.slice(0, 4)}...${apiKey2.slice(-4)}` : "***";
   logger.info(
-    { serviceId: params.serviceId, currency: params.currency, amount: params.amount, destination: params.phone, apiKeyHint, customData: params.customData, pixpayEnv, baseUrl },
+    { serviceId: params.serviceId, currency: params.currency, amount: params.amount, destination: params.phone, apiKeyHint, customData: params.customData, pixpayEnv, baseUrl: baseUrl2 },
     "PixPay airtime call initiated"
   );
-  const res = await fetch(`${baseUrl}/airtime`, {
+  const res = await fetch(`${baseUrl2}/airtime`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(body),
@@ -80643,7 +80680,7 @@ async function callPixPayAirtime(params) {
     const isAuthError = /not authoriz|unauthorized|api.?key|invalid.?key|accès refusé/i.test(rawMsg) || res.status === 401 || res.status === 403;
     if (isAuthError) {
       throw new Error(
-        `Cl\xE9 API PixPay invalide ou expir\xE9e (env: ${pixpayEnv}, url: ${baseUrl}). V\xE9rifiez PIXPAY_API_KEY_${params.currency.toUpperCase()} et PIXPAY_ENV dans vos variables d'environnement Plesk.`
+        `Cl\xE9 API PixPay invalide ou expir\xE9e (env: ${pixpayEnv}, url: ${baseUrl2}). V\xE9rifiez PIXPAY_API_KEY_${params.currency.toUpperCase()} et PIXPAY_ENV dans vos variables d'environnement Plesk.`
       );
     }
     throw new Error(rawMsg || `Erreur PixPay (code ${res.status})`);
@@ -80657,8 +80694,8 @@ async function callPixPayAirtime(params) {
 }
 async function getPixPayTransactionStatus(pixTransactionId, currency) {
   const apiKey2 = getApiKey(currency);
-  const baseUrl = getBaseUrl().replace("/transaction", "");
-  const url2 = `${baseUrl}/transaction/status?transaction_id=${encodeURIComponent(pixTransactionId)}&api_key=${encodeURIComponent(apiKey2)}`;
+  const baseUrl2 = getBaseUrl().replace("/transaction", "");
+  const url2 = `${baseUrl2}/transaction/status?transaction_id=${encodeURIComponent(pixTransactionId)}&api_key=${encodeURIComponent(apiKey2)}`;
   try {
     const res = await fetch(url2, { signal: AbortSignal.timeout(15e3) });
     const json3 = await res.json();
@@ -81078,6 +81115,150 @@ async function getOrderStatusByReference(reference) {
 
 // src/routes/transactions.ts
 init_schema2();
+var import_crypto5 = require("crypto");
+
+// src/lib/walletSettlement.ts
+async function reserveWithdrawal(transactionId, walletId, amount) {
+  const conn = await pool.getConnection();
+  try {
+    await conn.beginTransaction();
+    const [transactions] = await conn.query(
+      "SELECT status FROM transactions WHERE id=? FOR UPDATE",
+      [transactionId]
+    );
+    if (!transactions[0] || transactions[0].status !== "PENDING") {
+      await conn.rollback();
+      return false;
+    }
+    const [ledger] = await conn.query(
+      "INSERT IGNORE INTO wallet_ledger (transaction_id, wallet_id, movement_type, amount) VALUES (?,?,?,?)",
+      [transactionId, walletId, "RESERVATION", amount]
+    );
+    if (ledger.affectedRows === 0) {
+      await conn.commit();
+      return true;
+    }
+    const [debit] = await conn.query(
+      "UPDATE wallets SET balance=balance-?, updated_at=NOW() WHERE id=? AND balance>=?",
+      [amount, walletId, amount]
+    );
+    if (debit.affectedRows === 0) {
+      throw new Error("Insufficient country-wallet balance");
+    }
+    await conn.commit();
+    return true;
+  } catch (err) {
+    await conn.rollback();
+    throw err;
+  } finally {
+    conn.release();
+  }
+}
+async function settleProviderTransaction(transactionId, status) {
+  const conn = await pool.getConnection();
+  try {
+    await conn.beginTransaction();
+    const [rows] = await conn.query("SELECT * FROM transactions WHERE id=? FOR UPDATE", [transactionId]);
+    const tx = rows[0];
+    if (!tx || tx.status !== "PENDING") {
+      await conn.rollback();
+      return false;
+    }
+    const country = tx.currency === "USDT" ? "ZZ" : tx.country;
+    if (!country) throw new Error("Cannot settle fiat transaction without a country");
+    const movement = status === "SUCCESS" && (tx.type === "DEPOSIT" || tx.type === "CARD_DEPOSIT") ? "CREDIT" : status === "FAILED" && tx.type === "WITHDRAWAL" ? "REFUND" : null;
+    if (movement) {
+      const [wallets] = await conn.query("SELECT id FROM wallets WHERE user_id=? AND currency=? AND country=? FOR UPDATE", [tx.user_id, tx.currency, country]);
+      if (!wallets[0]) throw new Error("Country wallet missing during settlement");
+      const amount = movement === "CREDIT" ? Number(tx.net_amount) : Number(tx.net_amount) + Number(tx.fee);
+      const [ledger] = await conn.query("INSERT IGNORE INTO wallet_ledger (transaction_id, wallet_id, movement_type, amount) VALUES (?,?,?,?)", [tx.id, wallets[0].id, movement, amount]);
+      if (ledger.affectedRows > 0) await conn.query("UPDATE wallets SET balance=balance+?, updated_at=NOW() WHERE id=?", [amount, wallets[0].id]);
+    }
+    await conn.query("UPDATE transactions SET status=?, updated_at=NOW() WHERE id=? AND status='PENDING'", [status, tx.id]);
+    await conn.commit();
+    return true;
+  } catch (err) {
+    await conn.rollback();
+    throw err;
+  } finally {
+    conn.release();
+  }
+}
+
+// src/lib/wallets.ts
+init_schema2();
+init_drizzle_orm();
+init_drizzle_orm();
+function walletCountry(currency, country) {
+  return currency.toUpperCase() === "USDT" ? "ZZ" : (country ?? "").toUpperCase();
+}
+async function getOrCreateWallet(userId, currency, country) {
+  const normalizedCurrency = currency.toUpperCase();
+  const normalizedCountry = walletCountry(normalizedCurrency, country);
+  if (!normalizedCountry) throw new Error("A country is required for a fiat wallet");
+  await db.execute(sql`
+    INSERT IGNORE INTO wallets (user_id, currency, country, balance, locked_balance)
+    VALUES (${userId}, ${normalizedCurrency}, ${normalizedCountry}, 0, 0)
+  `);
+  const [wallet] = await db.select().from(walletsTable).where(and(
+    eq(walletsTable.userId, userId),
+    eq(walletsTable.currency, normalizedCurrency),
+    eq(walletsTable.country, normalizedCountry)
+  )).limit(1);
+  if (!wallet) throw new Error("Unable to create country wallet");
+  return wallet;
+}
+
+// src/lib/pawapay.ts
+var import_crypto4 = __toESM(require("crypto"), 1);
+var baseUrl = () => process.env["PAWAPAY_ENV"] === "production" ? "https://api.pawapay.io" : "https://api.sandbox.pawapay.io";
+var PawaPayError = class extends Error {
+  constructor(message, status) {
+    super(message);
+    this.status = status;
+  }
+};
+async function request(path3, init) {
+  const token = process.env["PAWAPAY_API_TOKEN"];
+  if (!token) throw new PawaPayError("pawaPay is not configured");
+  const response = await fetch(`${baseUrl()}${path3}`, {
+    ...init,
+    headers: { Authorization: `Bearer ${token}`, Accept: "application/json", "Content-Type": "application/json", ...init?.headers ?? {} }
+  });
+  const body = await response.json().catch(() => ({}));
+  if (!response.ok) throw new PawaPayError(String(body?.failureReason?.failureMessage ?? "pawaPay request failed"), response.status);
+  return body;
+}
+function normalizePawaPayPhone(phone, country) {
+  const dials = { CM: "237", CG: "242", GA: "241", CD: "243", CI: "225", SN: "221", BF: "226", BJ: "229", GN: "224", ML: "223", TG: "228", GM: "220" };
+  const digits = phone.replace(/\D/g, "").replace(/^00/, "");
+  const dial = dials[country.toUpperCase()];
+  if (!dial) throw new PawaPayError("Unsupported pawaPay country");
+  return digits.startsWith(dial) ? digits : `${dial}${digits.replace(/^0/, "")}`;
+}
+function pawaResultStatus(result) {
+  return result.data ?? result;
+}
+async function initiateDeposit2(input) {
+  const depositId = input.depositId ?? import_crypto4.default.randomUUID();
+  return request("/v2/deposits", { method: "POST", body: JSON.stringify({ depositId, amount: String(input.amount), currency: input.currency, payer: { type: "MMO", accountDetails: { provider: input.provider, phoneNumber: input.phone } } }) });
+}
+async function initiatePayout(input) {
+  const payoutId = input.payoutId ?? import_crypto4.default.randomUUID();
+  return request("/v2/payouts", { method: "POST", body: JSON.stringify({ payoutId, amount: String(input.amount), currency: input.currency, recipient: { type: "MMO", accountDetails: { provider: input.provider, phoneNumber: input.phone } } }) });
+}
+var getDepositStatus = (id) => request(`/v2/deposits/${encodeURIComponent(id)}`);
+var getPayoutStatus = (id) => request(`/v2/payouts/${encodeURIComponent(id)}`);
+var getWalletBalances = () => request("/v2/wallet-balances");
+var getActiveConfiguration = () => request("/v2/active-conf");
+function pawaFinalStatus(status) {
+  const s = status?.toUpperCase();
+  if (s === "COMPLETED") return "SUCCESS";
+  if (s === "FAILED") return "FAILED";
+  return null;
+}
+
+// src/routes/transactions.ts
 var DIAL_CODES = {
   BJ: "229",
   BF: "226",
@@ -81279,6 +81460,11 @@ router4.get("/:id", authMiddleware, async (req, res) => {
             };
             req.log.info({ txId: tx.id, mavStatus: mavStatus.status, trid: tx.reference, newStatus }, "Auto-sync from Maviance verifyTx");
           }
+        } else if (txProv === "PAWAPAY") {
+          const pawaStatus = tx.type === "WITHDRAWAL" ? await getPayoutStatus(tx.providerReference) : await getDepositStatus(tx.providerReference);
+          const state = pawaResultStatus(pawaStatus);
+          newStatus = pawaFinalStatus(state.status);
+          syncMeta = { pawaStatusSynced: state.status, syncedAt: (/* @__PURE__ */ new Date()).toISOString() };
         } else {
           const pixStatus = await getPixPayTransactionStatus(tx.providerReference, tx.currency);
           if (pixStatus) {
@@ -81292,6 +81478,14 @@ router4.get("/:id", authMiddleware, async (req, res) => {
           }
         }
         if (newStatus) {
+          if (txProv === "PAWAPAY") {
+            await settleProviderTransaction(tx.id, newStatus);
+            const [updated2] = await db.select().from(transactionsTable).where(eq(transactionsTable.id, id)).limit(1);
+            if (updated2) {
+              res.json(formatTx(updated2));
+              return;
+            }
+          }
           const syncResult = await db.update(transactionsTable).set({
             status: newStatus,
             metadata: { ...meta, ...syncMeta },
@@ -81299,14 +81493,14 @@ router4.get("/:id", authMiddleware, async (req, res) => {
           }).where(and(eq(transactionsTable.id, tx.id), eq(transactionsTable.status, "PENDING")));
           const rowClaimed = affectedRows(syncResult) > 0;
           if (rowClaimed && newStatus === "SUCCESS" && (tx.type === "DEPOSIT" || tx.type === "CARD_DEPOSIT")) {
-            const [wallet] = await db.select().from(walletsTable).where(and(eq(walletsTable.userId, tx.userId), eq(walletsTable.currency, tx.currency))).limit(1);
+            const wallet = await getOrCreateWallet(tx.userId, tx.currency, tx.country);
             if (wallet) {
               const credit = parseFloat(tx.netAmount);
               await db.update(walletsTable).set({ balance: (parseFloat(wallet.balance) + credit).toFixed(2), updatedAt: /* @__PURE__ */ new Date() }).where(eq(walletsTable.id, wallet.id));
               req.log.info({ txId: tx.id, credit, currency: tx.currency }, "Auto-sync DEPOSIT credited wallet");
             }
           } else if (rowClaimed && newStatus === "FAILED" && tx.type === "WITHDRAWAL") {
-            const [wallet] = await db.select().from(walletsTable).where(and(eq(walletsTable.userId, tx.userId), eq(walletsTable.currency, tx.currency))).limit(1);
+            const wallet = await getOrCreateWallet(tx.userId, tx.currency, tx.country);
             if (wallet) {
               const refund = parseFloat(tx.netAmount) + parseFloat(tx.fee);
               await db.update(walletsTable).set({ balance: (parseFloat(wallet.balance) + refund).toFixed(2), updatedAt: /* @__PURE__ */ new Date() }).where(eq(walletsTable.id, wallet.id));
@@ -81403,10 +81597,21 @@ async function getMavianceServiceId(operator, currency, type, country) {
   }
   return null;
 }
+async function getPawaPayProviderCode(operator, currency, type, country) {
+  try {
+    const result = await db.execute(sql`SELECT provider_code FROM pawapay_services
+      WHERE operator=${operator.toUpperCase()} AND currency=${currency.toUpperCase()} AND type=${type}
+      AND country=${country.toUpperCase()} AND active=true LIMIT 1`);
+    return result.rows[0] ? String(result.rows[0].provider_code) : null;
+  } catch {
+    return null;
+  }
+}
 async function getProviderForRoute(country, operator, type) {
   const envOverride = (process.env["PAYMENT_PROVIDER"] ?? "").toUpperCase();
   if (envOverride === "MAVIANCE") return "MAVIANCE";
   if (envOverride === "PIXPAY") return "PIXPAY";
+  if (envOverride === "PAWAPAY") return "PAWAPAY";
   try {
     const result = await db.execute(
       sql`SELECT provider FROM payment_provider_config
@@ -81418,6 +81623,7 @@ async function getProviderForRoute(country, operator, type) {
     if (result.rows.length > 0) {
       const p = String(result.rows[0].provider).toUpperCase();
       if (p === "MAVIANCE") return "MAVIANCE";
+      if (p === "PAWAPAY") return "PAWAPAY";
     }
   } catch {
   }
@@ -81477,7 +81683,7 @@ router4.post("/deposit", authMiddleware, transactionRateLimit, async (req, res) 
     const feeBreakdown = userRate !== void 0 ? calculateFeeWithRate(amount, country, operator, "DEPOSIT", userRate) : calculateFee(amount, country, operator, "DEPOSIT");
     const yookpayMarginAmount = Math.round(amount * (opBreakdown?.margin ?? await getDefaultMargin()));
     const provider = await getProviderForRoute(country, operator, "DEPOSIT");
-    const serviceId = provider === "MAVIANCE" ? await getMavianceServiceId(operator, currency, "DEPOSIT", country) : await getPixPayServiceId(operator, currency, "DEPOSIT", country);
+    const serviceId = provider === "PAWAPAY" ? await getPawaPayProviderCode(operator, currency, "DEPOSIT", country) : provider === "MAVIANCE" ? await getMavianceServiceId(operator, currency, "DEPOSIT", country) : await getPixPayServiceId(operator, currency, "DEPOSIT", country);
     if (serviceId === null) {
       res.status(503).json({
         error: "ServiceNotAvailable",
@@ -81509,6 +81715,27 @@ router4.post("/deposit", authMiddleware, transactionRateLimit, async (req, res) 
       { txId: tx.id, reference, userId: req.userId, amount, providerAmount, walletNetAmount, currency, operator, country, flow, feeBearer, provider },
       `Deposit transaction created \u2014 calling ${provider}`
     );
+    if (provider === "PAWAPAY") {
+      const pawaId = (0, import_crypto5.randomUUID)();
+      await db.update(transactionsTable).set({ providerReference: pawaId, metadata: { ...tx.metadata, provider: "PAWAPAY", pawaInitiatedAt: (/* @__PURE__ */ new Date()).toISOString() }, updatedAt: /* @__PURE__ */ new Date() }).where(and(eq(transactionsTable.id, tx.id), eq(transactionsTable.status, "PENDING")));
+      try {
+        const result = await initiateDeposit2({ amount: providerAmount, currency, phone: normalizePawaPayPhone(phone, country), provider: String(serviceId), depositId: pawaId });
+        const state = pawaResultStatus(result);
+        const final = state.status.toUpperCase() === "REJECTED" ? "FAILED" : pawaFinalStatus(state.status);
+        await db.update(transactionsTable).set({ providerReference: state.depositId ?? pawaId, metadata: { ...tx.metadata, provider: "PAWAPAY", pawaStatus: state.status, pawaFailureCode: state.failureReason?.failureCode }, updatedAt: /* @__PURE__ */ new Date() }).where(and(eq(transactionsTable.id, tx.id), eq(transactionsTable.status, "PENDING")));
+        if (final) await settleProviderTransaction(tx.id, final);
+        if (final === "FAILED") {
+          res.status(422).json({ error: "ProviderFailed", message: state.failureReason?.failureMessage ?? "D\xE9p\xF4t refus\xE9" });
+          return;
+        }
+        res.status(201).json({ transaction: formatTx(tx), feeBreakdown, feeBearer, provider: "PAWAPAY", pending: true, message: "Validez le paiement Mobile Money sur votre t\xE9l\xE9phone." });
+        return;
+      } catch (err) {
+        await db.update(transactionsTable).set({ metadata: { ...tx.metadata, pawaTransportError: err instanceof Error ? err.message : "pawaPay unavailable" }, updatedAt: /* @__PURE__ */ new Date() }).where(and(eq(transactionsTable.id, tx.id), eq(transactionsTable.status, "PENDING")));
+        res.status(202).json({ transaction: formatTx(tx), provider: "PAWAPAY", pending: true, message: "Demande en cours de r\xE9conciliation." });
+        return;
+      }
+    }
     if (provider === "MAVIANCE") {
       const mavPhone = normalizeMaviancePhone(phone, country);
       let mavResult;
@@ -81667,7 +81894,7 @@ router4.post("/withdraw", authMiddleware, transactionRateLimit, async (req, res)
   }
   const reference = generateReference();
   try {
-    const [wallet] = await db.select().from(walletsTable).where(and(eq(walletsTable.userId, req.userId), eq(walletsTable.currency, currency))).limit(1);
+    const wallet = await getOrCreateWallet(req.userId, currency, country);
     const balance = wallet ? parseFloat(wallet.balance) : 0;
     if (!wallet || balance < amount) {
       res.status(400).json({
@@ -81701,7 +81928,7 @@ router4.post("/withdraw", authMiddleware, transactionRateLimit, async (req, res)
     }
     const flow = getOperatorFlow(operator);
     const provider = await getProviderForRoute(country, operator, "WITHDRAWAL");
-    const serviceId = provider === "MAVIANCE" ? await getMavianceServiceId(operator, currency, "WITHDRAWAL", country) : await getPixPayServiceId(operator, currency, "WITHDRAWAL", country);
+    const serviceId = provider === "PAWAPAY" ? await getPawaPayProviderCode(operator, currency, "WITHDRAWAL", country) : provider === "MAVIANCE" ? await getMavianceServiceId(operator, currency, "WITHDRAWAL", country) : await getPixPayServiceId(operator, currency, "WITHDRAWAL", country);
     if (serviceId === null) {
       res.status(503).json({
         error: "ServiceNotAvailable",
@@ -81710,7 +81937,7 @@ router4.post("/withdraw", authMiddleware, transactionRateLimit, async (req, res)
       return;
     }
     const newBalance = parseFloat(wallet.balance) - walletDebit;
-    await db.update(walletsTable).set({ balance: Math.max(newBalance, 0).toFixed(2), updatedAt: /* @__PURE__ */ new Date() }).where(eq(walletsTable.id, wallet.id));
+    if (provider !== "PAWAPAY") await db.update(walletsTable).set({ balance: Math.max(newBalance, 0).toFixed(2), updatedAt: /* @__PURE__ */ new Date() }).where(eq(walletsTable.id, wallet.id));
     const txWdInsert = await db.insert(transactionsTable).values({
       userId: req.userId,
       type: "WITHDRAWAL",
@@ -81728,10 +81955,40 @@ router4.post("/withdraw", authMiddleware, transactionRateLimit, async (req, res)
       metadata: { initiatedAt: (/* @__PURE__ */ new Date()).toISOString(), feeBearer, flow, walletDebit, providerAmount: pixPayAmount, provider }
     });
     const [tx] = await db.select().from(transactionsTable).where(eq(transactionsTable.id, txWdInsert[0].insertId)).limit(1);
+    if (provider === "PAWAPAY") {
+      try {
+        await reserveWithdrawal(tx.id, wallet.id, walletDebit);
+      } catch {
+        await db.update(transactionsTable).set({ status: "FAILED", updatedAt: /* @__PURE__ */ new Date() }).where(and(eq(transactionsTable.id, tx.id), eq(transactionsTable.status, "PENDING")));
+        res.status(400).json({ error: "InsufficientFunds", message: "Solde insuffisant ou modifi\xE9 simultan\xE9ment." });
+        return;
+      }
+    }
     req.log.info(
       { txId: tx.id, reference, userId: req.userId, amount, providerAmount: pixPayAmount, walletDebit, currency, operator, flow, feeBearer, provider },
       `Withdrawal transaction created \u2014 wallet reserved \u2014 calling ${provider}`
     );
+    if (provider === "PAWAPAY") {
+      const pawaId = (0, import_crypto5.randomUUID)();
+      await db.update(transactionsTable).set({ providerReference: pawaId, metadata: { ...tx.metadata, provider: "PAWAPAY", pawaInitiatedAt: (/* @__PURE__ */ new Date()).toISOString() }, updatedAt: /* @__PURE__ */ new Date() }).where(and(eq(transactionsTable.id, tx.id), eq(transactionsTable.status, "PENDING")));
+      try {
+        const result = await initiatePayout({ amount: pixPayAmount, currency, phone: normalizePawaPayPhone(phone, country), provider: String(serviceId), payoutId: pawaId });
+        const state = pawaResultStatus(result);
+        const final = state.status.toUpperCase() === "REJECTED" ? "FAILED" : pawaFinalStatus(state.status);
+        await db.update(transactionsTable).set({ providerReference: state.payoutId ?? pawaId, metadata: { ...tx.metadata, provider: "PAWAPAY", pawaStatus: state.status, pawaFailureCode: state.failureReason?.failureCode }, updatedAt: /* @__PURE__ */ new Date() }).where(and(eq(transactionsTable.id, tx.id), eq(transactionsTable.status, "PENDING")));
+        if (final) await settleProviderTransaction(tx.id, final);
+        if (final === "FAILED") {
+          res.status(422).json({ error: "ProviderFailed", message: state.failureReason?.failureMessage ?? "Retrait refus\xE9" });
+          return;
+        }
+        res.status(201).json({ transaction: formatTx(tx), feeBreakdown, feeBearer, provider: "PAWAPAY", pending: true, message: "Retrait en cours." });
+        return;
+      } catch (err) {
+        await db.update(transactionsTable).set({ metadata: { ...tx.metadata, pawaTransportError: err instanceof Error ? err.message : "pawaPay unavailable" }, updatedAt: /* @__PURE__ */ new Date() }).where(and(eq(transactionsTable.id, tx.id), eq(transactionsTable.status, "PENDING")));
+        res.status(202).json({ transaction: formatTx(tx), provider: "PAWAPAY", pending: true, message: "Retrait en cours de r\xE9conciliation." });
+        return;
+      }
+    }
     if (provider === "MAVIANCE") {
       const mavPhone = normalizeMaviancePhone(phone, country);
       let mavResult;
@@ -81745,7 +82002,7 @@ router4.post("/withdraw", authMiddleware, transactionRateLimit, async (req, res)
           trid: reference
         });
       } catch (mavErr) {
-        const [cw] = await db.select().from(walletsTable).where(and(eq(walletsTable.userId, req.userId), eq(walletsTable.currency, currency))).limit(1);
+        const cw = await getOrCreateWallet(req.userId, currency, country);
         if (cw) {
           await db.update(walletsTable).set({
             balance: (parseFloat(cw.balance) + walletDebit).toFixed(2),
@@ -81779,7 +82036,7 @@ router4.post("/withdraw", authMiddleware, transactionRateLimit, async (req, res)
         updatedAt: /* @__PURE__ */ new Date()
       }).where(eq(transactionsTable.id, tx.id));
       if (isImmediatelyFailed) {
-        const [cw] = await db.select().from(walletsTable).where(and(eq(walletsTable.userId, req.userId), eq(walletsTable.currency, currency))).limit(1);
+        const cw = await getOrCreateWallet(req.userId, currency, country);
         if (cw) {
           await db.update(walletsTable).set({
             balance: (parseFloat(cw.balance) + walletDebit).toFixed(2),
@@ -81840,7 +82097,7 @@ router4.post("/withdraw", authMiddleware, transactionRateLimit, async (req, res)
       updatedAt: /* @__PURE__ */ new Date()
     }).where(eq(transactionsTable.id, tx.id));
     if (isPixFailed) {
-      const [currentWallet] = await db.select().from(walletsTable).where(and(eq(walletsTable.userId, req.userId), eq(walletsTable.currency, currency))).limit(1);
+      const currentWallet = await getOrCreateWallet(req.userId, currency, country);
       if (currentWallet) {
         await db.update(walletsTable).set({
           balance: (parseFloat(currentWallet.balance) + walletDebit).toFixed(2),
@@ -82471,7 +82728,7 @@ router4.post("/webhook", async (req, res) => {
       return;
     }
     if (status === "SUCCESS" && tx.type === "DEPOSIT") {
-      const [wallet] = await db.select().from(walletsTable).where(and(eq(walletsTable.userId, tx.userId), eq(walletsTable.currency, tx.currency))).limit(1);
+      const wallet = await getOrCreateWallet(tx.userId, tx.currency, tx.country);
       if (wallet) {
         await db.update(walletsTable).set({
           balance: (parseFloat(wallet.balance) + parseFloat(tx.netAmount)).toString(),
@@ -82882,12 +83139,15 @@ router6.get("/fees", authMiddleware, async (req, res) => {
 });
 router6.get("/available-operators", async (_req, res) => {
   try {
-    const [pixResult, mavResult] = await Promise.all([
+    const [pixResult, mavResult, pawaResult] = await Promise.all([
       db.execute(
         sql`SELECT operator, country, type FROM pixpay_services WHERE active = true`
       ),
       db.execute(
         sql`SELECT operator, country, type FROM maviance_services WHERE active = true`
+      ).catch(() => ({ rows: [] })),
+      db.execute(
+        sql`SELECT operator, country, type FROM pawapay_services WHERE active = true`
       ).catch(() => ({ rows: [] }))
     ]);
     const map2 = {};
@@ -82910,6 +83170,9 @@ router6.get("/available-operators", async (_req, res) => {
     for (const row of mavResult.rows) {
       addRow(row, "MAVIANCE");
     }
+    for (const row of pawaResult.rows) {
+      addRow(row, "PAWAPAY");
+    }
     res.json({ available: map2 });
   } catch {
     res.json({ available: {} });
@@ -82931,13 +83194,13 @@ var services_default = router6;
 var import_express7 = __toESM(require_express2(), 1);
 init_schema2();
 init_drizzle_orm();
-var import_crypto4 = require("crypto");
+var import_crypto6 = require("crypto");
 var router7 = (0, import_express7.Router)();
 var KEY_TYPE_SCHEMA = external_exports.enum(["payin", "payout"]);
 function generateKey(type) {
   const tag = type === "payin" ? "IN" : "OUT";
-  const raw = `YKP_${tag}_${(0, import_crypto4.randomBytes)(24).toString("hex")}`;
-  const hash2 = (0, import_crypto4.createHash)("sha256").update(raw).digest("hex");
+  const raw = `YKP_${tag}_${(0, import_crypto6.randomBytes)(24).toString("hex")}`;
+  const hash2 = (0, import_crypto6.createHash)("sha256").update(raw).digest("hex");
   const prefix = raw.slice(0, 16);
   return { raw, hash: hash2, prefix };
 }
@@ -84200,6 +84463,86 @@ router9.post("/maviance/sync-services", async (req, res) => {
     res.status(502).json({ error: "SyncFailed", message: err instanceof Error ? err.message : "Sync Maviance \xE9chou\xE9" });
   }
 });
+router9.get("/pawapay/services", async (_req, res) => {
+  try {
+    const result = await db.execute(sql`SELECT id, operator, country, currency, type, provider_code, active, notes, updated_at FROM pawapay_services ORDER BY country, operator, type`);
+    res.json({ services: result.rows });
+  } catch {
+    res.status(500).json({ error: "InternalError", message: "Impossible de charger les services pawaPay" });
+  }
+});
+router9.get("/pawapay/active-configuration", async (_req, res) => {
+  try {
+    res.json({ configuration: await getActiveConfiguration() });
+  } catch (err) {
+    res.status(502).json({ error: "ProviderError", message: err instanceof Error ? err.message : "pawaPay configuration unavailable" });
+  }
+});
+router9.post("/pawapay/sync-services", async (req, res) => {
+  try {
+    const configuration = await getActiveConfiguration();
+    const synced = [];
+    const alpha2 = { BEN: "BJ", BFA: "BF", CMR: "CM", COD: "CD", COG: "CG", CIV: "CI", GAB: "GA", GMB: "GM", GIN: "GN", MLI: "ML", SEN: "SN", TGO: "TG" };
+    const operatorName = (value) => {
+      const v = value.toUpperCase();
+      if (v.includes("ORANGE")) return "ORANGE";
+      if (v.includes("AIRTEL")) return "AIRTEL";
+      if (v.includes("MOOV")) return "MOOV";
+      if (v.includes("WAVE")) return "WAVE";
+      if (v.includes("MTN")) return "MTN";
+      if (v.includes("VODACOM") || v.includes("MPESA")) return "VODACOM";
+      return v.replace(/_[A-Z]{3}$/, "");
+    };
+    await db.execute(sql`UPDATE pawapay_services SET active=false, updated_at=NOW()`);
+    for (const countryConfig of configuration?.countries ?? []) {
+      const country = alpha2[String(countryConfig.country ?? "").toUpperCase()];
+      if (!country) continue;
+      for (const provider of countryConfig.providers ?? []) {
+        const providerCode = String(provider.provider ?? provider.code ?? "");
+        const operator = operatorName(String(provider.displayName ?? providerCode));
+        for (const currencyConfig of provider.currencies ?? []) {
+          const currency = String(currencyConfig.currency ?? "").toUpperCase();
+          const operationTypes = currencyConfig.operationTypes ?? [];
+          for (const entry of operationTypes) {
+            const operation = typeof entry === "string" ? entry : String(entry.operationType ?? Object.keys(entry)[0] ?? "");
+            const op = operation.toUpperCase();
+            const type = op === "PAYOUT" ? "WITHDRAWAL" : ["DEPOSIT", "PUSH_DEPOSIT", "USSD_DEPOSIT"].includes(op) ? "DEPOSIT" : null;
+            if (!type || !currency || !providerCode) continue;
+            const duplicate = synced.some((s) => s.country === country && s.operator === operator && s.currency === currency && s.type === type);
+            if (duplicate) continue;
+            await db.execute(sql`INSERT INTO pawapay_services (operator,country,currency,type,provider_code,active,notes) VALUES (${operator},${country},${currency},${type},${providerCode},true,${String(provider.displayName ?? providerCode)}) ON DUPLICATE KEY UPDATE provider_code=${providerCode},active=true,notes=${String(provider.displayName ?? providerCode)},updated_at=NOW()`);
+            synced.push({ country, operator, currency, type, providerCode });
+          }
+        }
+      }
+    }
+    res.json({ success: true, synced, total: synced.length, configuration });
+  } catch (err) {
+    req.log.error({ err }, "pawaPay service sync error");
+    res.status(502).json({ error: "SyncFailed", message: err instanceof Error ? err.message : "pawaPay sync failed" });
+  }
+});
+router9.get("/pawapay/wallet-balance", async (_req, res) => {
+  try {
+    const raw = await getWalletBalances();
+    const alpha2 = { BEN: "BJ", BFA: "BF", CMR: "CM", COD: "CD", COG: "CG", CIV: "CI", GAB: "GA", GMB: "GM", GIN: "GN", MLI: "ML", SEN: "SN", TGO: "TG" };
+    const rows = Array.isArray(raw) ? raw : raw.walletBalances ?? raw.balances ?? [];
+    const services = await db.execute(sql`SELECT DISTINCT country, provider_code FROM pawapay_services WHERE active=true`);
+    const balances = rows.map((row) => {
+      const country = alpha2[String(row.country ?? row.countryCode ?? "").toUpperCase()] ?? row.country;
+      return {
+        country,
+        countryCode: country,
+        currency: row.currency,
+        balance: row.balance ?? row.availableBalance ?? "0",
+        activeProviders: services.rows.filter((s) => s.country === country).map((s) => s.provider_code)
+      };
+    });
+    res.json({ balances });
+  } catch (err) {
+    res.status(502).json({ error: "ProviderError", message: err instanceof Error ? err.message : "pawaPay wallet balances unavailable" });
+  }
+});
 router9.get("/provider-config", async (_req, res) => {
   try {
     const result = await db.execute(sql`
@@ -84217,7 +84560,7 @@ router9.put("/provider-config", async (req, res) => {
     country: external_exports.string().length(2).toUpperCase(),
     operator: external_exports.string().min(2).toUpperCase(),
     type: external_exports.enum(["DEPOSIT", "WITHDRAWAL"]),
-    provider: external_exports.enum(["PIXPAY", "MAVIANCE"])
+    provider: external_exports.enum(["PIXPAY", "MAVIANCE", "PAWAPAY"])
   });
   const parse3 = schema.safeParse(req.body);
   if (!parse3.success) {
@@ -84557,7 +84900,7 @@ router9.patch("/transactions/:id/status", async (req, res) => {
       res.status(409).json({ error: "Conflict", message: "Le statut a d\xE9j\xE0 \xE9t\xE9 modifi\xE9 par un autre acteur. Veuillez recharger la page." });
       return;
     }
-    const [wallet] = await db.select().from(walletsTable).where(and(eq(walletsTable.userId, tx.userId), eq(walletsTable.currency, tx.currency))).limit(1);
+    const wallet = await getOrCreateWallet(tx.userId, tx.currency, tx.country);
     if (wallet) {
       let delta = 0;
       if (tx.type === "DEPOSIT") {
@@ -84884,6 +85227,8 @@ router9.get("/env-check", (req, res) => {
     { name: "MAVIANCE_SECRET", value: process.env.MAVIANCE_SECRET, required: false },
     { name: "MAVIANCE_ENV", value: process.env.MAVIANCE_ENV, required: false },
     { name: "MAVIANCE_IPN_BASE_URL", value: process.env.MAVIANCE_IPN_BASE_URL, required: false },
+    { name: "PAWAPAY_API_TOKEN", value: process.env.PAWAPAY_API_TOKEN, required: false },
+    { name: "PAWAPAY_ENV", value: process.env.PAWAPAY_ENV, required: false },
     { name: "PIXPAY_IPN_BASE_URL", value: process.env.PIXPAY_IPN_BASE_URL, required: false },
     { name: "NOWPAYMENTS_API_KEY", value: process.env.NOWPAYMENTS_API_KEY, required: false },
     { name: "NOWPAYMENTS_IPN_SECRET", value: process.env.NOWPAYMENTS_IPN_SECRET, required: false },
@@ -84945,7 +85290,7 @@ async function createNotification(userId, type, title, body, transactionId) {
 }
 
 // src/lib/webhookDispatch.ts
-var import_crypto5 = __toESM(require("crypto"), 1);
+var import_crypto7 = __toESM(require("crypto"), 1);
 init_schema2();
 init_drizzle_orm();
 function dispatchWebhook(userId, payload, notificationUrl) {
@@ -84959,7 +85304,7 @@ function dispatchWebhook(userId, payload, notificationUrl) {
       if (!url2) return;
       const body = JSON.stringify(payload);
       const secret = process.env.SESSION_SECRET ?? "yookpay-secret-key";
-      const sig = import_crypto5.default.createHmac("sha256", secret).update(body).digest("hex");
+      const sig = import_crypto7.default.createHmac("sha256", secret).update(body).digest("hex");
       const resp = await fetch(url2, {
         method: "POST",
         headers: {
@@ -85007,6 +85352,40 @@ function getNotificationUrl(metadata) {
 
 // src/routes/ipn.ts
 var router10 = (0, import_express10.Router)();
+router10.post("/pawapay", async (req, res) => {
+  const body = req.body;
+  const providerReference = body.depositId ?? body.payoutId;
+  if (!providerReference) {
+    res.status(200).json({ ok: true, note: "invalid_reference" });
+    return;
+  }
+  try {
+    const [tx] = await db.select().from(transactionsTable).where(eq(transactionsTable.providerReference, providerReference)).limit(1);
+    if (!tx) {
+      res.status(200).json({ ok: false, reason: "not_found" });
+      return;
+    }
+    const verifiedResult = pawaResultStatus(
+      tx.type === "WITHDRAWAL" ? await getPayoutStatus(providerReference) : await getDepositStatus(providerReference)
+    );
+    const status = pawaFinalStatus(verifiedResult.status);
+    if (!status) {
+      res.status(200).json({ ok: true, note: "verified_non_final_state" });
+      return;
+    }
+    const claimed = await settleProviderTransaction(tx.id, status);
+    if (!claimed) {
+      res.status(200).json({ ok: true, note: "already_processed" });
+      return;
+    }
+    dispatchWebhook(tx.userId, buildTxPayload({ ...tx, status, updatedAt: /* @__PURE__ */ new Date() }), getNotificationUrl(tx.metadata));
+    await handleWalletAndNotify(tx, status, false, false, req.log);
+    res.status(200).json({ ok: true, processed: status });
+  } catch (err) {
+    req.log?.error({ err, providerReference }, "pawaPay IPN processing error");
+    res.status(500).json({ ok: false, error: "processing_error" });
+  }
+});
 router10.post("/pixpay", async (req, res) => {
   const body = req.body;
   req.log?.info({ pixId: body.transaction_id, state: body.state, ref: body.custom_data }, "PixPay IPN received");
@@ -85188,7 +85567,7 @@ async function handleWalletAndNotify(tx, newStatus, isSuccess, isFailed, log) {
   const meta = tx.metadata;
   if (isSuccess) {
     if (tx.type === "DEPOSIT" || tx.type === "CARD_DEPOSIT") {
-      const [wallet] = await db.select().from(walletsTable).where(and(eq(walletsTable.userId, tx.userId), eq(walletsTable.currency, tx.currency))).limit(1);
+      const wallet = await getOrCreateWallet(tx.userId, tx.currency, tx.country);
       if (wallet) {
         const creditAmount = parseFloat(tx.netAmount);
         const newBalance = parseFloat(wallet.balance) + creditAmount;
@@ -85216,7 +85595,7 @@ async function handleWalletAndNotify(tx, newStatus, isSuccess, isFailed, log) {
     }
   } else if (isFailed) {
     if (tx.type === "WITHDRAWAL") {
-      const [wallet] = await db.select().from(walletsTable).where(and(eq(walletsTable.userId, tx.userId), eq(walletsTable.currency, tx.currency))).limit(1);
+      const wallet = await getOrCreateWallet(tx.userId, tx.currency, tx.country);
       if (wallet) {
         const refundAmount = parseFloat(tx.netAmount) + parseFloat(tx.fee);
         const newBalance = parseFloat(wallet.balance) + refundAmount;
@@ -85320,7 +85699,7 @@ var nowpayments_ipn_default = router11;
 
 // src/routes/payment-links.ts
 var import_express12 = __toESM(require_express2(), 1);
-var import_crypto6 = __toESM(require("crypto"), 1);
+var import_crypto8 = __toESM(require("crypto"), 1);
 var router12 = (0, import_express12.Router)();
 var DIAL_CODES2 = {
   BJ: "229",
@@ -85368,6 +85747,13 @@ async function getMavianceServiceId2(operator, currency, type, country) {
   if (!r.rows.length) return null;
   return r.rows[0].service_id;
 }
+async function getPawaPayProviderCode2(operator, currency, type, country) {
+  const r = await pgQuery(
+    `SELECT provider_code FROM pawapay_services WHERE operator=$1 AND currency=$2 AND type=$3 AND country=$4 AND active=true LIMIT 1`,
+    [operator.toUpperCase(), currency.toUpperCase(), type, country.toUpperCase()]
+  ).catch(() => ({ rows: [] }));
+  return r.rows[0]?.provider_code ?? null;
+}
 async function getProviderForRoute2(country, operator, type) {
   try {
     const r = await pgQuery(
@@ -85375,7 +85761,8 @@ async function getProviderForRoute2(country, operator, type) {
        WHERE country = $1 AND operator = $2 AND type = $3 LIMIT 1`,
       [country.toUpperCase(), operator.toUpperCase(), type]
     );
-    return r.rows[0]?.provider?.toUpperCase() === "MAVIANCE" ? "MAVIANCE" : "PIXPAY";
+    const provider = r.rows[0]?.provider?.toUpperCase();
+    return provider === "MAVIANCE" || provider === "PAWAPAY" ? provider : "PIXPAY";
   } catch {
     return "PIXPAY";
   }
@@ -85428,7 +85815,7 @@ router12.post("/", authMiddleware, async (req, res) => {
     res.status(400).json({ error: "ValidationError", message: "Montant et devise requis pour un prix fixe" });
     return;
   }
-  const token = import_crypto6.default.randomBytes(5).toString("hex");
+  const token = import_crypto8.default.randomBytes(5).toString("hex");
   try {
     const ins = await pgQuery(
       `INSERT INTO payment_links (user_id, token, title, description, photo_data, price_type, price_amount, currency, countries)
@@ -85668,7 +86055,7 @@ router12.post("/public/:token/pay", async (req, res) => {
     return;
   }
   const provider = await getProviderForRoute2(country, operator, "DEPOSIT");
-  const serviceId = provider === "MAVIANCE" ? await getMavianceServiceId2(operator, currency, "DEPOSIT", country) : await getPixPayServiceId2(operator, currency, "DEPOSIT", country);
+  const serviceId = provider === "PAWAPAY" ? await getPawaPayProviderCode2(operator, currency, "DEPOSIT", country) : provider === "MAVIANCE" ? await getMavianceServiceId2(operator, currency, "DEPOSIT", country) : await getPixPayServiceId2(operator, currency, "DEPOSIT", country);
   if (serviceId === null) {
     res.status(503).json({
       error: "ServiceNotAvailable",
@@ -85717,6 +86104,30 @@ router12.post("/public/:token/pay", async (req, res) => {
       [txIns.insertId]
     );
     const tx = txSel.rows[0];
+    if (provider === "PAWAPAY") {
+      const pawaId = import_crypto8.default.randomUUID();
+      await pgQuery("UPDATE transactions SET provider_reference=$1, updated_at=NOW() WHERE id=$2 AND status='PENDING'", [pawaId, tx.id]);
+      try {
+        const result = await initiateDeposit2({ amount: providerAmount, currency, phone: normalizePawaPayPhone(phone, country), provider: String(serviceId), depositId: pawaId });
+        const state = pawaResultStatus(result);
+        const final = state.status.toUpperCase() === "REJECTED" ? "FAILED" : pawaFinalStatus(state.status);
+        await pgQuery(
+          `UPDATE transactions SET provider_reference=$1, metadata=JSON_MERGE_PATCH(COALESCE(metadata, '{}'), $2), updated_at=NOW() WHERE id=$3 AND status='PENDING'`,
+          [state.depositId ?? pawaId, JSON.stringify({ pawaStatus: state.status, pawaFailureCode: state.failureReason?.failureCode }), tx.id]
+        );
+        if (final) await settleProviderTransaction(tx.id, final);
+        if (final === "FAILED") {
+          res.status(422).json({ error: "PawaPayError", message: state.failureReason?.failureMessage ?? "Paiement refus\xE9" });
+          return;
+        }
+        res.status(201).json({ transaction: { id: tx.id, amount: parseFloat(tx.amount), currency: tx.currency, status: "PENDING" }, provider: "PAWAPAY", pending: true, message: "Validez le paiement Mobile Money sur votre t\xE9l\xE9phone." });
+        return;
+      } catch (err) {
+        await pgQuery("UPDATE transactions SET metadata=JSON_MERGE_PATCH(COALESCE(metadata, '{}'), $1), updated_at=NOW() WHERE id=$2 AND status='PENDING'", [JSON.stringify({ pawaTransportError: err instanceof Error ? err.message : "pawaPay unavailable" }), tx.id]);
+        res.status(202).json({ transaction: { id: tx.id, amount: parseFloat(tx.amount), currency: tx.currency, status: "PENDING" }, provider: "PAWAPAY", pending: true, message: "Paiement en cours de r\xE9conciliation." });
+        return;
+      }
+    }
     if (provider === "MAVIANCE") {
       let mavResult;
       try {
@@ -86312,17 +86723,17 @@ var support_default = router14;
 var import_express15 = __toESM(require_express2(), 1);
 init_schema2();
 init_drizzle_orm();
-var import_crypto7 = require("crypto");
+var import_crypto9 = require("crypto");
 var router15 = (0, import_express15.Router)();
 async function resolveMerchantFromKey(rawKey) {
-  const hash2 = (0, import_crypto7.createHash)("sha256").update(rawKey).digest("hex");
+  const hash2 = (0, import_crypto9.createHash)("sha256").update(rawKey).digest("hex");
   const [key] = await db.select({ id: apiKeysTable.id, userId: apiKeysTable.userId, keyType: apiKeysTable.keyType, active: apiKeysTable.active }).from(apiKeysTable).where(and(eq(apiKeysTable.keyHash, hash2), eq(apiKeysTable.active, true))).limit(1);
   if (!key || key.keyType !== "payin") return null;
   await db.update(apiKeysTable).set({ lastUsedAt: /* @__PURE__ */ new Date() }).where(eq(apiKeysTable.id, key.id));
   return { userId: key.userId, keyId: key.id };
 }
 async function resolveMerchantFromAnyKey(rawKey) {
-  const hash2 = (0, import_crypto7.createHash)("sha256").update(rawKey).digest("hex");
+  const hash2 = (0, import_crypto9.createHash)("sha256").update(rawKey).digest("hex");
   const [key] = await db.select({ id: apiKeysTable.id, userId: apiKeysTable.userId, keyType: apiKeysTable.keyType, active: apiKeysTable.active }).from(apiKeysTable).where(and(eq(apiKeysTable.keyHash, hash2), eq(apiKeysTable.active, true))).limit(1);
   if (!key) return null;
   await db.update(apiKeysTable).set({ lastUsedAt: /* @__PURE__ */ new Date() }).where(eq(apiKeysTable.id, key.id));
@@ -86434,7 +86845,7 @@ router15.post("/v1/payout", async (req, res) => {
     res.status(401).json({ error: "Unauthorized", message: "En-t\xEAte x-api-key manquant." });
     return;
   }
-  const hash2 = (0, import_crypto7.createHash)("sha256").update(rawKey).digest("hex");
+  const hash2 = (0, import_crypto9.createHash)("sha256").update(rawKey).digest("hex");
   const [keyRow] = await db.select({ id: apiKeysTable.id, userId: apiKeysTable.userId, keyType: apiKeysTable.keyType, active: apiKeysTable.active }).from(apiKeysTable).where(and(eq(apiKeysTable.keyHash, hash2), eq(apiKeysTable.active, true))).limit(1);
   if (!keyRow || keyRow.keyType !== "payout") {
     res.status(401).json({ error: "Unauthorized", message: "Cl\xE9 API invalide, r\xE9voqu\xE9e ou de type incorrect (payout requis)." });
@@ -86454,7 +86865,7 @@ router15.post("/v1/payout", async (req, res) => {
     return;
   }
   try {
-    const [wallet] = await db.select().from(walletsTable).where(and(eq(walletsTable.userId, merchantUserId), eq(walletsTable.currency, currency))).limit(1);
+    const wallet = await getOrCreateWallet(merchantUserId, currency, country);
     if (!wallet) {
       res.status(400).json({ error: "WalletNotFound", message: `Wallet ${currency} introuvable.` });
       return;
@@ -86844,13 +87255,32 @@ async function runStartupMigrations() {
     await conn.execute(`
       ALTER TABLE wallets ADD COLUMN IF NOT EXISTS locked_balance DECIMAL(18,2) NOT NULL DEFAULT 0
     `);
+    await conn.execute(`CREATE TEMPORARY TABLE IF NOT EXISTS wallet_keep AS SELECT MIN(id) id, user_id,currency,country,SUM(balance) balance,SUM(locked_balance) locked_balance FROM wallets GROUP BY user_id,currency,country`);
+    await conn.execute(`UPDATE wallets w JOIN wallet_keep k ON w.id=k.id SET w.balance=k.balance,w.locked_balance=k.locked_balance`);
+    await conn.execute(`DELETE w FROM wallets w JOIN wallet_keep k ON w.user_id=k.user_id AND w.currency=k.currency AND w.country=k.country AND w.id<>k.id`);
+    await conn.execute(`DROP TEMPORARY TABLE IF EXISTS wallet_keep`);
+    await conn.execute(`
+      CREATE UNIQUE INDEX IF NOT EXISTS wallets_user_currency_country_uq
+      ON wallets (user_id, currency, country)
+    `);
     await conn.execute(`
       INSERT INTO wallets (user_id, currency, balance, locked_balance, country)
       SELECT u.id, 'USDT', 0, 0, 'ZZ'
       FROM users u
       WHERE NOT EXISTS (
-        SELECT 1 FROM wallets w WHERE w.user_id = u.id AND w.currency = 'USDT'
+        SELECT 1 FROM wallets w WHERE w.user_id = u.id AND w.currency = 'USDT' AND w.country = 'ZZ'
       )
+    `);
+    await conn.execute(`
+      INSERT IGNORE INTO wallets (user_id, currency, balance, locked_balance, country)
+      SELECT u.id, c.currency, 0, 0, c.country
+      FROM users u
+      CROSS JOIN (
+        SELECT 'CM' country, 'XAF' currency UNION ALL SELECT 'CG','XAF' UNION ALL SELECT 'GA','XAF'
+        UNION ALL SELECT 'BJ','XOF' UNION ALL SELECT 'BF','XOF' UNION ALL SELECT 'CI','XOF'
+        UNION ALL SELECT 'GM','GMD' UNION ALL SELECT 'GN','GNF' UNION ALL SELECT 'ML','XOF'
+        UNION ALL SELECT 'SN','XOF' UNION ALL SELECT 'TG','XOF' UNION ALL SELECT 'CD','CDF'
+      ) c
     `);
     await conn.execute(`
       CREATE TABLE IF NOT EXISTS crypto_exchanges (
@@ -87024,6 +87454,23 @@ async function runStartupMigrations() {
         UNIQUE KEY provider_config_uq (country, operator, type)
       ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
     `);
+    await conn.execute(`
+      CREATE TABLE IF NOT EXISTS pawapay_services (
+        id INT NOT NULL AUTO_INCREMENT, operator VARCHAR(30) NOT NULL, country VARCHAR(5) NOT NULL,
+        currency VARCHAR(10) NOT NULL, type VARCHAR(20) NOT NULL, provider_code VARCHAR(80) NOT NULL,
+        active TINYINT(1) NOT NULL DEFAULT 1, notes TEXT DEFAULT NULL,
+        created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP, updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+        PRIMARY KEY (id), UNIQUE KEY pawapay_services_uq (operator, country, currency, type)
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+    `);
+    await conn.execute(`
+      CREATE TABLE IF NOT EXISTS wallet_ledger (
+        id BIGINT NOT NULL AUTO_INCREMENT, transaction_id INT NOT NULL, wallet_id INT NOT NULL,
+        movement_type VARCHAR(20) NOT NULL, amount DECIMAL(18,2) NOT NULL, created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        PRIMARY KEY(id), UNIQUE KEY wallet_ledger_tx_movement_uq(transaction_id,movement_type),
+        KEY wallet_ledger_wallet_idx(wallet_id)
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+    `);
     logger3.info("Startup migrations completed successfully");
   } catch (err) {
     logger3.error({ err }, "Startup migration error");
@@ -87054,34 +87501,53 @@ async function expireStaleTransactions() {
     logger.info({ count: stale.length }, "Expiry worker: found stale PENDING transactions");
     for (const tx of stale) {
       try {
+        const metadata = tx.metadata ?? {};
+        const isPawaPay = String(metadata.provider ?? "").toUpperCase() === "PAWAPAY";
+        if (isPawaPay) {
+          if (!tx.providerReference) {
+            logger.warn({ txId: tx.id }, "Expiry worker: pawaPay transaction has no provider reference; keeping pending");
+            continue;
+          }
+          try {
+            const providerResult = pawaResultStatus(
+              tx.type === "WITHDRAWAL" ? await getPayoutStatus(tx.providerReference) : await getDepositStatus(tx.providerReference)
+            );
+            const verifiedStatus = pawaFinalStatus(providerResult.status);
+            if (!verifiedStatus) {
+              logger.info(
+                { txId: tx.id, providerStatus: providerResult.status },
+                "Expiry worker: pawaPay transaction is still non-final"
+              );
+              continue;
+            }
+            const settled2 = await settleProviderTransaction(tx.id, verifiedStatus);
+            if (settled2) {
+              dispatchWebhook(
+                tx.userId,
+                buildTxPayload({ ...tx, status: verifiedStatus, updatedAt: /* @__PURE__ */ new Date() }),
+                getNotificationUrl(tx.metadata)
+              );
+            }
+          } catch (providerErr) {
+            logger.warn(
+              { providerErr, txId: tx.id },
+              "Expiry worker: pawaPay verification unavailable; keeping transaction pending"
+            );
+          }
+          continue;
+        }
         const expiredAt = /* @__PURE__ */ new Date();
-        const updateResult = await db.update(transactionsTable).set({
-          status: "FAILED",
+        await db.update(transactionsTable).set({
           metadata: {
-            ...tx.metadata ?? {},
+            ...metadata,
             expiredAt: expiredAt.toISOString(),
             expireReason: `Aucune confirmation apr\xE8s ${EXPIRY_MINUTES} minutes`
           },
           updatedAt: expiredAt
         }).where(and(eq(transactionsTable.id, tx.id), eq(transactionsTable.status, "PENDING")));
-        const rowClaimed = affectedRows(updateResult);
-        if (rowClaimed > 0) {
+        const settled = await settleProviderTransaction(tx.id, "FAILED");
+        if (settled) {
           dispatchWebhook(tx.userId, buildTxPayload({ ...tx, status: "FAILED", updatedAt: expiredAt }), getNotificationUrl(tx.metadata));
-        }
-        if (tx.type === "WITHDRAWAL") {
-          const [wallet] = await db.select().from(walletsTable).where(and(eq(walletsTable.userId, tx.userId), eq(walletsTable.currency, tx.currency))).limit(1);
-          if (wallet) {
-            const refund = parseFloat(tx.netAmount) + parseFloat(tx.fee);
-            await db.update(walletsTable).set({
-              balance: sql`${walletsTable.balance} + CAST(${refund.toFixed(2)} AS DECIMAL(30,10))`,
-              updatedAt: /* @__PURE__ */ new Date()
-            }).where(eq(walletsTable.id, wallet.id));
-            logger.info(
-              { txId: tx.id, reference: tx.reference, refund, currency: tx.currency },
-              "Expiry worker: WITHDRAWAL expired \u2014 wallet refunded"
-            );
-          }
-        } else {
           logger.info(
             { txId: tx.id, reference: tx.reference, type: tx.type },
             "Expiry worker: transaction expired"
@@ -87144,6 +87610,8 @@ async function startServer() {
   logger.info(`[ENV CHECK] MAVIANCE_ENV = ${mavianceEnv}`);
   logger.info(`[ENV CHECK] MAVIANCE_PUBLIC_KEY = ${process.env["MAVIANCE_PUBLIC_KEY"] ? "SET \u2713" : "NOT SET \u2717"}`);
   logger.info(`[ENV CHECK] MAVIANCE_SECRET     = ${process.env["MAVIANCE_SECRET"] ? "SET \u2713" : "NOT SET \u2717"}`);
+  logger.info(`[ENV CHECK] PAWAPAY_ENV = ${process.env["PAWAPAY_ENV"] ?? "sandbox (default)"}`);
+  logger.info(`[ENV CHECK] PAWAPAY_API_TOKEN = ${process.env["PAWAPAY_API_TOKEN"] ? "SET \u2713" : "NOT SET \u2717"}`);
   const dbUrl = process.env.MYSQL_DATABASE_URL || process.env.DATABASE_URL;
   if (!dbUrl) {
     logger.warn(
