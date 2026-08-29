@@ -84463,6 +84463,83 @@ router9.post("/maviance/sync-services", async (req, res) => {
     res.status(502).json({ error: "SyncFailed", message: err instanceof Error ? err.message : "Sync Maviance \xE9chou\xE9" });
   }
 });
+var PAWAPAY_ALPHA2 = {
+  BEN: "BJ",
+  BFA: "BF",
+  CMR: "CM",
+  COD: "CD",
+  COG: "CG",
+  CIV: "CI",
+  GAB: "GA",
+  GMB: "GM",
+  GIN: "GN",
+  MLI: "ML",
+  SEN: "SN",
+  TGO: "TG"
+};
+function normalizePawaPayOperator(value) {
+  const normalized = value.toUpperCase().replace(/[\s-]+/g, "_");
+  if (normalized.includes("ORANGE")) return "ORANGE";
+  if (normalized.includes("AIRTEL")) return "AIRTEL";
+  if (normalized.includes("MOOV")) return "MOOV";
+  if (normalized.includes("WAVE")) return "WAVE";
+  if (normalized.includes("MTN")) return "MTN";
+  if (normalized.includes("VODACOM") || normalized.includes("MPESA") || normalized.includes("M_PESA")) return "VODACOM";
+  if (normalized.includes("AFRICELL") || normalized.includes("AFRIMONEY")) return "AFRICELL";
+  if (normalized.includes("QMON") || normalized.includes("Q_MONEY")) return "QMONEY";
+  if (normalized.includes("FREE")) return "FREE";
+  if (normalized.includes("TOGOCEL") || normalized.includes("T_MONEY")) return "TOGOCEL";
+  return normalized.replace(/_[A-Z]{3}$/, "");
+}
+function pawaPayOperationEntries(value) {
+  if (Array.isArray(value)) {
+    return value.map((entry) => {
+      if (typeof entry === "string") return { operation: entry };
+      const record2 = entry ?? {};
+      return {
+        operation: String(record2.operationType ?? Object.keys(record2)[0] ?? ""),
+        status: typeof record2.status === "string" ? record2.status : void 0
+      };
+    });
+  }
+  if (value && typeof value === "object") {
+    return Object.entries(value).map(([operation, details]) => ({
+      operation,
+      status: details && typeof details === "object" && typeof details.status === "string" ? String(details.status) : void 0
+    }));
+  }
+  return [];
+}
+router9.get("/pawapay/status", async (_req, res) => {
+  try {
+    const result = await db.execute(sql`
+      SELECT
+        COUNT(CASE WHEN active = true THEN 1 END) AS active_services,
+        COUNT(DISTINCT CASE WHEN active = true THEN country END) AS active_countries,
+        COUNT(CASE WHEN active = true AND type = 'DEPOSIT' THEN 1 END) AS deposits,
+        COUNT(CASE WHEN active = true AND type = 'WITHDRAWAL' THEN 1 END) AS withdrawals,
+        MAX(updated_at) AS last_sync_at
+      FROM pawapay_services
+    `);
+    const row = result.rows[0] ?? {};
+    res.json({
+      environment: process.env.PAWAPAY_ENV === "production" ? "production" : "sandbox",
+      configured: Boolean(process.env.PAWAPAY_API_TOKEN),
+      activeServices: Number(row.active_services ?? 0),
+      activeCountries: Number(row.active_countries ?? 0),
+      deposits: Number(row.deposits ?? 0),
+      withdrawals: Number(row.withdrawals ?? 0),
+      lastSyncAt: row.last_sync_at ?? null
+    });
+  } catch (err) {
+    res.status(500).json({
+      error: "InternalError",
+      message: "Impossible de lire l\u2019\xE9tat pawaPay",
+      environment: process.env.PAWAPAY_ENV === "production" ? "production" : "sandbox",
+      configured: Boolean(process.env.PAWAPAY_API_TOKEN)
+    });
+  }
+});
 router9.get("/pawapay/services", async (_req, res) => {
   try {
     const result = await db.execute(sql`SELECT id, operator, country, currency, type, provider_code, active, notes, updated_at FROM pawapay_services ORDER BY country, operator, type`);
@@ -84481,42 +84558,49 @@ router9.get("/pawapay/active-configuration", async (_req, res) => {
 router9.post("/pawapay/sync-services", async (req, res) => {
   try {
     const configuration = await getActiveConfiguration();
-    const synced = [];
-    const alpha2 = { BEN: "BJ", BFA: "BF", CMR: "CM", COD: "CD", COG: "CG", CIV: "CI", GAB: "GA", GMB: "GM", GIN: "GN", MLI: "ML", SEN: "SN", TGO: "TG" };
-    const operatorName = (value) => {
-      const v = value.toUpperCase();
-      if (v.includes("ORANGE")) return "ORANGE";
-      if (v.includes("AIRTEL")) return "AIRTEL";
-      if (v.includes("MOOV")) return "MOOV";
-      if (v.includes("WAVE")) return "WAVE";
-      if (v.includes("MTN")) return "MTN";
-      if (v.includes("VODACOM") || v.includes("MPESA")) return "VODACOM";
-      return v.replace(/_[A-Z]{3}$/, "");
-    };
-    await db.execute(sql`UPDATE pawapay_services SET active=false, updated_at=NOW()`);
+    const discovered = [];
     for (const countryConfig of configuration?.countries ?? []) {
-      const country = alpha2[String(countryConfig.country ?? "").toUpperCase()];
+      const country = PAWAPAY_ALPHA2[String(countryConfig.country ?? "").toUpperCase()];
       if (!country) continue;
       for (const provider of countryConfig.providers ?? []) {
         const providerCode = String(provider.provider ?? provider.code ?? "");
-        const operator = operatorName(String(provider.displayName ?? providerCode));
+        const operator = normalizePawaPayOperator(String(provider.displayName ?? providerCode));
         for (const currencyConfig of provider.currencies ?? []) {
           const currency = String(currencyConfig.currency ?? "").toUpperCase();
-          const operationTypes = currencyConfig.operationTypes ?? [];
-          for (const entry of operationTypes) {
-            const operation = typeof entry === "string" ? entry : String(entry.operationType ?? Object.keys(entry)[0] ?? "");
-            const op = operation.toUpperCase();
+          for (const entry of pawaPayOperationEntries(currencyConfig.operationTypes)) {
+            const op = entry.operation.toUpperCase();
             const type = op === "PAYOUT" ? "WITHDRAWAL" : ["DEPOSIT", "PUSH_DEPOSIT", "USSD_DEPOSIT"].includes(op) ? "DEPOSIT" : null;
             if (!type || !currency || !providerCode) continue;
-            const duplicate = synced.some((s) => s.country === country && s.operator === operator && s.currency === currency && s.type === type);
+            if (entry.status && entry.status.toUpperCase() !== "OPERATIONAL") continue;
+            const duplicate = discovered.some(
+              (service) => service.country === country && service.operator === operator && service.currency === currency && service.type === type
+            );
             if (duplicate) continue;
-            await db.execute(sql`INSERT INTO pawapay_services (operator,country,currency,type,provider_code,active,notes) VALUES (${operator},${country},${currency},${type},${providerCode},true,${String(provider.displayName ?? providerCode)}) ON DUPLICATE KEY UPDATE provider_code=${providerCode},active=true,notes=${String(provider.displayName ?? providerCode)},updated_at=NOW()`);
-            synced.push({ country, operator, currency, type, providerCode });
+            discovered.push({
+              country,
+              operator,
+              currency,
+              type,
+              providerCode,
+              notes: String(provider.displayName ?? providerCode)
+            });
           }
         }
       }
     }
-    res.json({ success: true, synced, total: synced.length, configuration });
+    if (discovered.length === 0) {
+      throw new Error("La configuration pawaPay ne contient aucun service op\xE9rationnel compatible");
+    }
+    await db.execute(sql`UPDATE pawapay_services SET active=false, updated_at=NOW()`);
+    for (const service of discovered) {
+      await db.execute(sql`
+        INSERT INTO pawapay_services (operator,country,currency,type,provider_code,active,notes)
+        VALUES (${service.operator},${service.country},${service.currency},${service.type},${service.providerCode},true,${service.notes})
+        ON DUPLICATE KEY UPDATE
+          provider_code=${service.providerCode},active=true,notes=${service.notes},updated_at=NOW()
+      `);
+    }
+    res.json({ success: true, synced: discovered, total: discovered.length });
   } catch (err) {
     req.log.error({ err }, "pawaPay service sync error");
     res.status(502).json({ error: "SyncFailed", message: err instanceof Error ? err.message : "pawaPay sync failed" });
@@ -84525,11 +84609,10 @@ router9.post("/pawapay/sync-services", async (req, res) => {
 router9.get("/pawapay/wallet-balance", async (_req, res) => {
   try {
     const raw = await getWalletBalances();
-    const alpha2 = { BEN: "BJ", BFA: "BF", CMR: "CM", COD: "CD", COG: "CG", CIV: "CI", GAB: "GA", GMB: "GM", GIN: "GN", MLI: "ML", SEN: "SN", TGO: "TG" };
     const rows = Array.isArray(raw) ? raw : raw.walletBalances ?? raw.balances ?? [];
     const services = await db.execute(sql`SELECT DISTINCT country, provider_code FROM pawapay_services WHERE active=true`);
     const balances = rows.map((row) => {
-      const country = alpha2[String(row.country ?? row.countryCode ?? "").toUpperCase()] ?? row.country;
+      const country = PAWAPAY_ALPHA2[String(row.country ?? row.countryCode ?? "").toUpperCase()] ?? row.country;
       return {
         country,
         countryCode: country,

@@ -1,7 +1,12 @@
 import { useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { customFetch } from "@workspace/api-client-react";
-import { Activity, AlertTriangle, ArrowDownToLine, ArrowUpFromLine, CheckCircle2, CircleHelp, Globe2, MapPin, RefreshCw, ServerCog, SlidersHorizontal, XCircle, Download } from "lucide-react";
+import {
+  Activity, AlertTriangle, ArrowDownToLine, ArrowUpFromLine,
+  CheckCircle2, CircleHelp, Globe2, MapPin, RefreshCw,
+  ServerCog, SlidersHorizontal, XCircle, Download,
+  Map, Clock, AlertCircle, Wallet
+} from "lucide-react";
 import { COUNTRIES, OPERATOR_LABELS } from "@/lib/countries";
 import { useToast } from "@/hooks/use-toast";
 import { Badge } from "@/components/ui/badge";
@@ -42,11 +47,22 @@ type PawaPayWalletBalance = {
   providers?: string[];
 };
 
+type PawaPayStatus = {
+  environment: string;
+  configured: boolean;
+  activeServices: number;
+  activeCountries: number;
+  deposits: number;
+  withdrawals: number;
+  lastSyncAt: string | null;
+};
+
 const CONFIG_QUERY_KEY = ["admin", "provider-config"];
 const MAViance_SERVICES_QUERY_KEY = ["admin", "maviance-services"];
 const PIXPAY_SERVICES_QUERY_KEY = ["admin", "pixpay-services"];
 const PAWAPAY_SERVICES_QUERY_KEY = ["admin", "pawapay-services"];
 const PAWAPAY_BALANCES_QUERY_KEY = ["admin", "pawapay-wallet-balances"];
+const PAWAPAY_STATUS_QUERY_KEY = ["admin", "pawapay-status"];
 
 const OPERATION_META: Record<TransactionType, {
   label: string;
@@ -71,17 +87,17 @@ const OPERATION_META: Record<TransactionType, {
 const PROVIDER_META: Record<Provider, { label: string; accent: string; mark: string }> = {
   PIXPAY: {
     label: "PixPay",
-    accent: "border-sky-200 bg-sky-50/70 text-sky-800",
+    accent: "border-sky-200 bg-sky-50/70 text-sky-800 dark:bg-sky-900/30 dark:border-sky-800 dark:text-sky-300",
     mark: "PP",
   },
   MAVIANCE: {
     label: "Maviance",
-    accent: "border-amber-200 bg-amber-50/80 text-amber-900",
+    accent: "border-amber-200 bg-amber-50/80 text-amber-900 dark:bg-amber-900/30 dark:border-amber-800 dark:text-amber-300",
     mark: "MV",
   },
   PAWAPAY: {
     label: "pawaPay",
-    accent: "border-violet-200 bg-violet-50/80 text-violet-900",
+    accent: "border-violet-200 bg-violet-50/80 text-violet-900 dark:bg-violet-900/30 dark:border-violet-800 dark:text-violet-300",
     mark: "PW",
   },
 };
@@ -111,6 +127,7 @@ function ProviderChoice({
   selected,
   available,
   disabled,
+  disabledReason,
   onSelect,
   country,
   operator,
@@ -120,6 +137,7 @@ function ProviderChoice({
   selected: boolean;
   available: boolean;
   disabled: boolean;
+  disabledReason?: string;
   onSelect: () => void;
   country: string;
   operator: string;
@@ -127,6 +145,7 @@ function ProviderChoice({
 }) {
   const meta = PROVIDER_META[provider];
   const label = `${meta.label} — ${available ? "service actif" : "aucun service actif"}`;
+
   return (
     <button
       type="button"
@@ -135,27 +154,37 @@ function ProviderChoice({
       aria-pressed={selected}
       aria-label={label}
       data-testid={`button-provider-${provider.toLowerCase()}-${country}-${operator.toLowerCase()}-${type.toLowerCase()}`}
-      className={`group relative flex min-w-0 flex-1 items-center gap-2.5 rounded-lg border px-3 py-2.5 text-left transition-[border-color,background-color,opacity] ${
+      className={`group relative flex flex-col items-start gap-2 rounded-lg border p-2.5 text-left transition-all ${
         selected
-          ? `${meta.accent} border-current/35 shadow-sm`
-          : "border-border/80 bg-background text-muted-foreground hover:border-foreground/25 hover:bg-muted/40"
-      } ${!available ? "cursor-not-allowed opacity-45" : ""} ${disabled ? "cursor-wait" : ""}`}
+          ? `${meta.accent} border-current/40 ring-1 ring-current/20 shadow-sm`
+          : "border-border/60 bg-muted/20 text-muted-foreground hover:border-foreground/30 hover:bg-muted/50"
+      } ${!available ? "cursor-not-allowed opacity-60 grayscale-[0.3]" : ""} ${disabled && available ? "cursor-wait" : ""}`}
     >
-      <span className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-[10px] font-bold tracking-tight ${
-        selected ? "bg-background/80 text-current" : "bg-muted text-muted-foreground"
-      }`}>
-        {meta.mark}
-      </span>
-      <span className="min-w-0">
-        <span className="block truncate text-xs font-semibold">{meta.label}</span>
-        <span className="mt-0.5 flex items-center gap-1 text-[10px] font-medium">
-          {available ? <CheckCircle2 className="h-3 w-3" /> : <XCircle className="h-3 w-3" />}
-          {available ? "Disponible" : "Non configuré"}
-        </span>
-      </span>
-      {selected && available && (
-        <CheckCircle2 className="ml-auto h-4 w-4 shrink-0" aria-hidden="true" />
-      )}
+      <div className="flex w-full items-center justify-between">
+        <div className="flex items-center gap-2">
+          <span className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-md text-[9px] font-bold tracking-tighter ${
+            selected ? "bg-background/90 text-current shadow-sm" : "bg-muted-foreground/15 text-muted-foreground"
+          }`}>
+            {meta.mark}
+          </span>
+          <span className="text-xs font-semibold leading-none">{meta.label}</span>
+        </div>
+        {selected && available && (
+          <CheckCircle2 className="h-4 w-4 shrink-0" aria-hidden="true" />
+        )}
+      </div>
+
+      <div className="mt-0.5 flex w-full items-center gap-1.5">
+        {available ? (
+          <span className="flex items-center gap-1 text-[10px] font-medium text-emerald-600 dark:text-emerald-400">
+            <CheckCircle2 className="h-3 w-3" /> Disponible
+          </span>
+        ) : (
+          <span className="flex items-center gap-1 text-[10px] font-medium text-muted-foreground/80">
+            <XCircle className="h-3 w-3" /> {disabledReason || "Non configuré"}
+          </span>
+        )}
+      </div>
     </button>
   );
 }
@@ -168,6 +197,7 @@ function OperationControl({
   pixpayAvailable,
   mavianceAvailable,
   pawapayAvailable,
+  pawapayConfigured,
   isPending,
   onChange,
 }: {
@@ -178,37 +208,41 @@ function OperationControl({
   pixpayAvailable: boolean;
   mavianceAvailable: boolean;
   pawapayAvailable: boolean;
+  pawapayConfigured: boolean;
   isPending: boolean;
   onChange: (provider: Provider) => void;
 }) {
-  const { label, description, Icon } = OPERATION_META[type];
+  const { label, Icon } = OPERATION_META[type];
   const availability = { PIXPAY: pixpayAvailable, MAVIANCE: mavianceAvailable, PAWAPAY: pawapayAvailable };
   const currentProviderAvailable = availability[selectedProvider];
 
   return (
-    <div className="rounded-xl border border-border/75 bg-background/75 p-3.5 shadow-[0_1px_2px_hsl(var(--foreground)/.03)]" data-testid={`operation-${country}-${operator.toLowerCase()}-${type.toLowerCase()}`}>
-      <div className="mb-3 flex items-start gap-2.5">
-        <span className={`mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg ${
-          type === "DEPOSIT" ? "bg-emerald-100 text-emerald-700" : "bg-orange-100 text-orange-700"
-        }`}>
-          <Icon className="h-4 w-4" aria-hidden="true" />
-        </span>
-        <div className="min-w-0">
-          <p className="text-sm font-semibold text-foreground">{label}</p>
-          <p className="truncate text-[11px] text-muted-foreground">{description}</p>
+    <div className="flex flex-col gap-3 rounded-xl border border-border/50 bg-card p-3.5 shadow-[0_1px_2px_hsl(var(--foreground)/.02)]" data-testid={`operation-${country}-${operator.toLowerCase()}-${type.toLowerCase()}`}>
+      <div className="flex items-center justify-between border-b border-border/40 pb-2.5">
+        <div className="flex items-center gap-2">
+          <span className={`flex h-7 w-7 items-center justify-center rounded-lg ${
+            type === "DEPOSIT" ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-400" : "bg-orange-100 text-orange-700 dark:bg-orange-900/40 dark:text-orange-400"
+          }`}>
+            <Icon className="h-4 w-4" aria-hidden="true" />
+          </span>
+          <span className="text-sm font-semibold">{label}</span>
         </div>
-        <Badge variant="outline" className={`ml-auto shrink-0 text-[10px] ${
-          currentProviderAvailable ? "border-emerald-200 bg-emerald-50 text-emerald-700" : "border-orange-200 bg-orange-50 text-orange-700"
+        <Badge variant="outline" className={`px-2 py-0.5 text-[10px] uppercase tracking-wider font-medium ${
+          currentProviderAvailable
+            ? "border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-900/50 dark:bg-emerald-900/20 dark:text-emerald-400"
+            : "border-orange-200 bg-orange-50 text-orange-700 dark:border-orange-900/50 dark:bg-orange-900/20 dark:text-orange-400"
         }`}>
-          {currentProviderAvailable ? "Opérationnelle" : "À configurer"}
+          {currentProviderAvailable ? "Opérationnel" : "Non configuré"}
         </Badge>
       </div>
-      <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
+
+      <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-3">
         <ProviderChoice
           provider="PIXPAY"
           selected={selectedProvider === "PIXPAY"}
           available={pixpayAvailable}
           disabled={isPending || !pixpayAvailable}
+          disabledReason="Aucun service"
           onSelect={() => onChange("PIXPAY")}
           country={country}
           operator={operator}
@@ -219,6 +253,7 @@ function OperationControl({
           selected={selectedProvider === "MAVIANCE"}
           available={mavianceAvailable}
           disabled={isPending || !mavianceAvailable}
+          disabledReason="Aucun service"
           onSelect={() => onChange("MAVIANCE")}
           country={country}
           operator={operator}
@@ -229,16 +264,18 @@ function OperationControl({
           selected={selectedProvider === "PAWAPAY"}
           available={pawapayAvailable}
           disabled={isPending || !pawapayAvailable}
+          disabledReason={!pawapayConfigured ? "Clés manquantes" : "Aucun service"}
           onSelect={() => onChange("PAWAPAY")}
           country={country}
           operator={operator}
           type={type}
         />
       </div>
+
       {!pixpayAvailable && !mavianceAvailable && !pawapayAvailable && (
-        <div className="mt-2.5 flex items-start gap-1.5 text-[11px] leading-4 text-orange-700">
+        <div className="mt-1 flex items-start gap-1.5 rounded border border-orange-200 bg-orange-50 p-2 text-[11px] leading-tight text-orange-800 dark:border-orange-900/50 dark:bg-orange-900/20 dark:text-orange-400">
           <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
-          <span>Aucun service actif. Configurez un service fournisseur avant d’activer cette opération.</span>
+          <span>Aucun service fournisseur actif pour cette opération. Configurez un fournisseur avant de router les transactions.</span>
         </div>
       )}
     </div>
@@ -271,6 +308,10 @@ export default function ProviderConfig() {
     queryKey: PAWAPAY_BALANCES_QUERY_KEY,
     queryFn: () => customFetch<PawaPayWalletBalance[] | { wallets?: PawaPayWalletBalance[]; balances?: PawaPayWalletBalance[] }>("/api/admin/pawapay/wallet-balance"),
   });
+  const pawapayStatusQuery = useQuery({
+    queryKey: PAWAPAY_STATUS_QUERY_KEY,
+    queryFn: () => customFetch<PawaPayStatus>("/api/admin/pawapay/status"),
+  });
 
   const updateProvider = useMutation({
     mutationFn: async ({ country, operator, type, provider }: ProviderConfig) => {
@@ -302,12 +343,14 @@ export default function ProviderConfig() {
   const mavianceServices = mavianceQuery.data?.services ?? [];
   const pixpayServices = pixpayQuery.data?.services ?? [];
   const pawapayServices = pawapayQuery.data?.services ?? [];
+  const pawapayStatus = pawapayStatusQuery.data;
   const pawapayBalanceData = pawapayBalancesQuery.data;
   const pawapayBalances = Array.isArray(pawapayBalanceData)
     ? pawapayBalanceData
     : pawapayBalanceData?.wallets ?? pawapayBalanceData?.balances ?? [];
-  const isLoading = configQuery.isLoading || mavianceQuery.isLoading || pixpayQuery.isLoading || pawapayQuery.isLoading;
-  const hasError = configQuery.isError || mavianceQuery.isError || pixpayQuery.isError || pawapayQuery.isError;
+
+  const isLoading = configQuery.isLoading || mavianceQuery.isLoading || pixpayQuery.isLoading || pawapayQuery.isLoading || pawapayStatusQuery.isLoading;
+  const hasError = configQuery.isError || mavianceQuery.isError || pixpayQuery.isError || pawapayQuery.isError || pawapayStatusQuery.isError;
 
   const visibleCountries = useMemo(
     () => selectedCountry === "ALL" ? [...COUNTRIES] : COUNTRIES.filter((country) => country.code === selectedCountry),
@@ -351,6 +394,7 @@ export default function ProviderConfig() {
       queryClient.invalidateQueries({ queryKey: PIXPAY_SERVICES_QUERY_KEY }),
       queryClient.invalidateQueries({ queryKey: PAWAPAY_SERVICES_QUERY_KEY }),
       queryClient.invalidateQueries({ queryKey: PAWAPAY_BALANCES_QUERY_KEY }),
+      queryClient.invalidateQueries({ queryKey: PAWAPAY_STATUS_QUERY_KEY }),
     ]);
   };
 
@@ -373,11 +417,13 @@ export default function ProviderConfig() {
       });
     },
   });
+
   const syncPawaPay = useMutation({
     mutationFn: () => customFetch<{ success: boolean; synced?: unknown[]; total?: number }>("/api/admin/pawapay/sync-services", { method: "POST" }),
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: PAWAPAY_SERVICES_QUERY_KEY });
       queryClient.invalidateQueries({ queryKey: PAWAPAY_BALANCES_QUERY_KEY });
+      queryClient.invalidateQueries({ queryKey: PAWAPAY_STATUS_QUERY_KEY });
       toast({
         title: "Synchronisation pawaPay réussie",
         description: `${data.synced?.length ?? data.total ?? 0} service(s) pawaPay synchronisé(s).`,
@@ -391,107 +437,132 @@ export default function ProviderConfig() {
   });
 
   return (
-    <main className="mx-auto w-full max-w-[1440px] space-y-6 px-4 py-6 sm:px-6 lg:px-8 lg:py-8" data-testid="page-provider-config">
-      <section className="relative overflow-hidden rounded-2xl border border-slate-200 bg-[linear-gradient(120deg,hsl(221_40%_17%),hsl(221_34%_24%))] px-5 py-6 text-slate-50 shadow-xl shadow-slate-900/10 sm:px-8 sm:py-8">
+    <main className="mx-auto w-full max-w-[1280px] space-y-6 px-4 py-6 sm:px-6 lg:px-8 lg:py-8" data-testid="page-provider-config">
+      <section className="relative overflow-hidden rounded-2xl border border-slate-200 bg-[linear-gradient(120deg,hsl(221_40%_17%),hsl(221_34%_24%))] px-5 py-6 text-slate-50 shadow-xl shadow-slate-900/10 sm:px-8 sm:py-8 dark:border-slate-800">
         <div className="pointer-events-none absolute -right-12 -top-20 h-64 w-64 rounded-full border-[22px] border-sky-300/10" />
         <div className="pointer-events-none absolute -bottom-28 right-24 h-56 w-56 rounded-full border-[18px] border-amber-300/10" />
         <div className="relative flex flex-col gap-6 xl:flex-row xl:items-end xl:justify-between">
           <div className="max-w-2xl">
             <div className="mb-4 flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.18em] text-sky-200">
               <ServerCog className="h-4 w-4" />
-              Routage des paiements
+              Console Opérations
             </div>
-            <h1 className="text-2xl font-semibold tracking-tight sm:text-3xl">Fournisseurs par opérateur</h1>
+            <h1 className="text-2xl font-semibold tracking-tight sm:text-3xl">Routage des paiements</h1>
             <p className="mt-2 max-w-xl text-sm leading-6 text-slate-300 sm:text-[15px]">
-              Choisissez le fournisseur utilisé pour chaque dépôt et retrait. PixPay reste le choix par défaut lorsqu’aucune configuration n’est enregistrée.
+              Gérez la distribution des flux de dépôts et retraits par opérateur et par pays. Une configuration précise est requise pour assurer la disponibilité du service.
             </p>
           </div>
-          <div className="grid grid-cols-3 divide-x divide-slate-400/20 rounded-xl border border-slate-400/20 bg-slate-950/20 px-1 py-3 sm:min-w-[390px]">
+          <div className="grid grid-cols-3 divide-x divide-slate-400/20 rounded-xl border border-slate-400/20 bg-slate-950/30 px-1 py-3 sm:min-w-[390px] shadow-inner backdrop-blur-sm">
             <div className="px-3 text-center">
               <p className="font-mono text-xl font-semibold text-white">{visibleCountries.length}</p>
-              <p className="mt-1 text-[10px] uppercase tracking-wider text-slate-400">Pays affichés</p>
+              <p className="mt-1 text-[9px] uppercase tracking-wider text-slate-400">Marchés</p>
             </div>
             <div className="px-3 text-center">
               <p className="font-mono text-xl font-semibold text-white">{totalOperators}</p>
-              <p className="mt-1 text-[10px] uppercase tracking-wider text-slate-400">Opérateurs</p>
+              <p className="mt-1 text-[9px] uppercase tracking-wider text-slate-400">Opérateurs</p>
             </div>
             <div className="px-3 text-center">
               <p className="font-mono text-xl font-semibold text-sky-200">{availableProviderCount}</p>
-              <p className="mt-1 text-[10px] uppercase tracking-wider text-slate-400">Services actifs</p>
+              <p className="mt-1 text-[9px] uppercase tracking-wider text-slate-400">Services actifs</p>
             </div>
           </div>
         </div>
       </section>
 
-      <Card className="border-border/70 shadow-sm">
-        <CardContent className="flex flex-col gap-4 p-4 sm:flex-row sm:items-center sm:justify-between sm:p-5">
-          <div className="flex items-center gap-3">
-            <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary/10 text-primary">
-              <SlidersHorizontal className="h-5 w-5" />
-            </span>
-            <div>
-              <p className="text-sm font-semibold">Périmètre de configuration</p>
-              <p className="text-xs text-muted-foreground">Affichez tous les pays ou concentrez-vous sur un marché.</p>
+      <Card className="border-border/70 shadow-sm overflow-hidden">
+        <div className="grid divide-y lg:divide-y-0 lg:divide-x grid-cols-1 lg:grid-cols-3 bg-card">
+          <div className="p-4 sm:p-5 flex flex-col gap-3">
+            <div className="flex items-center gap-2 text-sm font-semibold">
+              <SlidersHorizontal className="h-4 w-4 text-muted-foreground" /> Filtre de routage
+            </div>
+            <p className="text-xs text-muted-foreground mb-1">Affichez tous les marchés ou concentrez-vous sur un pays spécifique.</p>
+            <div className="flex gap-2 mt-auto">
+              <Select value={selectedCountry} onValueChange={setSelectedCountry}>
+                <SelectTrigger className="w-full h-9" data-testid="select-provider-country">
+                  <SelectValue placeholder="Sélectionner un pays" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="ALL">Tous les pays</SelectItem>
+                  {COUNTRIES.map((country) => (
+                    <SelectItem key={country.code} value={country.code}>{country.name} ({country.code})</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <Button variant="outline" size="icon" onClick={refreshAll} title="Actualiser" className="h-9 w-9 shrink-0">
+                <RefreshCw className="h-4 w-4" />
+              </Button>
             </div>
           </div>
-          <div className="flex w-full gap-2 sm:w-auto">
-            <Select value={selectedCountry} onValueChange={setSelectedCountry}>
-              <SelectTrigger className="w-full min-w-0 sm:w-[245px]" data-testid="select-provider-country">
-                <SelectValue placeholder="Sélectionner un pays" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="ALL">Tous les pays</SelectItem>
-                {COUNTRIES.map((country) => (
-                  <SelectItem key={country.code} value={country.code}>{country.name} ({country.code})</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            <Button
-              type="button"
-              variant="outline"
-              size="icon"
-              onClick={refreshAll}
-              aria-label="Actualiser les données"
-              data-testid="button-refresh-provider-config"
-            >
-              <RefreshCw className="h-4 w-4" />
-            </Button>
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => syncMaviance.mutate()}
-              disabled={syncMaviance.isPending}
-              className="gap-1.5 text-amber-700 border-amber-300 hover:bg-amber-50"
-              title="Synchronise les services depuis l'API Maviance (CASHOUT = dépôt, CASHIN = retrait)"
-            >
-              <Download className="h-4 w-4" />
-              <span className="hidden sm:inline">{syncMaviance.isPending ? "Sync…" : "Sync Maviance"}</span>
-            </Button>
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => syncPawaPay.mutate()}
-              disabled={syncPawaPay.isPending}
-              data-testid="button-sync-pawapay"
-              className="gap-1.5 border-violet-300 text-violet-700 hover:bg-violet-50"
-              title="Synchronise les services depuis pawaPay"
-            >
-              <Download className="h-4 w-4" />
-              <span className="hidden sm:inline">{syncPawaPay.isPending ? "Sync…" : "Sync pawaPay"}</span>
-            </Button>
+
+          <div className="p-4 sm:p-5 flex flex-col gap-3 bg-amber-50/10 dark:bg-amber-900/5">
+            <div className="flex items-start justify-between">
+              <div className="flex items-center gap-2 text-sm font-semibold">
+                <span className="flex h-5 w-5 items-center justify-center rounded bg-amber-100 text-[9px] text-amber-700 font-bold dark:bg-amber-900/50 dark:text-amber-400">MV</span>
+                Sync. Maviance
+              </div>
+            </div>
+            <p className="text-xs text-muted-foreground mb-1">Synchronise les services de Cashin et Cashout depuis l'API Maviance.</p>
+            <div className="flex items-center justify-between mt-auto">
+              <div className="text-xs text-muted-foreground">
+                Services : <span className="font-semibold text-foreground">{mavianceServices.length}</span>
+              </div>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => syncMaviance.mutate()}
+                disabled={syncMaviance.isPending}
+                className="h-8 gap-1.5 text-xs text-amber-700 border-amber-200 hover:bg-amber-50 dark:text-amber-400 dark:border-amber-800 dark:hover:bg-amber-900/30"
+              >
+                <Download className="h-3 w-3" /> {syncMaviance.isPending ? "Sync..." : "Synchroniser"}
+              </Button>
+            </div>
           </div>
-        </CardContent>
+
+          <div className="p-4 sm:p-5 flex flex-col gap-3 bg-violet-50/10 dark:bg-violet-900/5">
+            <div className="flex items-start justify-between">
+              <div className="flex items-center gap-2 text-sm font-semibold">
+                <span className="flex h-5 w-5 items-center justify-center rounded bg-violet-100 text-[9px] text-violet-700 font-bold dark:bg-violet-900/50 dark:text-violet-400">PW</span>
+                Sync. pawaPay
+              </div>
+              {pawapayStatus?.configured ? (
+                <Badge variant="outline" className="h-5 px-1.5 text-[9px] border-emerald-200 bg-emerald-50 text-emerald-700 uppercase tracking-wider dark:border-emerald-900/50 dark:bg-emerald-900/20 dark:text-emerald-400">Configuré ({pawapayStatus.environment})</Badge>
+              ) : (
+                <Badge variant="outline" className="h-5 px-1.5 text-[9px] border-orange-200 bg-orange-50 text-orange-700 uppercase tracking-wider dark:border-orange-900/50 dark:bg-orange-900/20 dark:text-orange-400">Non configuré</Badge>
+              )}
+            </div>
+            <p className="text-xs text-muted-foreground mb-1">
+              {pawapayStatus?.lastSyncAt
+                ? `Dernière synchro: ${new Date(pawapayStatus.lastSyncAt).toLocaleString('fr-FR', { dateStyle: 'short', timeStyle: 'short' })}`
+                : "Synchronise les services et balances pawaPay."}
+            </p>
+            <div className="flex items-center justify-between mt-auto">
+              <div className="text-xs text-muted-foreground">
+                Services : <span className="font-semibold text-foreground">{pawapayStatus?.activeServices ?? pawapayServices.length}</span>
+              </div>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => syncPawaPay.mutate()}
+                disabled={syncPawaPay.isPending || (pawapayStatus && !pawapayStatus.configured)}
+                className="h-8 gap-1.5 text-xs text-violet-700 border-violet-200 hover:bg-violet-50 dark:text-violet-400 dark:border-violet-800 dark:hover:bg-violet-900/30"
+                data-testid="button-sync-pawapay"
+              >
+                <Download className="h-3 w-3" /> {syncPawaPay.isPending ? "Sync..." : "Synchroniser"}
+              </Button>
+            </div>
+          </div>
+        </div>
       </Card>
 
       {hasError ? (
-        <Card className="border-orange-200 bg-orange-50/45">
+        <Card className="border-orange-200 bg-orange-50/45 dark:bg-orange-950/20 dark:border-orange-900/50">
           <CardContent className="flex flex-col items-start gap-4 p-6 sm:flex-row sm:items-center">
-            <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-orange-100 text-orange-700">
+            <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-orange-100 text-orange-700 dark:bg-orange-900/50 dark:text-orange-400">
               <AlertTriangle className="h-5 w-5" />
             </span>
             <div className="flex-1">
-              <p className="font-semibold text-orange-950">Les données n’ont pas pu être chargées</p>
-              <p className="mt-1 text-sm text-orange-800/80">
+              <p className="font-semibold text-orange-950 dark:text-orange-200">Les données n’ont pas pu être chargées</p>
+              <p className="mt-1 text-sm text-orange-800/80 dark:text-orange-300/80">
                 Vérifiez votre connexion ou vos droits administrateur, puis réessayez.
               </p>
             </div>
@@ -501,148 +572,150 @@ export default function ProviderConfig() {
           </CardContent>
         </Card>
       ) : isLoading ? (
-        <Card>
-          <CardHeader>
-            <Skeleton className="h-6 w-56" />
-            <Skeleton className="h-4 w-80 max-w-full" />
-          </CardHeader>
-          <CardContent className="space-y-3">
-            {[1, 2, 3, 4].map((item) => (
-              <div key={item} className="grid gap-3 rounded-xl border p-4 lg:grid-cols-[minmax(190px,0.8fr)_1fr_1fr]">
-                <div className="space-y-2"><Skeleton className="h-5 w-32" /><Skeleton className="h-3 w-24" /></div>
-                <Skeleton className="h-24 w-full" />
-                <Skeleton className="h-24 w-full" />
-              </div>
-            ))}
-          </CardContent>
-        </Card>
+        <div className="space-y-6">
+          <Card>
+            <CardHeader><Skeleton className="h-6 w-56" /><Skeleton className="h-4 w-80 max-w-full mt-2" /></CardHeader>
+            <CardContent className="space-y-4">
+              {[1, 2].map((item) => (
+                <Skeleton key={item} className="h-20 w-full rounded-xl" />
+              ))}
+            </CardContent>
+          </Card>
+        </div>
       ) : visibleCountries.length === 0 || totalOperators === 0 ? (
         <Card className="border-dashed">
           <CardContent className="flex flex-col items-center justify-center px-6 py-16 text-center">
             <Globe2 className="h-10 w-10 text-muted-foreground/45" />
             <h2 className="mt-4 text-base font-semibold">Aucun opérateur à afficher</h2>
-            <p className="mt-1 max-w-sm text-sm text-muted-foreground">Sélectionnez un autre pays pour consulter son routage fournisseur.</p>
+            <p className="mt-1 max-w-sm text-sm text-muted-foreground">Sélectionnez un autre marché pour consulter le routage fournisseur.</p>
           </CardContent>
         </Card>
       ) : (
-        <>
-        <Card className="overflow-hidden border-border/70 shadow-sm" data-testid="card-pawapay-wallet-balances">
-          <CardHeader className="border-b bg-violet-50/40 px-4 py-5 sm:px-6">
-            <CardTitle className="flex items-center gap-2 text-lg">
-              <span className="flex h-7 w-7 items-center justify-center rounded-md bg-violet-600 text-[10px] font-bold text-white">PW</span>
-              Wallets pawaPay par pays
-            </CardTitle>
-            <CardDescription>Soldes pawaPay disponibles et fournisseurs actifs par marché.</CardDescription>
-          </CardHeader>
-          <CardContent className="p-0">
-            <div className="hidden grid-cols-[1.4fr_1fr_.7fr_1.2fr] gap-4 border-b bg-muted/25 px-5 py-3 text-[10px] font-semibold uppercase tracking-[.14em] text-muted-foreground sm:grid">
-              <span>Pays</span><span>Solde</span><span>Devise</span><span>Fournisseurs actifs</span>
-            </div>
-            <div className="divide-y">
-              {pawapayBalances.length ? pawapayBalances.map((wallet, index) => {
-                const code = wallet.countryCode ?? wallet.country ?? "";
-                const country = COUNTRIES.find((item) => item.code === code);
-                const providers = wallet.activeProviders ?? wallet.providers ?? [];
-                return <div key={`${code}-${wallet.currency}-${index}`} className="grid gap-2 px-4 py-3.5 sm:grid-cols-[1.4fr_1fr_.7fr_1.2fr] sm:items-center sm:gap-4 sm:px-5" data-testid={`row-pawapay-wallet-${code || index}`}>
-                  <div className="flex items-center gap-2.5"><span className="text-xl">{country?.flag ?? "🌍"}</span><span className="font-medium">{country?.name ?? (code || "—")}</span></div>
-                  <span className="font-mono font-semibold tabular-nums" data-testid={`text-pawapay-balance-${code || index}`}>{Number(wallet.balance ?? 0).toLocaleString("fr-FR")}</span>
-                  <span className="text-sm text-muted-foreground">{wallet.currency}</span>
-                  <div className="flex flex-wrap gap-1.5">{providers.length ? providers.map((provider) => <Badge key={provider} variant="outline" className="border-violet-200 bg-violet-50 text-violet-800">{provider}</Badge>) : <span className="text-xs text-muted-foreground">Aucun</span>}</div>
-                </div>;
-              }) : <div className="px-5 py-8 text-center text-sm text-muted-foreground">Aucun wallet pawaPay disponible.</div>}
-            </div>
-          </CardContent>
-        </Card>
-        <Card className="overflow-hidden border-border/70 shadow-sm">
-          <CardHeader className="border-b bg-muted/25 px-4 py-5 sm:px-6">
-            <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
-              <div>
-                <CardTitle className="flex items-center gap-2 text-lg">
-                  <Activity className="h-5 w-5 text-primary" />
-                  Routage actif
-                </CardTitle>
-                <CardDescription className="mt-1.5">
-                  {configuredCount > 0
-                    ? `${configuredCount} configuration${configuredCount > 1 ? "s" : ""} explicite${configuredCount > 1 ? "s" : ""}. Les autres lignes utilisent PixPay par défaut.`
-                    : "Aucune configuration explicite. Toutes les lignes utilisent PixPay par défaut."}
-                </CardDescription>
+        <div className="space-y-6">
+          <Card className="overflow-hidden border-border/70 shadow-sm" data-testid="card-pawapay-wallet-balances">
+            <CardHeader className="border-b bg-violet-50/40 px-4 py-4 sm:px-5 dark:bg-violet-900/10">
+              <div className="flex items-center justify-between">
+                <div>
+                  <CardTitle className="flex items-center gap-2 text-sm">
+                    <span className="flex h-6 w-6 items-center justify-center rounded bg-violet-600 text-[9px] font-bold text-white shadow-sm">PW</span>
+                    Wallets pawaPay
+                  </CardTitle>
+                </div>
+                <Badge variant="outline" className="bg-background text-[10px] font-mono shadow-sm">{pawapayBalances.length} marchés</Badge>
               </div>
-              <div className="flex items-center gap-2 text-[11px] text-muted-foreground">
-                <CircleHelp className="h-3.5 w-3.5" />
-                <span>Un fournisseur doit avoir un service actif pour être sélectionnable.</span>
+            </CardHeader>
+            <CardContent className="p-0">
+              <div className="hidden grid-cols-[1.2fr_1fr_0.8fr_2fr] gap-4 border-b bg-muted/20 px-5 py-2.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground sm:grid">
+                <span>Marché</span><span>Solde</span><span>Devise</span><span>Fournisseurs actifs</span>
               </div>
-            </div>
-          </CardHeader>
-          <CardContent className="p-3 sm:p-4">
-            <div className="mb-3 hidden grid-cols-[minmax(190px,0.8fr)_1fr_1fr] gap-3 px-4 text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground lg:grid">
-              <div>Opérateur</div>
-              <div>Dépôt</div>
-              <div>Retrait</div>
-            </div>
-            <div className="space-y-3">
-              {visibleCountries.map((country) => (
-                <section key={country.code} className="overflow-hidden rounded-xl border border-border/70" data-testid={`section-country-${country.code}`}>
-                  <div className="flex items-center justify-between border-b bg-muted/20 px-4 py-3">
-                    <div className="flex min-w-0 items-center gap-3">
-                      <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-foreground text-xs font-bold text-background">{country.code}</span>
-                      <div className="min-w-0">
-                        <h2 className="truncate text-sm font-semibold">{country.name}</h2>
-                        <p className="flex items-center gap-1 text-[11px] text-muted-foreground">
-                          <MapPin className="h-3 w-3" /> {country.currency} · {country.operators.length} opérateur{country.operators.length > 1 ? "s" : ""}
-                        </p>
+              <div className="divide-y divide-border/50">
+                {pawapayBalances.length ? pawapayBalances.map((wallet, index) => {
+                  const code = wallet.countryCode ?? wallet.country ?? "";
+                  const country = COUNTRIES.find((item) => item.code === code);
+                  const providers = wallet.activeProviders ?? wallet.providers ?? [];
+                  return (
+                    <div key={`${code}-${wallet.currency}-${index}`} className="grid gap-2.5 px-4 py-3 sm:grid-cols-[1.2fr_1fr_0.8fr_2fr] sm:items-center sm:gap-4 sm:px-5 hover:bg-muted/10 transition-colors" data-testid={`row-pawapay-wallet-${code || index}`}>
+                      <div className="flex items-center gap-2.5">
+                        <Map className="h-4 w-4 text-muted-foreground" />
+                        <span className="text-sm font-medium">{country?.name ?? (code || "—")}</span>
+                      </div>
+                      <span className="font-mono text-sm font-medium tabular-nums" data-testid={`text-pawapay-balance-${code || index}`}>{Number(wallet.balance ?? 0).toLocaleString("fr-FR")}</span>
+                      <span className="text-xs font-mono text-muted-foreground">{wallet.currency}</span>
+                      <div className="flex flex-wrap gap-1.5">
+                        {providers.length ? providers.map((provider) => (
+                          <Badge key={provider} variant="secondary" className="px-1.5 py-0 text-[10px] leading-4 border-violet-100 bg-violet-50/70 text-violet-700 dark:border-violet-900/50 dark:bg-violet-900/30 dark:text-violet-300">
+                            {provider}
+                          </Badge>
+                        )) : <span className="text-[11px] text-muted-foreground italic flex items-center gap-1"><AlertCircle className="h-3 w-3"/> Aucun</span>}
                       </div>
                     </div>
-                    <Badge variant="outline" className="hidden shrink-0 sm:inline-flex">{country.code}</Badge>
+                  );
+                }) : (
+                  <div className="px-5 py-8 text-center text-sm text-muted-foreground flex flex-col items-center gap-2">
+                    <Wallet className="h-6 w-6 opacity-30" />
+                    <span>Aucun wallet pawaPay disponible.</span>
                   </div>
-                  <div className="divide-y divide-border/60">
-                    {country.operators.map((operator) => {
-                      const depositKey = `${country.code}-${operator}-DEPOSIT`;
-                      const withdrawalKey = `${country.code}-${operator}-WITHDRAWAL`;
-                      return (
-                        <div key={operator} className="grid gap-3 p-3 sm:p-4 lg:grid-cols-[minmax(190px,0.8fr)_1fr_1fr] lg:items-center" data-testid={`row-provider-${country.code}-${operator}`}>
-                          <div className="flex items-center gap-3 px-1 lg:px-2">
-                            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-border bg-background font-mono text-[11px] font-semibold text-muted-foreground">{operator.slice(0, 3)}</span>
-                            <div className="min-w-0">
-                              <p className="truncate text-sm font-semibold">{OPERATOR_LABELS[operator] ?? operator}</p>
-                              <p className="mt-0.5 font-mono text-[10px] tracking-wide text-muted-foreground">{operator}</p>
-                            </div>
-                          </div>
-                          {(["DEPOSIT", "WITHDRAWAL"] as TransactionType[]).map((type) => {
-                            const isPending = pendingKey === `${country.code}-${operator}-${type}` && updateProvider.isPending;
-                            return (
-                              <OperationControl
-                                key={type}
-                                country={country.code}
-                                operator={operator}
-                                type={type}
-                                selectedProvider={getConfiguredProvider(config, country.code, operator, type)}
-                                pixpayAvailable={hasActiveService(pixpayServices, country.code, operator, type)}
-                                mavianceAvailable={hasActiveService(mavianceServices, country.code, operator, type)}
-                                pawapayAvailable={hasActiveService(pawapayServices, country.code, operator, type)}
-                                isPending={isPending}
-                                onChange={(provider) => handleProviderChange(country.code, operator, type, provider)}
-                              />
-                            );
-                          })}
-                          {pendingKey && pendingKey !== depositKey && pendingKey !== withdrawalKey ? null : null}
-                        </div>
-                      );
-                    })}
-                  </div>
-                </section>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
-        </>
-      )}
+                )}
+              </div>
+            </CardContent>
+          </Card>
 
-      <div className="flex items-start gap-3 rounded-xl border border-sky-200/80 bg-sky-50/55 px-4 py-3.5 text-sm text-sky-950">
-        <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-sky-700" />
-        <p className="leading-5">
-          <span className="font-semibold">PixPay par défaut :</span> retirer une configuration rétablit PixPay pour l’opération concernée. Le choix ne sera effectif que si un service PixPay actif est disponible.
-        </p>
-      </div>
+          <Card className="overflow-hidden border-border/70 shadow-sm">
+            <CardHeader className="border-b bg-muted/20 px-4 py-5 sm:px-6">
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+                <div>
+                  <CardTitle className="flex items-center gap-2 text-lg">
+                    <Activity className="h-5 w-5 text-primary" />
+                    Matrice de Routage
+                  </CardTitle>
+                  <CardDescription className="mt-1.5 max-w-lg">
+                    {configuredCount > 0
+                      ? `${configuredCount} configuration${configuredCount > 1 ? "s" : ""} spécifique${configuredCount > 1 ? "s" : ""}. Les autres lignes utilisent PixPay par défaut.`
+                      : "Aucune configuration spécifique. Toutes les lignes utilisent PixPay par défaut."}
+                  </CardDescription>
+                </div>
+                <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground bg-muted/30 py-1.5 px-3 rounded-full border border-border/50">
+                  <CircleHelp className="h-3.5 w-3.5" />
+                  <span>Un fournisseur doit être synchronisé et actif pour être routable.</span>
+                </div>
+              </div>
+            </CardHeader>
+            <CardContent className="p-0">
+              <div className="divide-y divide-border/60">
+                {visibleCountries.map((country) => (
+                  <section key={country.code} className="group" data-testid={`section-country-${country.code}`}>
+                    <div className="sticky top-0 z-10 flex items-center justify-between border-b border-border/60 bg-muted/40 backdrop-blur-md px-4 py-3 sm:px-6">
+                      <div className="flex min-w-0 items-center gap-3">
+                        <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-foreground text-xs font-bold text-background shadow-sm">{country.code}</span>
+                        <div className="min-w-0">
+                          <h2 className="truncate text-sm font-semibold">{country.name}</h2>
+                          <p className="flex items-center gap-1 text-[11px] text-muted-foreground">
+                            <MapPin className="h-3 w-3" /> {country.currency} · {country.operators.length} opérateur{country.operators.length > 1 ? "s" : ""}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="divide-y divide-border/40 p-4 sm:p-6 space-y-6">
+                      {country.operators.map((operator, index) => {
+                        return (
+                          <div key={operator} className={`grid gap-4 lg:grid-cols-[220px_1fr_1fr] lg:gap-6 ${index > 0 ? "pt-6" : ""}`} data-testid={`row-provider-${country.code}-${operator}`}>
+                            <div className="flex items-start gap-3 lg:pt-2">
+                              <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-border/80 bg-background font-mono text-[11px] font-semibold text-muted-foreground shadow-sm">{operator.slice(0, 3)}</span>
+                              <div className="min-w-0">
+                                <p className="truncate text-[15px] font-semibold">{OPERATOR_LABELS[operator] ?? operator}</p>
+                                <p className="mt-0.5 font-mono text-[11px] tracking-wide text-muted-foreground">{operator}</p>
+                              </div>
+                            </div>
+                            {(["DEPOSIT", "WITHDRAWAL"] as TransactionType[]).map((type) => {
+                              const isPending = pendingKey === `${country.code}-${operator}-${type}` && updateProvider.isPending;
+                              return (
+                                <OperationControl
+                                  key={type}
+                                  country={country.code}
+                                  operator={operator}
+                                  type={type}
+                                  selectedProvider={getConfiguredProvider(config, country.code, operator, type)}
+                                  pixpayAvailable={hasActiveService(pixpayServices, country.code, operator, type)}
+                                  mavianceAvailable={hasActiveService(mavianceServices, country.code, operator, type)}
+                                  pawapayAvailable={hasActiveService(pawapayServices, country.code, operator, type)}
+                                  pawapayConfigured={pawapayStatus?.configured ?? false}
+                                  isPending={isPending}
+                                  onChange={(provider) => handleProviderChange(country.code, operator, type, provider)}
+                                />
+                              );
+                            })}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </section>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      )}
     </main>
   );
 }
