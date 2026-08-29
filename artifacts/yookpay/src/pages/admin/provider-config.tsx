@@ -1,11 +1,10 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { customFetch } from "@workspace/api-client-react";
 import {
-  Activity, AlertTriangle, ArrowDownToLine, ArrowUpFromLine,
-  CheckCircle2, CircleHelp, Globe2, MapPin, RefreshCw,
-  ServerCog, SlidersHorizontal, XCircle, Download,
-  Map, Clock, AlertCircle, Wallet
+  AlertTriangle, ArrowDownToLine, ArrowUpFromLine,
+  CheckCircle2, Globe2, RefreshCw, ServerCog,
+  SlidersHorizontal, Download, Map, AlertCircle, Wallet
 } from "lucide-react";
 import { COUNTRIES, OPERATOR_LABELS } from "@/lib/countries";
 import { useToast } from "@/hooks/use-toast";
@@ -122,170 +121,13 @@ function getConfiguredProvider(config: ProviderConfig[], country: string, operat
   return config.find((item) => item.country === country && item.operator === operator && item.type === type)?.provider ?? "PIXPAY";
 }
 
-function ProviderChoice({
-  provider,
-  selected,
-  available,
-  disabled,
-  disabledReason,
-  onSelect,
-  country,
-  operator,
-  type,
-}: {
-  provider: Provider;
-  selected: boolean;
-  available: boolean;
-  disabled: boolean;
-  disabledReason?: string;
-  onSelect: () => void;
-  country: string;
-  operator: string;
-  type: TransactionType;
-}) {
-  const meta = PROVIDER_META[provider];
-  const label = `${meta.label} — ${available ? "service actif" : "aucun service actif"}`;
-
-  return (
-    <button
-      type="button"
-      onClick={onSelect}
-      disabled={disabled}
-      aria-pressed={selected}
-      aria-label={label}
-      data-testid={`button-provider-${provider.toLowerCase()}-${country}-${operator.toLowerCase()}-${type.toLowerCase()}`}
-      className={`group relative flex flex-col items-start gap-2 rounded-lg border p-2.5 text-left transition-all ${
-        selected
-          ? `${meta.accent} border-current/40 ring-1 ring-current/20 shadow-sm`
-          : "border-border/60 bg-muted/20 text-muted-foreground hover:border-foreground/30 hover:bg-muted/50"
-      } ${!available ? "cursor-not-allowed opacity-60 grayscale-[0.3]" : ""} ${disabled && available ? "cursor-wait" : ""}`}
-    >
-      <div className="flex w-full items-center justify-between">
-        <div className="flex items-center gap-2">
-          <span className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-md text-[9px] font-bold tracking-tighter ${
-            selected ? "bg-background/90 text-current shadow-sm" : "bg-muted-foreground/15 text-muted-foreground"
-          }`}>
-            {meta.mark}
-          </span>
-          <span className="text-xs font-semibold leading-none">{meta.label}</span>
-        </div>
-        {selected && available && (
-          <CheckCircle2 className="h-4 w-4 shrink-0" aria-hidden="true" />
-        )}
-      </div>
-
-      <div className="mt-0.5 flex w-full items-center gap-1.5">
-        {available ? (
-          <span className="flex items-center gap-1 text-[10px] font-medium text-emerald-600 dark:text-emerald-400">
-            <CheckCircle2 className="h-3 w-3" /> Disponible
-          </span>
-        ) : (
-          <span className="flex items-center gap-1 text-[10px] font-medium text-muted-foreground/80">
-            <XCircle className="h-3 w-3" /> {disabledReason || "Non configuré"}
-          </span>
-        )}
-      </div>
-    </button>
-  );
-}
-
-function OperationControl({
-  country,
-  operator,
-  type,
-  selectedProvider,
-  pixpayAvailable,
-  mavianceAvailable,
-  pawapayAvailable,
-  pawapayConfigured,
-  isPending,
-  onChange,
-}: {
-  country: string;
-  operator: string;
-  type: TransactionType;
-  selectedProvider: Provider;
-  pixpayAvailable: boolean;
-  mavianceAvailable: boolean;
-  pawapayAvailable: boolean;
-  pawapayConfigured: boolean;
-  isPending: boolean;
-  onChange: (provider: Provider) => void;
-}) {
-  const { label, Icon } = OPERATION_META[type];
-  const availability = { PIXPAY: pixpayAvailable, MAVIANCE: mavianceAvailable, PAWAPAY: pawapayAvailable };
-  const currentProviderAvailable = availability[selectedProvider];
-
-  return (
-    <div className="flex flex-col gap-3 rounded-xl border border-border/50 bg-card p-3.5 shadow-[0_1px_2px_hsl(var(--foreground)/.02)]" data-testid={`operation-${country}-${operator.toLowerCase()}-${type.toLowerCase()}`}>
-      <div className="flex items-center justify-between border-b border-border/40 pb-2.5">
-        <div className="flex items-center gap-2">
-          <span className={`flex h-7 w-7 items-center justify-center rounded-lg ${
-            type === "DEPOSIT" ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-400" : "bg-orange-100 text-orange-700 dark:bg-orange-900/40 dark:text-orange-400"
-          }`}>
-            <Icon className="h-4 w-4" aria-hidden="true" />
-          </span>
-          <span className="text-sm font-semibold">{label}</span>
-        </div>
-        <Badge variant="outline" className={`px-2 py-0.5 text-[10px] uppercase tracking-wider font-medium ${
-          currentProviderAvailable
-            ? "border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-900/50 dark:bg-emerald-900/20 dark:text-emerald-400"
-            : "border-orange-200 bg-orange-50 text-orange-700 dark:border-orange-900/50 dark:bg-orange-900/20 dark:text-orange-400"
-        }`}>
-          {currentProviderAvailable ? "Opérationnel" : "Non configuré"}
-        </Badge>
-      </div>
-
-      <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-3">
-        <ProviderChoice
-          provider="PIXPAY"
-          selected={selectedProvider === "PIXPAY"}
-          available={pixpayAvailable}
-          disabled={isPending || !pixpayAvailable}
-          disabledReason="Aucun service"
-          onSelect={() => onChange("PIXPAY")}
-          country={country}
-          operator={operator}
-          type={type}
-        />
-        <ProviderChoice
-          provider="MAVIANCE"
-          selected={selectedProvider === "MAVIANCE"}
-          available={mavianceAvailable}
-          disabled={isPending || !mavianceAvailable}
-          disabledReason="Aucun service"
-          onSelect={() => onChange("MAVIANCE")}
-          country={country}
-          operator={operator}
-          type={type}
-        />
-        <ProviderChoice
-          provider="PAWAPAY"
-          selected={selectedProvider === "PAWAPAY"}
-          available={pawapayAvailable}
-          disabled={isPending || !pawapayAvailable}
-          disabledReason={!pawapayConfigured ? "Clés manquantes" : "Aucun service"}
-          onSelect={() => onChange("PAWAPAY")}
-          country={country}
-          operator={operator}
-          type={type}
-        />
-      </div>
-
-      {!pixpayAvailable && !mavianceAvailable && !pawapayAvailable && (
-        <div className="mt-1 flex items-start gap-1.5 rounded border border-orange-200 bg-orange-50 p-2 text-[11px] leading-tight text-orange-800 dark:border-orange-900/50 dark:bg-orange-900/20 dark:text-orange-400">
-          <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
-          <span>Aucun service fournisseur actif pour cette opération. Configurez un fournisseur avant de router les transactions.</span>
-        </div>
-      )}
-    </div>
-  );
-}
-
 export default function ProviderConfig() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
-  const [selectedCountry, setSelectedCountry] = useState("ALL");
+  const [selectedCountry, setSelectedCountry] = useState("CM");
+  const [selectedOperator, setSelectedOperator] = useState("MTN");
+  const [selectedType, setSelectedType] = useState<TransactionType>("DEPOSIT");
+  const [selectedProvider, setSelectedProvider] = useState<Provider>("PIXPAY");
   const [pendingKey, setPendingKey] = useState<string | null>(null);
 
   const configQuery = useQuery({
@@ -315,6 +157,17 @@ export default function ProviderConfig() {
 
   const updateProvider = useMutation({
     mutationFn: async ({ country, operator, type, provider }: ProviderConfig) => {
+      if (provider === "PAWAPAY" && !hasActiveService(pawapayServices, country, operator, type)) {
+        const syncResult = await customFetch<{
+          synced?: Array<{ country: string; operator: string; type: TransactionType }>;
+        }>("/api/admin/pawapay/sync-services", { method: "POST" });
+        const routeAvailable = syncResult.synced?.some(
+          (service) => service.country === country && service.operator === operator && service.type === type,
+        );
+        if (!routeAvailable) {
+          throw new Error(`pawaPay ne propose aucun service ${OPERATION_META[type].label.toLowerCase()} actif pour ${OPERATOR_LABELS[operator] ?? operator} (${country}).`);
+        }
+      }
       const body = JSON.stringify({ country, operator, type, provider });
       if (provider === "PIXPAY") {
         return customFetch(`/api/admin/provider-config`, { method: "DELETE", body });
@@ -323,6 +176,8 @@ export default function ProviderConfig() {
     },
     onSuccess: (_response, variables) => {
       queryClient.invalidateQueries({ queryKey: CONFIG_QUERY_KEY });
+      queryClient.invalidateQueries({ queryKey: PAWAPAY_SERVICES_QUERY_KEY });
+      queryClient.invalidateQueries({ queryKey: PAWAPAY_STATUS_QUERY_KEY });
       setPendingKey(null);
       toast({
         title: "Configuration enregistrée",
@@ -353,18 +208,14 @@ export default function ProviderConfig() {
   const hasError = configQuery.isError || mavianceQuery.isError || pixpayQuery.isError || pawapayQuery.isError || pawapayStatusQuery.isError;
 
   const visibleCountries = useMemo(
-    () => selectedCountry === "ALL" ? [...COUNTRIES] : COUNTRIES.filter((country) => country.code === selectedCountry),
+    () => COUNTRIES.filter((country) => country.code === selectedCountry),
     [selectedCountry],
   );
+  const currentCountry = visibleCountries[0] ?? COUNTRIES[0];
 
   const totalOperators = useMemo(
     () => visibleCountries.reduce<number>((total, country) => total + country.operators.length, 0),
     [visibleCountries],
-  );
-
-  const configuredCount = useMemo(
-    () => config.filter((item: ProviderConfig) => visibleCountries.some((country) => country.code === item.country)).length,
-    [config, visibleCountries],
   );
 
   const availableProviderCount = useMemo(() => {
@@ -381,10 +232,30 @@ export default function ProviderConfig() {
     return count;
   }, [mavianceServices, pawapayServices, pixpayServices, visibleCountries]);
 
+  const providerAvailability: Record<Provider, boolean> = {
+    PIXPAY: hasActiveService(pixpayServices, selectedCountry, selectedOperator, selectedType),
+    MAVIANCE: hasActiveService(mavianceServices, selectedCountry, selectedOperator, selectedType),
+    PAWAPAY: hasActiveService(pawapayServices, selectedCountry, selectedOperator, selectedType),
+  };
+
+  useEffect(() => {
+    setSelectedProvider(getConfiguredProvider(config, selectedCountry, selectedOperator, selectedType));
+  }, [config, selectedCountry, selectedOperator, selectedType]);
+
+  const handleCountryChange = (countryCode: string) => {
+    const country = COUNTRIES.find((item) => item.code === countryCode);
+    setSelectedCountry(countryCode);
+    setSelectedOperator(country?.operators[0] ?? "");
+  };
+
   const handleProviderChange = (country: string, operator: string, type: TransactionType, provider: Provider) => {
     const key = `${country}-${operator}-${type}`;
     setPendingKey(key);
     updateProvider.mutate({ country, operator, type, provider });
+  };
+
+  const saveSelectedRoute = () => {
+    handleProviderChange(selectedCountry, selectedOperator, selectedType, selectedProvider);
   };
 
   const refreshAll = () => {
@@ -475,16 +346,17 @@ export default function ProviderConfig() {
             <div className="flex items-center gap-2 text-sm font-semibold">
               <SlidersHorizontal className="h-4 w-4 text-muted-foreground" /> Filtre de routage
             </div>
-            <p className="text-xs text-muted-foreground mb-1">Affichez tous les marchés ou concentrez-vous sur un pays spécifique.</p>
+            <p className="text-xs text-muted-foreground mb-1">Choisissez le pays dont vous souhaitez configurer le routage.</p>
             <div className="flex gap-2 mt-auto">
-              <Select value={selectedCountry} onValueChange={setSelectedCountry}>
+              <Select value={selectedCountry} onValueChange={handleCountryChange}>
                 <SelectTrigger className="w-full h-9" data-testid="select-provider-country">
                   <SelectValue placeholder="Sélectionner un pays" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="ALL">Tous les pays</SelectItem>
                   {COUNTRIES.map((country) => (
-                    <SelectItem key={country.code} value={country.code}>{country.name} ({country.code})</SelectItem>
+                    <SelectItem key={country.code} value={country.code}>
+                      {country.flag} {country.name} ({country.currency})
+                    </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
@@ -640,77 +512,139 @@ export default function ProviderConfig() {
             </CardContent>
           </Card>
 
-          <Card className="overflow-hidden border-border/70 shadow-sm">
+          <Card className="overflow-hidden border-border/70 shadow-sm" data-testid="card-provider-route-selector">
             <CardHeader className="border-b bg-muted/20 px-4 py-5 sm:px-6">
-              <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
-                <div>
-                  <CardTitle className="flex items-center gap-2 text-lg">
-                    <Activity className="h-5 w-5 text-primary" />
-                    Matrice de Routage
-                  </CardTitle>
-                  <CardDescription className="mt-1.5 max-w-lg">
-                    {configuredCount > 0
-                      ? `${configuredCount} configuration${configuredCount > 1 ? "s" : ""} spécifique${configuredCount > 1 ? "s" : ""}. Les autres lignes utilisent PixPay par défaut.`
-                      : "Aucune configuration spécifique. Toutes les lignes utilisent PixPay par défaut."}
-                  </CardDescription>
-                </div>
-                <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground bg-muted/30 py-1.5 px-3 rounded-full border border-border/50">
-                  <CircleHelp className="h-3.5 w-3.5" />
-                  <span>Un fournisseur doit être synchronisé et actif pour être routable.</span>
+              <CardTitle className="flex items-center gap-2 text-lg">
+                <SlidersHorizontal className="h-5 w-5 text-primary" />
+                Configurer un fournisseur
+              </CardTitle>
+              <CardDescription className="mt-1.5">
+                Sélectionnez successivement le pays, l’opérateur, l’opération puis le fournisseur.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="p-4 sm:p-6">
+              <div className="mb-6 flex items-center gap-3 rounded-xl border bg-muted/20 p-3">
+                <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-background text-2xl shadow-sm">
+                  {currentCountry.flag}
+                </span>
+                <div className="min-w-0">
+                  <p className="truncate font-semibold">{currentCountry.name}</p>
+                  <p className="text-xs text-muted-foreground">
+                    {currentCountry.currency} · {currentCountry.operators.length} opérateur{currentCountry.operators.length > 1 ? "s" : ""}
+                  </p>
                 </div>
               </div>
-            </CardHeader>
-            <CardContent className="p-0">
-              <div className="divide-y divide-border/60">
-                {visibleCountries.map((country) => (
-                  <section key={country.code} className="group" data-testid={`section-country-${country.code}`}>
-                    <div className="sticky top-0 z-10 flex items-center justify-between border-b border-border/60 bg-muted/40 backdrop-blur-md px-4 py-3 sm:px-6">
-                      <div className="flex min-w-0 items-center gap-3">
-                        <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-foreground text-xs font-bold text-background shadow-sm">{country.code}</span>
-                        <div className="min-w-0">
-                          <h2 className="truncate text-sm font-semibold">{country.name}</h2>
-                          <p className="flex items-center gap-1 text-[11px] text-muted-foreground">
-                            <MapPin className="h-3 w-3" /> {country.currency} · {country.operators.length} opérateur{country.operators.length > 1 ? "s" : ""}
-                          </p>
-                        </div>
-                      </div>
-                    </div>
 
-                    <div className="divide-y divide-border/40 p-4 sm:p-6 space-y-6">
-                      {country.operators.map((operator, index) => {
-                        return (
-                          <div key={operator} className={`grid gap-4 lg:grid-cols-[220px_1fr_1fr] lg:gap-6 ${index > 0 ? "pt-6" : ""}`} data-testid={`row-provider-${country.code}-${operator}`}>
-                            <div className="flex items-start gap-3 lg:pt-2">
-                              <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-border/80 bg-background font-mono text-[11px] font-semibold text-muted-foreground shadow-sm">{operator.slice(0, 3)}</span>
-                              <div className="min-w-0">
-                                <p className="truncate text-[15px] font-semibold">{OPERATOR_LABELS[operator] ?? operator}</p>
-                                <p className="mt-0.5 font-mono text-[11px] tracking-wide text-muted-foreground">{operator}</p>
-                              </div>
-                            </div>
-                            {(["DEPOSIT", "WITHDRAWAL"] as TransactionType[]).map((type) => {
-                              const isPending = pendingKey === `${country.code}-${operator}-${type}` && updateProvider.isPending;
-                              return (
-                                <OperationControl
-                                  key={type}
-                                  country={country.code}
-                                  operator={operator}
-                                  type={type}
-                                  selectedProvider={getConfiguredProvider(config, country.code, operator, type)}
-                                  pixpayAvailable={hasActiveService(pixpayServices, country.code, operator, type)}
-                                  mavianceAvailable={hasActiveService(mavianceServices, country.code, operator, type)}
-                                  pawapayAvailable={hasActiveService(pawapayServices, country.code, operator, type)}
-                                  pawapayConfigured={pawapayStatus?.configured ?? false}
-                                  isPending={isPending}
-                                  onChange={(provider) => handleProviderChange(country.code, operator, type, provider)}
-                                />
-                              );
-                            })}
-                          </div>
-                        );
-                      })}
-                    </div>
-                  </section>
-                ))}
+              <div className="grid gap-5 md:grid-cols-2">
+                <label className="space-y-2">
+                  <span className="text-sm font-medium">1. Pays</span>
+                  <Select value={selectedCountry} onValueChange={handleCountryChange}>
+                    <SelectTrigger className="h-11" data-testid="select-route-country">
+                      <SelectValue placeholder="Sélectionner un pays" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {COUNTRIES.map((country) => (
+                        <SelectItem key={country.code} value={country.code}>
+                          {country.flag} {country.name} — {country.currency}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </label>
+
+                <label className="space-y-2">
+                  <span className="text-sm font-medium">2. Opérateur Mobile Money</span>
+                  <Select value={selectedOperator} onValueChange={setSelectedOperator}>
+                    <SelectTrigger className="h-11" data-testid="select-route-operator">
+                      <SelectValue placeholder="Sélectionner un opérateur" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {currentCountry.operators.map((operator) => (
+                        <SelectItem key={operator} value={operator}>
+                          {OPERATOR_LABELS[operator] ?? operator}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </label>
+
+                <label className="space-y-2">
+                  <span className="text-sm font-medium">3. Type d’opération</span>
+                  <Select value={selectedType} onValueChange={(value) => setSelectedType(value as TransactionType)}>
+                    <SelectTrigger className="h-11" data-testid="select-route-operation">
+                      <SelectValue placeholder="Sélectionner une opération" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="DEPOSIT">Dépôt — Collecte client</SelectItem>
+                      <SelectItem value="WITHDRAWAL">Retrait — Envoi au client</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </label>
+
+                <label className="space-y-2">
+                  <span className="text-sm font-medium">4. Fournisseur</span>
+                  <Select value={selectedProvider} onValueChange={(value) => setSelectedProvider(value as Provider)}>
+                    <SelectTrigger className="h-11" data-testid="select-route-provider">
+                      <SelectValue placeholder="Sélectionner un fournisseur" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {(Object.keys(PROVIDER_META) as Provider[]).map((provider) => (
+                        <SelectItem key={provider} value={provider}>
+                          {PROVIDER_META[provider].label}
+                          {providerAvailability[provider] ? " — Disponible" : provider === "PAWAPAY" ? " — Synchronisation automatique" : " — Non synchronisé"}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </label>
+              </div>
+
+              <div className={`mt-6 rounded-xl border p-4 ${
+                providerAvailability[selectedProvider]
+                  ? "border-emerald-200 bg-emerald-50/70 dark:border-emerald-900/50 dark:bg-emerald-950/20"
+                  : selectedProvider === "PAWAPAY"
+                    ? "border-violet-200 bg-violet-50/70 dark:border-violet-900/50 dark:bg-violet-950/20"
+                    : "border-orange-200 bg-orange-50/70 dark:border-orange-900/50 dark:bg-orange-950/20"
+              }`}>
+                <div className="flex items-start gap-3">
+                  {providerAvailability[selectedProvider] ? (
+                    <CheckCircle2 className="mt-0.5 h-5 w-5 shrink-0 text-emerald-600" />
+                  ) : (
+                    <AlertCircle className={`mt-0.5 h-5 w-5 shrink-0 ${selectedProvider === "PAWAPAY" ? "text-violet-600" : "text-orange-600"}`} />
+                  )}
+                  <div>
+                    <p className="text-sm font-semibold">
+                      {PROVIDER_META[selectedProvider].label}
+                      {providerAvailability[selectedProvider] ? " est prêt" : selectedProvider === "PAWAPAY" ? " sera synchronisé automatiquement" : " n’est pas encore synchronisé"}
+                    </p>
+                    <p className="mt-1 text-xs leading-5 text-muted-foreground">
+                      {selectedProvider === "PAWAPAY" && !providerAvailability.PAWAPAY
+                        ? "Vous pouvez maintenant sélectionner pawaPay. Lors de l’enregistrement, YookPay vérifiera automatiquement que ce service est disponible chez pawaPay."
+                        : providerAvailability[selectedProvider]
+                          ? `Ce fournisseur peut traiter les opérations de ${OPERATION_META[selectedType].label.toLowerCase()} pour ${OPERATOR_LABELS[selectedOperator] ?? selectedOperator}.`
+                          : "Synchronisez d’abord ce fournisseur pour garantir que l’opérateur sélectionné est pris en charge."}
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="mt-6 flex flex-col-reverse gap-3 border-t pt-5 sm:flex-row sm:items-center sm:justify-between">
+                <p className="text-xs text-muted-foreground">
+                  Configuration actuelle : <span className="font-semibold text-foreground">
+                    {PROVIDER_META[getConfiguredProvider(config, selectedCountry, selectedOperator, selectedType)].label}
+                  </span>
+                </p>
+                <Button
+                  type="button"
+                  onClick={saveSelectedRoute}
+                  disabled={updateProvider.isPending || !selectedOperator}
+                  className="h-11 w-full sm:w-auto sm:min-w-48"
+                  data-testid="button-save-provider-route"
+                >
+                  {updateProvider.isPending && pendingKey === `${selectedCountry}-${selectedOperator}-${selectedType}`
+                    ? "Enregistrement..."
+                    : `Utiliser ${PROVIDER_META[selectedProvider].label}`}
+                </Button>
               </div>
             </CardContent>
           </Card>
