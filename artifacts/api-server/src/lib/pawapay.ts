@@ -17,7 +17,12 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   return body as T;
 }
 export function normalizePawaPayPhone(phone: string, country: string): string {
-  const dials: Record<string, string> = { CM:"237", CG:"242", GA:"241", CD:"243", CI:"225", SN:"221", BF:"226", BJ:"229", GN:"224", ML:"223", TG:"228", GM:"220" };
+  const dials: Record<string, string> = {
+    BJ:"229", BF:"226", CM:"237", CD:"243", CG:"242", CI:"225", ET:"251",
+    GA:"241", GH:"233", GM:"220", GN:"224", KE:"254", LS:"266", ML:"223",
+    MW:"265", MZ:"258", NG:"234", RW:"250", SN:"221", SL:"232", TG:"228",
+    TZ:"255", UG:"256", ZM:"260",
+  };
   const digits = phone.replace(/\D/g, "").replace(/^00/, "");
   const dial = dials[country.toUpperCase()];
   if (!dial) throw new PawaPayError("Unsupported pawaPay country");

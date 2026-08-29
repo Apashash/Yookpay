@@ -27,6 +27,8 @@ export const OPERATOR_LABELS: Record<string, string> = {
   CELLCOM:  "Cellcom Money",
   FREE:     "Free Money",
   TOGOCEL:  "T-Money (Togocel)",
+  MPESA:    "M-Pesa",
+  ZAMTEL:   "Zamtel Money",
 };
 
 export function getCountry(code: string) {

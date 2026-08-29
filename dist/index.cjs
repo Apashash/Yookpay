@@ -81230,7 +81230,32 @@ async function request(path3, init) {
   return body;
 }
 function normalizePawaPayPhone(phone, country) {
-  const dials = { CM: "237", CG: "242", GA: "241", CD: "243", CI: "225", SN: "221", BF: "226", BJ: "229", GN: "224", ML: "223", TG: "228", GM: "220" };
+  const dials = {
+    BJ: "229",
+    BF: "226",
+    CM: "237",
+    CD: "243",
+    CG: "242",
+    CI: "225",
+    ET: "251",
+    GA: "241",
+    GH: "233",
+    GM: "220",
+    GN: "224",
+    KE: "254",
+    LS: "266",
+    ML: "223",
+    MW: "265",
+    MZ: "258",
+    NG: "234",
+    RW: "250",
+    SN: "221",
+    SL: "232",
+    TG: "228",
+    TZ: "255",
+    UG: "256",
+    ZM: "260"
+  };
   const digits = phone.replace(/\D/g, "").replace(/^00/, "");
   const dial = dials[country.toUpperCase()];
   if (!dial) throw new PawaPayError("Unsupported pawaPay country");
@@ -84470,12 +84495,24 @@ var PAWAPAY_ALPHA2 = {
   COD: "CD",
   COG: "CG",
   CIV: "CI",
+  ETH: "ET",
   GAB: "GA",
+  GHA: "GH",
   GMB: "GM",
   GIN: "GN",
+  KEN: "KE",
+  LSO: "LS",
   MLI: "ML",
+  MOZ: "MZ",
+  MWI: "MW",
+  NGA: "NG",
+  RWA: "RW",
   SEN: "SN",
-  TGO: "TG"
+  SLE: "SL",
+  TGO: "TG",
+  TZA: "TZ",
+  UGA: "UG",
+  ZMB: "ZM"
 };
 function normalizePawaPayOperator(value) {
   const normalized = value.toUpperCase().replace(/[\s-]+/g, "_");
@@ -84484,9 +84521,11 @@ function normalizePawaPayOperator(value) {
   if (normalized.includes("MOOV")) return "MOOV";
   if (normalized.includes("WAVE")) return "WAVE";
   if (normalized.includes("MTN")) return "MTN";
-  if (normalized.includes("VODACOM") || normalized.includes("MPESA") || normalized.includes("M_PESA")) return "VODACOM";
+  if (normalized.includes("VODACOM")) return "VODACOM";
+  if (normalized.includes("MPESA") || normalized.includes("M_PESA")) return "MPESA";
   if (normalized.includes("AFRICELL") || normalized.includes("AFRIMONEY")) return "AFRICELL";
   if (normalized.includes("QMON") || normalized.includes("Q_MONEY")) return "QMONEY";
+  if (normalized.includes("ZAMTEL")) return "ZAMTEL";
   if (normalized.includes("FREE")) return "FREE";
   if (normalized.includes("TOGOCEL") || normalized.includes("T_MONEY")) return "TOGOCEL";
   return normalized.replace(/_[A-Z]{3}$/, "");
@@ -84496,9 +84535,11 @@ function pawaPayOperationEntries(value) {
     return value.map((entry) => {
       if (typeof entry === "string") return { operation: entry };
       const record2 = entry ?? {};
+      const operation = String(record2.operationType ?? Object.keys(record2)[0] ?? "");
+      const details = record2[operation];
       return {
-        operation: String(record2.operationType ?? Object.keys(record2)[0] ?? ""),
-        status: typeof record2.status === "string" ? record2.status : void 0
+        operation,
+        status: typeof record2.status === "string" ? record2.status : details && typeof details === "object" && typeof details.status === "string" ? String(details.status) : void 0
       };
     });
   }
@@ -84518,6 +84559,7 @@ router9.get("/pawapay/status", async (_req, res) => {
         COUNT(DISTINCT CASE WHEN active = true THEN country END) AS active_countries,
         COUNT(CASE WHEN active = true AND type = 'DEPOSIT' THEN 1 END) AS deposits,
         COUNT(CASE WHEN active = true AND type = 'WITHDRAWAL' THEN 1 END) AS withdrawals,
+        COUNT(CASE WHEN active = true AND type = 'REFUND' THEN 1 END) AS refunds,
         MAX(updated_at) AS last_sync_at
       FROM pawapay_services
     `);
@@ -84529,6 +84571,7 @@ router9.get("/pawapay/status", async (_req, res) => {
       activeCountries: Number(row.active_countries ?? 0),
       deposits: Number(row.deposits ?? 0),
       withdrawals: Number(row.withdrawals ?? 0),
+      refunds: Number(row.refunds ?? 0),
       lastSyncAt: row.last_sync_at ?? null
     });
   } catch (err) {
@@ -84569,7 +84612,7 @@ router9.post("/pawapay/sync-services", async (req, res) => {
           const currency = String(currencyConfig.currency ?? "").toUpperCase();
           for (const entry of pawaPayOperationEntries(currencyConfig.operationTypes)) {
             const op = entry.operation.toUpperCase();
-            const type = op === "PAYOUT" ? "WITHDRAWAL" : ["DEPOSIT", "PUSH_DEPOSIT", "USSD_DEPOSIT"].includes(op) ? "DEPOSIT" : null;
+            const type = op === "PAYOUT" ? "WITHDRAWAL" : op === "REFUND" ? "REFUND" : ["DEPOSIT", "PUSH_DEPOSIT", "USSD_DEPOSIT"].includes(op) ? "DEPOSIT" : null;
             if (!type || !currency || !providerCode) continue;
             if (entry.status && entry.status.toUpperCase() !== "OPERATIONAL") continue;
             const duplicate = discovered.some(

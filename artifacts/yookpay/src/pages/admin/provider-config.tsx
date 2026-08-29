@@ -53,7 +53,31 @@ type PawaPayStatus = {
   activeCountries: number;
   deposits: number;
   withdrawals: number;
+  refunds: number;
   lastSyncAt: string | null;
+};
+
+type RoutingCountry = {
+  code: string;
+  name: string;
+  flag: string;
+  currency: string;
+  operators: string[];
+};
+
+const PAWAPAY_COUNTRY_META: Record<string, Omit<RoutingCountry, "operators">> = {
+  ET: { code: "ET", name: "Éthiopie", flag: "🇪🇹", currency: "ETB" },
+  GH: { code: "GH", name: "Ghana", flag: "🇬🇭", currency: "GHS" },
+  KE: { code: "KE", name: "Kenya", flag: "🇰🇪", currency: "KES" },
+  LS: { code: "LS", name: "Lesotho", flag: "🇱🇸", currency: "LSL" },
+  MW: { code: "MW", name: "Malawi", flag: "🇲🇼", currency: "MWK" },
+  MZ: { code: "MZ", name: "Mozambique", flag: "🇲🇿", currency: "MZN" },
+  NG: { code: "NG", name: "Nigeria", flag: "🇳🇬", currency: "NGN" },
+  RW: { code: "RW", name: "Rwanda", flag: "🇷🇼", currency: "RWF" },
+  SL: { code: "SL", name: "Sierra Leone", flag: "🇸🇱", currency: "SLE" },
+  TZ: { code: "TZ", name: "Tanzanie", flag: "🇹🇿", currency: "TZS" },
+  UG: { code: "UG", name: "Ouganda", flag: "🇺🇬", currency: "UGX" },
+  ZM: { code: "ZM", name: "Zambie", flag: "🇿🇲", currency: "ZMW" },
 };
 
 const CONFIG_QUERY_KEY = ["admin", "provider-config"];
@@ -207,11 +231,41 @@ export default function ProviderConfig() {
   const isLoading = configQuery.isLoading || mavianceQuery.isLoading || pixpayQuery.isLoading || pawapayQuery.isLoading || pawapayStatusQuery.isLoading;
   const hasError = configQuery.isError || mavianceQuery.isError || pixpayQuery.isError || pawapayQuery.isError || pawapayStatusQuery.isError;
 
+  const routingCountries = useMemo<RoutingCountry[]>(() => {
+    const countries = new Map<string, RoutingCountry>(
+      COUNTRIES.map((country) => [
+        country.code,
+        {
+          code: country.code,
+          name: country.name,
+          flag: country.flag,
+          currency: country.currency,
+          operators: [...country.operators],
+        },
+      ]),
+    );
+    for (const service of pawapayServices) {
+      if (!service.active || !service.country) continue;
+      const existing = countries.get(service.country);
+      const meta = PAWAPAY_COUNTRY_META[service.country];
+      const country = existing ?? {
+        code: service.country,
+        name: meta?.name ?? service.country,
+        flag: meta?.flag ?? "🌍",
+        currency: service.currency || meta?.currency || "—",
+        operators: [],
+      };
+      if (!country.operators.includes(service.operator)) country.operators.push(service.operator);
+      countries.set(service.country, country);
+    }
+    return [...countries.values()].sort((a, b) => a.name.localeCompare(b.name, "fr"));
+  }, [pawapayServices]);
+
   const visibleCountries = useMemo(
-    () => COUNTRIES.filter((country) => country.code === selectedCountry),
-    [selectedCountry],
+    () => routingCountries.filter((country) => country.code === selectedCountry),
+    [routingCountries, selectedCountry],
   );
-  const currentCountry = visibleCountries[0] ?? COUNTRIES[0];
+  const currentCountry = visibleCountries[0] ?? routingCountries[0];
 
   const totalOperators = useMemo(
     () => visibleCountries.reduce<number>((total, country) => total + country.operators.length, 0),
@@ -243,7 +297,7 @@ export default function ProviderConfig() {
   }, [config, selectedCountry, selectedOperator, selectedType]);
 
   const handleCountryChange = (countryCode: string) => {
-    const country = COUNTRIES.find((item) => item.code === countryCode);
+    const country = routingCountries.find((item) => item.code === countryCode);
     setSelectedCountry(countryCode);
     setSelectedOperator(country?.operators[0] ?? "");
   };
@@ -353,7 +407,7 @@ export default function ProviderConfig() {
                   <SelectValue placeholder="Sélectionner un pays" />
                 </SelectTrigger>
                 <SelectContent>
-                  {COUNTRIES.map((country) => (
+                  {routingCountries.map((country) => (
                     <SelectItem key={country.code} value={country.code}>
                       {country.flag} {country.name} ({country.currency})
                     </SelectItem>
@@ -543,7 +597,7 @@ export default function ProviderConfig() {
                       <SelectValue placeholder="Sélectionner un pays" />
                     </SelectTrigger>
                     <SelectContent>
-                      {COUNTRIES.map((country) => (
+                      {routingCountries.map((country) => (
                         <SelectItem key={country.code} value={country.code}>
                           {country.flag} {country.name} — {country.currency}
                         </SelectItem>

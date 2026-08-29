@@ -1104,7 +1104,9 @@ router.post("/maviance/sync-services", async (req: AuthRequest, res) => {
 
 const PAWAPAY_ALPHA2: Record<string, string> = {
   BEN: "BJ", BFA: "BF", CMR: "CM", COD: "CD", COG: "CG", CIV: "CI",
-  GAB: "GA", GMB: "GM", GIN: "GN", MLI: "ML", SEN: "SN", TGO: "TG",
+  ETH: "ET", GAB: "GA", GHA: "GH", GMB: "GM", GIN: "GN", KEN: "KE",
+  LSO: "LS", MLI: "ML", MOZ: "MZ", MWI: "MW", NGA: "NG", RWA: "RW",
+  SEN: "SN", SLE: "SL", TGO: "TG", TZA: "TZ", UGA: "UG", ZMB: "ZM",
 };
 
 function normalizePawaPayOperator(value: string): string {
@@ -1114,9 +1116,11 @@ function normalizePawaPayOperator(value: string): string {
   if (normalized.includes("MOOV")) return "MOOV";
   if (normalized.includes("WAVE")) return "WAVE";
   if (normalized.includes("MTN")) return "MTN";
-  if (normalized.includes("VODACOM") || normalized.includes("MPESA") || normalized.includes("M_PESA")) return "VODACOM";
+  if (normalized.includes("VODACOM")) return "VODACOM";
+  if (normalized.includes("MPESA") || normalized.includes("M_PESA")) return "MPESA";
   if (normalized.includes("AFRICELL") || normalized.includes("AFRIMONEY")) return "AFRICELL";
   if (normalized.includes("QMON") || normalized.includes("Q_MONEY")) return "QMONEY";
+  if (normalized.includes("ZAMTEL")) return "ZAMTEL";
   if (normalized.includes("FREE")) return "FREE";
   if (normalized.includes("TOGOCEL") || normalized.includes("T_MONEY")) return "TOGOCEL";
   return normalized.replace(/_[A-Z]{3}$/, "");
@@ -1127,9 +1131,15 @@ function pawaPayOperationEntries(value: unknown): Array<{ operation: string; sta
     return value.map((entry) => {
       if (typeof entry === "string") return { operation: entry };
       const record = (entry ?? {}) as Record<string, unknown>;
+      const operation = String(record.operationType ?? Object.keys(record)[0] ?? "");
+      const details = record[operation];
       return {
-        operation: String(record.operationType ?? Object.keys(record)[0] ?? ""),
-        status: typeof record.status === "string" ? record.status : undefined,
+        operation,
+        status: typeof record.status === "string"
+          ? record.status
+          : details && typeof details === "object" && typeof (details as Record<string, unknown>).status === "string"
+            ? String((details as Record<string, unknown>).status)
+            : undefined,
       };
     });
   }
@@ -1152,6 +1162,7 @@ router.get("/pawapay/status", async (_req, res) => {
         COUNT(DISTINCT CASE WHEN active = true THEN country END) AS active_countries,
         COUNT(CASE WHEN active = true AND type = 'DEPOSIT' THEN 1 END) AS deposits,
         COUNT(CASE WHEN active = true AND type = 'WITHDRAWAL' THEN 1 END) AS withdrawals,
+        COUNT(CASE WHEN active = true AND type = 'REFUND' THEN 1 END) AS refunds,
         MAX(updated_at) AS last_sync_at
       FROM pawapay_services
     `);
@@ -1163,6 +1174,7 @@ router.get("/pawapay/status", async (_req, res) => {
       activeCountries: Number(row.active_countries ?? 0),
       deposits: Number(row.deposits ?? 0),
       withdrawals: Number(row.withdrawals ?? 0),
+      refunds: Number(row.refunds ?? 0),
       lastSyncAt: row.last_sync_at ?? null,
     });
   } catch (err) {
@@ -1188,7 +1200,7 @@ router.get("/pawapay/active-configuration", async (_req, res) => {
 router.post("/pawapay/sync-services", async (req: AuthRequest, res) => {
   try {
     const configuration = await getActiveConfiguration() as any;
-    const discovered: Array<{ country: string; operator: string; currency: string; type: "DEPOSIT" | "WITHDRAWAL"; providerCode: string; notes: string }> = [];
+    const discovered: Array<{ country: string; operator: string; currency: string; type: "DEPOSIT" | "WITHDRAWAL" | "REFUND"; providerCode: string; notes: string }> = [];
     for (const countryConfig of configuration?.countries ?? []) {
       const country = PAWAPAY_ALPHA2[String(countryConfig.country ?? "").toUpperCase()];
       if (!country) continue;
@@ -1199,9 +1211,11 @@ router.post("/pawapay/sync-services", async (req: AuthRequest, res) => {
           const currency = String(currencyConfig.currency ?? "").toUpperCase();
           for (const entry of pawaPayOperationEntries(currencyConfig.operationTypes)) {
             const op = entry.operation.toUpperCase();
-            const type: "DEPOSIT" | "WITHDRAWAL" | null = op === "PAYOUT"
+            const type: "DEPOSIT" | "WITHDRAWAL" | "REFUND" | null = op === "PAYOUT"
               ? "WITHDRAWAL"
-              : ["DEPOSIT", "PUSH_DEPOSIT", "USSD_DEPOSIT"].includes(op) ? "DEPOSIT" : null;
+              : op === "REFUND"
+                ? "REFUND"
+                : ["DEPOSIT", "PUSH_DEPOSIT", "USSD_DEPOSIT"].includes(op) ? "DEPOSIT" : null;
             if (!type || !currency || !providerCode) continue;
             if (entry.status && entry.status.toUpperCase() !== "OPERATIONAL") continue;
             const duplicate = discovered.some((service) =>
