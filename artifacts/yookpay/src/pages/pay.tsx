@@ -506,16 +506,18 @@ export default function Pay() {
       <div className="max-w-lg mx-auto px-4 py-6 space-y-5">
 
         {/* Product card */}
-        <div className="rounded-2xl border border-border bg-card p-5">
-          <div className={`flex gap-4 ${linkData.photoData ? "" : "flex-col"}`}>
+        <div className="relative overflow-hidden rounded-2xl border border-cyan-100 bg-[linear-gradient(135deg,#d8f8f9_0%,#eefcfc_58%,#d9f2ff_100%)] p-5">
+          <div aria-hidden="true" className="pointer-events-none absolute -bottom-16 -right-10 h-40 w-40 rounded-full bg-sky-300/20 blur-sm" />
+          <div aria-hidden="true" className="pointer-events-none absolute -right-8 -top-14 h-32 w-32 rounded-full bg-white/35" />
+          <div className={`relative flex gap-4 ${linkData.photoData ? "" : "flex-col"}`}>
             {linkData.photoData && (
               <img src={linkData.photoData} alt={linkData.title}
-                className="w-20 h-20 rounded-xl object-cover border border-border flex-shrink-0" />
+                className="w-20 h-20 rounded-xl object-cover border border-white/70 shadow-sm flex-shrink-0" />
             )}
             <div className="min-w-0">
-              <h1 className="font-bold text-lg leading-tight">{linkData.title}</h1>
+              <h1 className="font-bold text-lg leading-tight text-slate-950">{linkData.title}</h1>
               {linkData.description && (
-                <p className="text-sm text-muted-foreground mt-1 leading-relaxed">{linkData.description}</p>
+                <p className="text-sm text-slate-600 mt-1 leading-relaxed">{linkData.description}</p>
               )}
             </div>
           </div>
