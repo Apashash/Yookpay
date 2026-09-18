@@ -497,13 +497,13 @@ export default function Pay() {
   return (
     <div className="min-h-screen bg-background">
       <header className="sticky top-0 z-10 border-b border-border bg-background/80 backdrop-blur-md">
-        <div className="max-w-lg mx-auto px-4 h-14 flex items-center gap-3">
+        <div className="max-w-5xl mx-auto px-4 h-14 flex items-center gap-3">
           <Link2 className="w-4 h-4 text-cyan-400" />
           <YookPayLogo size="sm" />
         </div>
       </header>
 
-      <div className="max-w-lg mx-auto px-4 py-6 space-y-5">
+      <div className="max-w-5xl mx-auto px-4 py-6 space-y-5">
 
         {/* Product card */}
         <div className="relative overflow-hidden rounded-2xl border border-cyan-100 bg-[linear-gradient(135deg,#d8f8f9_0%,#eefcfc_58%,#d9f2ff_100%)] p-5">
@@ -533,7 +533,7 @@ export default function Pay() {
               type="button"
               aria-pressed={payMode === "mobile"}
               onClick={() => { setPayMode("mobile"); setCryptoResult(null); setCryptoPoll("waiting"); }}
-              className={`relative min-h-[132px] sm:min-h-[154px] rounded-2xl border-2 px-1.5 py-3 sm:px-3 sm:py-4 text-center transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2 ${
+              className={`relative min-h-[132px] sm:min-h-[154px] md:min-h-[190px] lg:min-h-[230px] rounded-2xl border-2 px-1.5 py-3 sm:px-3 sm:py-4 md:px-5 md:py-6 lg:px-8 lg:py-7 text-center transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2 ${
                 payMode === "mobile"
                   ? "border-emerald-400 bg-emerald-50/70 shadow-sm dark:border-emerald-500 dark:bg-emerald-950/25"
                   : "border-border bg-background hover:border-emerald-300/70 hover:bg-emerald-50/30 dark:hover:bg-emerald-950/10"
@@ -544,14 +544,14 @@ export default function Pay() {
                   <Check className="h-3.5 w-3.5 sm:h-4 sm:w-4" strokeWidth={3} />
                 </span>
               )}
-              <span className="mx-auto flex h-9 w-9 sm:h-12 sm:w-12 items-center justify-center rounded-full bg-emerald-100 text-emerald-600 dark:bg-emerald-900/60 dark:text-emerald-300">
-                <Smartphone className="h-5 w-5 sm:h-6 sm:w-6" />
+              <span className="mx-auto flex h-9 w-9 sm:h-12 sm:w-12 md:h-16 md:w-16 lg:h-20 lg:w-20 items-center justify-center rounded-full bg-emerald-100 text-emerald-600 dark:bg-emerald-900/60 dark:text-emerald-300">
+                <Smartphone className="h-5 w-5 sm:h-6 sm:w-6 md:h-8 md:w-8 lg:h-10 lg:w-10" />
               </span>
-              <span className="mt-2 block truncate text-xs sm:text-base font-bold text-foreground">Mobile Money</span>
-              <span className="mt-2 sm:mt-3 flex items-center justify-center gap-0.5 sm:gap-1.5" aria-label="MTN, Orange et Moov">
-                <span className="rounded-full bg-[#ffcc00] px-1 sm:px-2 py-0.5 text-[8px] sm:text-[10px] font-black italic text-[#1a1a1a]">MTN</span>
-                <span className="rounded-sm bg-[#f58220] px-1 sm:px-1.5 py-0.5 text-[8px] sm:text-[10px] font-bold text-white">orange</span>
-                <span className="rounded-full bg-white px-1 sm:px-1.5 py-0.5 text-[8px] sm:text-[10px] font-bold text-[#1769aa] shadow-sm ring-1 ring-slate-200 dark:bg-slate-100">Moov</span>
+              <span className="mt-2 block whitespace-nowrap text-[11px] sm:text-base md:text-xl lg:text-3xl font-bold text-foreground">Mobile Money</span>
+              <span className="mt-2 sm:mt-3 md:mt-5 flex items-center justify-center gap-0.5 sm:gap-1.5 md:gap-2.5" aria-label="MTN, Orange et Moov">
+                <span className="rounded-full bg-[#ffcc00] px-1 sm:px-2 md:px-3 py-0.5 md:py-1 text-[8px] sm:text-[10px] md:text-sm font-black italic text-[#1a1a1a]">MTN</span>
+                <span className="rounded-sm bg-[#f58220] px-1 sm:px-1.5 md:px-2.5 py-0.5 md:py-1 text-[8px] sm:text-[10px] md:text-sm font-bold text-white">orange</span>
+                <span className="rounded-full bg-white px-1 sm:px-1.5 md:px-2.5 py-0.5 md:py-1 text-[8px] sm:text-[10px] md:text-sm font-bold text-[#1769aa] shadow-sm ring-1 ring-slate-200 dark:bg-slate-100">Moov</span>
               </span>
             </button>
 
@@ -559,7 +559,7 @@ export default function Pay() {
               type="button"
               aria-pressed={payMode === "card"}
               onClick={() => { setPayMode("card"); setCryptoResult(null); setCryptoPoll("waiting"); }}
-              className={`relative min-h-[132px] sm:min-h-[154px] rounded-2xl border-2 px-1.5 py-3 sm:px-3 sm:py-4 text-center transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 ${
+              className={`relative min-h-[132px] sm:min-h-[154px] md:min-h-[190px] lg:min-h-[230px] rounded-2xl border-2 px-1.5 py-3 sm:px-3 sm:py-4 md:px-5 md:py-6 lg:px-8 lg:py-7 text-center transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 ${
                 payMode === "card"
                   ? "border-blue-400 bg-blue-50/70 shadow-sm dark:border-blue-500 dark:bg-blue-950/25"
                   : "border-border bg-background hover:border-blue-300/70 hover:bg-blue-50/30 dark:hover:bg-blue-950/10"
@@ -570,17 +570,17 @@ export default function Pay() {
                   <Check className="h-3.5 w-3.5 sm:h-4 sm:w-4" strokeWidth={3} />
                 </span>
               )}
-              <span className="mx-auto flex h-9 w-9 sm:h-12 sm:w-12 items-center justify-center rounded-full bg-blue-100 text-blue-600 dark:bg-blue-900/60 dark:text-blue-300">
-                <CreditCard className="h-5 w-5 sm:h-6 sm:w-6" />
+              <span className="mx-auto flex h-9 w-9 sm:h-12 sm:w-12 md:h-16 md:w-16 lg:h-20 lg:w-20 items-center justify-center rounded-full bg-blue-100 text-blue-600 dark:bg-blue-900/60 dark:text-blue-300">
+                <CreditCard className="h-5 w-5 sm:h-6 sm:w-6 md:h-8 md:w-8 lg:h-10 lg:w-10" />
               </span>
-              <span className="mt-2 block truncate text-xs sm:text-base font-bold text-foreground">Carte</span>
-              <span className="mt-2 sm:mt-3 flex items-center justify-center gap-1 sm:gap-2" aria-label="Visa, Mastercard et Apple Pay">
-                <span className="text-[12px] sm:text-[16px] font-black italic tracking-tight text-[#1434cb]">VISA</span>
-                <span className="relative flex h-4 w-6 sm:h-5 sm:w-8 items-center justify-center">
-                  <span className="absolute left-0 h-4 w-4 sm:h-5 sm:w-5 rounded-full bg-[#eb001b]" />
-                  <span className="absolute right-0 h-4 w-4 sm:h-5 sm:w-5 rounded-full bg-[#f79e1b] opacity-90" />
+              <span className="mt-2 block whitespace-nowrap text-[11px] sm:text-base md:text-xl lg:text-3xl font-bold text-foreground">Carte</span>
+              <span className="mt-2 sm:mt-3 md:mt-5 flex items-center justify-center gap-1 sm:gap-2 md:gap-3" aria-label="Visa, Mastercard et Apple Pay">
+                <span className="text-[12px] sm:text-[16px] md:text-xl lg:text-3xl font-black italic tracking-tight text-[#1434cb]">VISA</span>
+                <span className="relative flex h-4 w-6 sm:h-5 sm:w-8 md:h-7 md:w-11 items-center justify-center">
+                  <span className="absolute left-0 h-4 w-4 sm:h-5 sm:w-5 md:h-7 md:w-7 rounded-full bg-[#eb001b]" />
+                  <span className="absolute right-0 h-4 w-4 sm:h-5 sm:w-5 md:h-7 md:w-7 rounded-full bg-[#f79e1b] opacity-90" />
                 </span>
-                <span className="text-[9px] sm:text-[12px] font-semibold text-foreground">Pay</span>
+                <span className="text-[9px] sm:text-[12px] md:text-base lg:text-xl font-semibold text-foreground">Pay</span>
               </span>
             </button>
 
@@ -588,7 +588,7 @@ export default function Pay() {
               type="button"
               aria-pressed={payMode === "crypto"}
               onClick={() => setPayMode("crypto")}
-              className={`relative min-h-[132px] sm:min-h-[154px] rounded-2xl border-2 px-1.5 py-3 sm:px-3 sm:py-4 text-center transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-500 focus-visible:ring-offset-2 ${
+              className={`relative min-h-[132px] sm:min-h-[154px] md:min-h-[190px] lg:min-h-[230px] rounded-2xl border-2 px-1.5 py-3 sm:px-3 sm:py-4 md:px-5 md:py-6 lg:px-8 lg:py-7 text-center transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-500 focus-visible:ring-offset-2 ${
                 payMode === "crypto"
                   ? "border-amber-400 bg-amber-50/70 shadow-sm dark:border-amber-500 dark:bg-amber-950/25"
                   : "border-border bg-background hover:border-amber-300/70 hover:bg-amber-50/30 dark:hover:bg-amber-950/10"
@@ -599,15 +599,15 @@ export default function Pay() {
                   <Check className="h-3.5 w-3.5 sm:h-4 sm:w-4" strokeWidth={3} />
                 </span>
               )}
-              <span className="mx-auto flex h-9 w-9 sm:h-12 sm:w-12 items-center justify-center rounded-full bg-amber-100 text-amber-600 dark:bg-amber-900/60 dark:text-amber-300">
-                <Bitcoin className="h-5 w-5 sm:h-6 sm:w-6" />
+              <span className="mx-auto flex h-9 w-9 sm:h-12 sm:w-12 md:h-16 md:w-16 lg:h-20 lg:w-20 items-center justify-center rounded-full bg-amber-100 text-amber-600 dark:bg-amber-900/60 dark:text-amber-300">
+                <Bitcoin className="h-5 w-5 sm:h-6 sm:w-6 md:h-8 md:w-8 lg:h-10 lg:w-10" />
               </span>
-              <span className="mt-2 block truncate text-xs sm:text-base font-bold text-foreground">Crypto</span>
-              <span className="mt-2 sm:mt-3 flex items-center justify-center gap-1 sm:gap-1.5" aria-label="Bitcoin, Ethereum, Tether et USD Coin">
-                <span className="flex h-4 w-4 sm:h-5 sm:w-5 items-center justify-center rounded-full bg-[#f7931a] text-[9px] sm:text-[11px] font-bold text-white">₿</span>
-                <span className="flex h-4 w-4 sm:h-5 sm:w-5 items-center justify-center rounded-full bg-[#627eea] text-[8px] sm:text-[10px] font-bold text-white">◆</span>
-                <span className="flex h-4 w-4 sm:h-5 sm:w-5 items-center justify-center rounded-full bg-[#26a17b] text-[8px] sm:text-[10px] font-bold text-white">₮</span>
-                <span className="flex h-4 w-4 sm:h-5 sm:w-5 items-center justify-center rounded-full bg-[#2775ca] text-[8px] sm:text-[10px] font-bold text-white">$</span>
+              <span className="mt-2 block whitespace-nowrap text-[11px] sm:text-base md:text-xl lg:text-3xl font-bold text-foreground">Crypto</span>
+              <span className="mt-2 sm:mt-3 md:mt-5 flex items-center justify-center gap-1 sm:gap-1.5 md:gap-2.5" aria-label="Bitcoin, Ethereum, Tether et USD Coin">
+                <span className="flex h-4 w-4 sm:h-5 sm:w-5 md:h-7 md:w-7 items-center justify-center rounded-full bg-[#f7931a] text-[9px] sm:text-[11px] md:text-sm font-bold text-white">₿</span>
+                <span className="flex h-4 w-4 sm:h-5 sm:w-5 md:h-7 md:w-7 items-center justify-center rounded-full bg-[#627eea] text-[8px] sm:text-[10px] md:text-xs font-bold text-white">◆</span>
+                <span className="flex h-4 w-4 sm:h-5 sm:w-5 md:h-7 md:w-7 items-center justify-center rounded-full bg-[#26a17b] text-[8px] sm:text-[10px] md:text-xs font-bold text-white">₮</span>
+                <span className="flex h-4 w-4 sm:h-5 sm:w-5 md:h-7 md:w-7 items-center justify-center rounded-full bg-[#2775ca] text-[8px] sm:text-[10px] md:text-xs font-bold text-white">$</span>
               </span>
             </button>
           </div>
