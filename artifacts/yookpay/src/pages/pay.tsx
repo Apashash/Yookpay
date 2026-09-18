@@ -548,11 +548,11 @@ export default function Pay() {
                 <Smartphone className="h-5 w-5 sm:h-6 sm:w-6 md:h-8 md:w-8 lg:h-10 lg:w-10" />
               </span>
               <span className="mt-2 block whitespace-nowrap text-[11px] sm:text-base md:text-xl lg:text-3xl font-bold text-foreground">Mobile Money</span>
-              <span className="mt-2 sm:mt-3 md:mt-5 flex items-center justify-center gap-0.5 sm:gap-1.5 md:gap-2.5" aria-label="MTN, Orange et Moov">
-                <span className="rounded-full bg-[#ffcc00] px-1 sm:px-2 md:px-3 py-0.5 md:py-1 text-[8px] sm:text-[10px] md:text-sm font-black italic text-[#1a1a1a]">MTN</span>
-                <span className="rounded-sm bg-[#f58220] px-1 sm:px-1.5 md:px-2.5 py-0.5 md:py-1 text-[8px] sm:text-[10px] md:text-sm font-bold text-white">orange</span>
-                <span className="rounded-full bg-white px-1 sm:px-1.5 md:px-2.5 py-0.5 md:py-1 text-[8px] sm:text-[10px] md:text-sm font-bold text-[#1769aa] shadow-sm ring-1 ring-slate-200 dark:bg-slate-100">Moov</span>
-              </span>
+              <img
+                src="/payment-methods/mobile-money-logos.webp"
+                alt="MTN, Orange et Moov"
+                className="mx-auto mt-2 h-5 w-auto max-w-full object-contain sm:mt-3 sm:h-7 md:mt-5 md:h-10 lg:h-12"
+              />
             </button>
 
             <button
@@ -574,14 +574,11 @@ export default function Pay() {
                 <CreditCard className="h-5 w-5 sm:h-6 sm:w-6 md:h-8 md:w-8 lg:h-10 lg:w-10" />
               </span>
               <span className="mt-2 block whitespace-nowrap text-[11px] sm:text-base md:text-xl lg:text-3xl font-bold text-foreground">Carte</span>
-              <span className="mt-2 sm:mt-3 md:mt-5 flex items-center justify-center gap-1 sm:gap-2 md:gap-3" aria-label="Visa, Mastercard et Apple Pay">
-                <span className="text-[12px] sm:text-[16px] md:text-xl lg:text-3xl font-black italic tracking-tight text-[#1434cb]">VISA</span>
-                <span className="relative flex h-4 w-6 sm:h-5 sm:w-8 md:h-7 md:w-11 items-center justify-center">
-                  <span className="absolute left-0 h-4 w-4 sm:h-5 sm:w-5 md:h-7 md:w-7 rounded-full bg-[#eb001b]" />
-                  <span className="absolute right-0 h-4 w-4 sm:h-5 sm:w-5 md:h-7 md:w-7 rounded-full bg-[#f79e1b] opacity-90" />
-                </span>
-                <span className="text-[9px] sm:text-[12px] md:text-base lg:text-xl font-semibold text-foreground">Pay</span>
-              </span>
+              <img
+                src="/payment-methods/card-logos.webp"
+                alt="Visa, Mastercard et Apple Pay"
+                className="mx-auto mt-2 h-5 w-auto max-w-full object-contain sm:mt-3 sm:h-7 md:mt-5 md:h-10 lg:h-12"
+              />
             </button>
 
             <button
@@ -603,12 +600,11 @@ export default function Pay() {
                 <Bitcoin className="h-5 w-5 sm:h-6 sm:w-6 md:h-8 md:w-8 lg:h-10 lg:w-10" />
               </span>
               <span className="mt-2 block whitespace-nowrap text-[11px] sm:text-base md:text-xl lg:text-3xl font-bold text-foreground">Crypto</span>
-              <span className="mt-2 sm:mt-3 md:mt-5 flex items-center justify-center gap-1 sm:gap-1.5 md:gap-2.5" aria-label="Bitcoin, Ethereum, Tether et USD Coin">
-                <span className="flex h-4 w-4 sm:h-5 sm:w-5 md:h-7 md:w-7 items-center justify-center rounded-full bg-[#f7931a] text-[9px] sm:text-[11px] md:text-sm font-bold text-white">₿</span>
-                <span className="flex h-4 w-4 sm:h-5 sm:w-5 md:h-7 md:w-7 items-center justify-center rounded-full bg-[#627eea] text-[8px] sm:text-[10px] md:text-xs font-bold text-white">◆</span>
-                <span className="flex h-4 w-4 sm:h-5 sm:w-5 md:h-7 md:w-7 items-center justify-center rounded-full bg-[#26a17b] text-[8px] sm:text-[10px] md:text-xs font-bold text-white">₮</span>
-                <span className="flex h-4 w-4 sm:h-5 sm:w-5 md:h-7 md:w-7 items-center justify-center rounded-full bg-[#2775ca] text-[8px] sm:text-[10px] md:text-xs font-bold text-white">$</span>
-              </span>
+              <img
+                src="/payment-methods/crypto-logos.webp"
+                alt="Bitcoin, Ethereum, Tether et USD Coin"
+                className="mx-auto mt-2 h-5 w-auto max-w-full object-contain sm:mt-3 sm:h-7 md:mt-5 md:h-10 lg:h-12"
+              />
             </button>
           </div>
 
