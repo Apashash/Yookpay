@@ -10,10 +10,11 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import {
   Loader2, ShieldCheck, Clock, CheckCircle2, XCircle, Link2,
   AlertTriangle, Copy, Check, Info, ExternalLink,
-  Smartphone, CreditCard, Bitcoin,
+  Smartphone, CreditCard, Bitcoin, Search, ChevronDown,
 } from "lucide-react";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -61,6 +62,104 @@ const CIRCLE_C          = 2 * Math.PI * CIRCLE_R;
 
 function pad2(n: number) { return String(n).padStart(2, "0"); }
 function formatMMSS(s: number) { return `${pad2(Math.floor(s / 60))}:${pad2(s % 60)}`; }
+
+type CountryOption = (typeof COUNTRIES)[number];
+
+function normalizeSearch(value: string) {
+  return value.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+}
+
+function CountryPicker({
+  countries,
+  value,
+  onChange,
+}: {
+  countries: CountryOption[];
+  value: string;
+  onChange: (code: string) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const [search, setSearch] = useState("");
+  const selected = countries.find((country) => country.code === value);
+  const query = normalizeSearch(search.trim());
+  const filteredCountries = countries.filter((country) =>
+    normalizeSearch(`${country.name} ${country.currency} ${country.code}`).includes(query)
+  );
+
+  return (
+    <Popover
+      open={open}
+      onOpenChange={(nextOpen) => {
+        setOpen(nextOpen);
+        if (!nextOpen) setSearch("");
+      }}
+    >
+      <PopoverTrigger asChild>
+        <button
+          type="button"
+          aria-expanded={open}
+          className="flex h-11 w-full items-center justify-between rounded-md border border-input bg-background px-3 text-left text-sm transition-colors hover:bg-muted/40 focus:outline-none focus:ring-2 focus:ring-ring"
+        >
+          {selected ? (
+            <span className="flex min-w-0 items-center gap-2">
+              <span className="text-lg leading-none">{selected.flag}</span>
+              <span className="truncate font-medium">{selected.name}</span>
+              <span className="shrink-0 rounded-md bg-muted px-1.5 py-0.5 text-xs font-semibold text-muted-foreground">
+                {selected.currency}
+              </span>
+            </span>
+          ) : (
+            <span className="text-muted-foreground">Sélectionnez votre pays</span>
+          )}
+          <ChevronDown className="ml-2 h-4 w-4 shrink-0 text-muted-foreground" />
+        </button>
+      </PopoverTrigger>
+      <PopoverContent
+        align="start"
+        sideOffset={6}
+        className="w-[var(--radix-popover-trigger-width)] overflow-hidden p-0"
+      >
+        <div className="sticky top-0 z-10 border-b bg-popover p-2">
+          <div className="flex h-9 items-center gap-2 rounded-md border border-input bg-background px-2.5">
+            <Search className="h-4 w-4 shrink-0 text-muted-foreground" />
+            <input
+              value={search}
+              onChange={(event) => setSearch(event.target.value)}
+              placeholder="Rechercher un pays"
+              autoFocus
+              className="h-full min-w-0 flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground"
+            />
+          </div>
+        </div>
+        <div className="max-h-64 overflow-y-auto overscroll-contain p-1">
+          {filteredCountries.length > 0 ? (
+            filteredCountries.map((country) => (
+              <button
+                key={country.code}
+                type="button"
+                onClick={() => {
+                  onChange(country.code);
+                  setOpen(false);
+                  setSearch("");
+                }}
+                className="flex w-full items-center gap-2 rounded-md px-3 py-2.5 text-left text-sm hover:bg-muted focus:bg-muted focus:outline-none"
+              >
+                <span className="text-lg leading-none">{country.flag}</span>
+                <span className="min-w-0 flex-1 truncate font-medium">{country.name}</span>
+                <span className="shrink-0 rounded-md bg-muted px-1.5 py-0.5 text-xs font-semibold text-muted-foreground">
+                  {country.currency}
+                </span>
+                {country.code === value && <Check className="h-4 w-4 shrink-0 text-primary" />}
+              </button>
+            ))
+          ) : (
+            <p className="px-3 py-6 text-center text-sm text-muted-foreground">Aucun pays trouvé</p>
+          )}
+        </div>
+      </PopoverContent>
+    </Popover>
+  );
+}
 
 // ─── Component ────────────────────────────────────────────────────────────────
 
@@ -613,13 +712,7 @@ export default function Pay() {
             <form onSubmit={handleCardSubmit} className="space-y-5">
               <div className="space-y-1.5">
                 <Label>Pays</Label>
-                <select value={cardCountry} onChange={(e) => setCardCountry(e.target.value)}
-                  className="w-full h-10 px-3 rounded-md border border-input bg-background text-sm focus:outline-none focus:ring-2 focus:ring-ring">
-                  <option value="" disabled>Sélectionnez votre pays</option>
-                  {cardCountries.map((c) => (
-                    <option key={c.code} value={c.code}>{c.flag} {c.name} — {c.currency}</option>
-                  ))}
-                </select>
+                <CountryPicker countries={cardCountries} value={cardCountry} onChange={setCardCountry} />
               </div>
 
               <div className="space-y-1.5">
@@ -676,13 +769,7 @@ export default function Pay() {
               {/* Country */}
               <div className="space-y-1.5">
                 <Label>Pays</Label>
-                <select value={country} onChange={(e) => setCountry(e.target.value)}
-                  className="w-full h-10 px-3 rounded-md border border-input bg-background text-sm focus:outline-none focus:ring-2 focus:ring-ring">
-                  <option value="" disabled>Sélectionnez votre pays</option>
-                  {availableCountries.map((c) => (
-                    <option key={c.code} value={c.code}>{c.flag} {c.name} — {c.currency}</option>
-                  ))}
-                </select>
+                <CountryPicker countries={availableCountries} value={country} onChange={setCountry} />
               </div>
 
               {/* Operator */}
