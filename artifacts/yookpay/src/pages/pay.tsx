@@ -795,16 +795,6 @@ export default function Pay() {
                   </AlertDescription>
                 </Alert>
               )}
-              {flow === "STANDARD" && operator && (
-                <Alert className="border-muted bg-muted/30">
-                  <Info className="h-4 w-4 text-muted-foreground" />
-                  <AlertTitle className="text-sm">Confirmation par SMS / USSD</AlertTitle>
-                  <AlertDescription className="text-muted-foreground text-sm mt-1">
-                    Vous recevrez une invitation de {OPERATOR_LABELS[operator] ?? operator} pour confirmer le paiement.
-                  </AlertDescription>
-                </Alert>
-              )}
-
               {/* Phone */}
               {operator && (
                 <div className="space-y-1.5">
@@ -819,7 +809,6 @@ export default function Pay() {
                       className={selectedCountry ? "rounded-l-none" : ""}
                       value={phone} onChange={(e) => setPhone(e.target.value)} />
                   </div>
-                  <p className="text-xs text-muted-foreground">Le numéro à débiter.</p>
                 </div>
               )}
 
