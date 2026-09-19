@@ -521,17 +521,6 @@ export default function Pay() {
         </svg>
 
         <h2 className="text-xl font-bold">Confirmation en attente</h2>
-        <p className="text-muted-foreground text-sm">
-          Vérification automatique toutes les 3s.
-        </p>
-
-        <Alert className="border-emerald-200 bg-emerald-50 dark:bg-emerald-900/20 text-left w-full">
-          <Info className="h-4 w-4 text-emerald-600" />
-          <AlertTitle className="text-emerald-700 dark:text-emerald-300 text-sm">Vous pouvez quitter cette page</AlertTitle>
-          <AlertDescription className="text-emerald-600 dark:text-emerald-400 text-xs mt-0.5">
-            Votre paiement continuera d'être traité en arrière-plan.
-          </AlertDescription>
-        </Alert>
 
         {mobileResult.smsLink && (
           <Alert className="border-blue-200 bg-blue-50 dark:bg-blue-900/20 text-left w-full">
