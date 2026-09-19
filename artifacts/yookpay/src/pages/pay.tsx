@@ -744,14 +744,6 @@ export default function Pay() {
                 </div>
               )}
 
-              <Alert className="border-violet-200 bg-violet-50 dark:bg-violet-900/20">
-                <Info className="h-4 w-4 text-violet-600" />
-                <AlertTitle className="text-violet-700 dark:text-violet-300 text-sm">Paiement par carte sécurisé</AlertTitle>
-                <AlertDescription className="text-violet-600 dark:text-violet-400 text-xs mt-1">
-                  Vous serez redirigé vers la page de paiement sécurisée pour saisir vos informations Visa ou Mastercard.
-                </AlertDescription>
-              </Alert>
-
               <Button type="submit"
                 className="w-full bg-violet-600 hover:bg-violet-500 text-white font-bold"
                 disabled={cardLoading || !country}>
