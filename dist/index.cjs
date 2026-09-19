@@ -80484,7 +80484,12 @@ var FEE_TABLE = {
     AIRTEL: { DEPOSIT: { rate: 0.03, minFee: 1, maxFee: null }, WITHDRAWAL: { rate: 0.035, minFee: 1, maxFee: null }, TRANSFER: { rate: 0.019, minFee: 1, maxFee: null } },
     ORANGE: { DEPOSIT: { rate: 0.03, minFee: 1, maxFee: null }, WITHDRAWAL: { rate: 0.035, minFee: 1, maxFee: null }, TRANSFER: { rate: 0.019, minFee: 1, maxFee: null } },
     AFRICELL: { DEPOSIT: { rate: 0.03, minFee: 1, maxFee: null }, WITHDRAWAL: { rate: 0.035, minFee: 1, maxFee: null }, TRANSFER: { rate: 0.019, minFee: 1, maxFee: null } }
-  }
+  },
+  NG: {},
+  US: {},
+  FR: {},
+  GB: {},
+  CA: {}
 };
 var CURRENCY_MAP = {
   CM: "XAF",
@@ -80498,7 +80503,12 @@ var CURRENCY_MAP = {
   GN: "GNF",
   ML: "XOF",
   TG: "XOF",
-  CD: "CDF"
+  CD: "CDF",
+  NG: "NGN",
+  US: "USD",
+  FR: "EUR",
+  GB: "GBP",
+  CA: "CAD"
 };
 function calculateFee(amount, country, operator, type) {
   const config2 = FEE_TABLE[country]?.[operator]?.[type];

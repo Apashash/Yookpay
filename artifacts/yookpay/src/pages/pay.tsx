@@ -1,7 +1,13 @@
 import { useEffect, useState, useCallback } from "react";
 import { useRoute } from "wouter";
 import { useToast } from "@/hooks/use-toast";
-import { COUNTRIES, OPERATOR_LABELS, normalizePhone } from "@/lib/countries";
+import {
+  COUNTRIES,
+  PAYMENT_LINK_COUNTRIES,
+  OPERATOR_LABELS,
+  normalizePhone,
+  type PaymentLinkCountryOption,
+} from "@/lib/countries";
 import { getOperatorFlow } from "@/lib/operator-flow";
 import { formatCurrency } from "@/lib/format";
 import { YookPayLogo } from "@/components/yookpay-logo";
@@ -64,8 +70,6 @@ const CIRCLE_C          = 2 * Math.PI * CIRCLE_R;
 function pad2(n: number) { return String(n).padStart(2, "0"); }
 function formatMMSS(s: number) { return `${pad2(Math.floor(s / 60))}:${pad2(s % 60)}`; }
 
-type CountryOption = (typeof COUNTRIES)[number];
-
 function normalizeSearch(value: string) {
   return value.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
 }
@@ -75,7 +79,7 @@ function CountryPicker({
   value,
   onChange,
 }: {
-  countries: CountryOption[];
+  countries: readonly PaymentLinkCountryOption[];
   value: string;
   onChange: (code: string) => void;
 }) {
@@ -218,7 +222,12 @@ export default function Pay() {
   const availableCountries = COUNTRIES.filter(
     (c) => !linkData?.countries?.length || linkData.countries.includes(c.code)
   );
-  const selectedCountry   = COUNTRIES.find((c) => c.code === country);
+  const cardCountries = PAYMENT_LINK_COUNTRIES.filter(
+    (c) =>
+      ["XAF", "NGN", "USD", "EUR", "GBP", "CAD"].includes(c.currency) &&
+      (!linkData?.countries?.length || linkData.countries.includes(c.code))
+  );
+  const selectedCountry   = PAYMENT_LINK_COUNTRIES.find((c) => c.code === country);
   const allOperators = selectedCountry?.operators ?? [];
   const availableOperators = activeOps && country && activeOps[country]
     ? allOperators.filter((op) => activeOps[country].deposit.includes(op))
@@ -640,7 +649,14 @@ export default function Pay() {
             <button
               type="button"
               aria-pressed={payMode === "mobile"}
-              onClick={() => { setPayMode("mobile"); setCryptoResult(null); setCryptoPoll("waiting"); }}
+              onClick={() => {
+                setPayMode("mobile");
+                setCryptoResult(null);
+                setCryptoPoll("waiting");
+                if (!availableCountries.some((candidate) => candidate.code === country)) {
+                  setCountry(availableCountries[0]?.code ?? "");
+                }
+              }}
               className={`relative min-h-[132px] sm:min-h-[154px] md:min-h-[190px] lg:min-h-[230px] rounded-2xl border-2 px-1.5 py-3 sm:px-3 sm:py-4 md:px-5 md:py-6 lg:px-8 lg:py-7 text-center transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2 ${
                 payMode === "mobile"
                   ? "border-emerald-400 bg-emerald-50/70 shadow-sm dark:border-emerald-500 dark:bg-emerald-950/25"
@@ -666,7 +682,14 @@ export default function Pay() {
             <button
               type="button"
               aria-pressed={payMode === "card"}
-              onClick={() => { setPayMode("card"); setCryptoResult(null); setCryptoPoll("waiting"); }}
+              onClick={() => {
+                setPayMode("card");
+                setCryptoResult(null);
+                setCryptoPoll("waiting");
+                if (!cardCountries.some((candidate) => candidate.code === country)) {
+                  setCountry(cardCountries[0]?.code ?? "");
+                }
+              }}
               className={`relative min-h-[132px] sm:min-h-[154px] md:min-h-[190px] lg:min-h-[230px] rounded-2xl border-2 px-1.5 py-3 sm:px-3 sm:py-4 md:px-5 md:py-6 lg:px-8 lg:py-7 text-center transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 ${
                 payMode === "card"
                   ? "border-blue-400 bg-blue-50/70 shadow-sm dark:border-blue-500 dark:bg-blue-950/25"
@@ -692,7 +715,12 @@ export default function Pay() {
             <button
               type="button"
               aria-pressed={payMode === "crypto"}
-              onClick={() => setPayMode("crypto")}
+              onClick={() => {
+                setPayMode("crypto");
+                if (!availableCountries.some((candidate) => candidate.code === country)) {
+                  setCountry(availableCountries[0]?.code ?? "");
+                }
+              }}
               className={`relative min-h-[132px] sm:min-h-[154px] md:min-h-[190px] lg:min-h-[230px] rounded-2xl border-2 px-1.5 py-3 sm:px-3 sm:py-4 md:px-5 md:py-6 lg:px-8 lg:py-7 text-center transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-500 focus-visible:ring-offset-2 ${
                 payMode === "crypto"
                   ? "border-amber-400 bg-amber-50/70 shadow-sm dark:border-amber-500 dark:bg-amber-950/25"
@@ -721,7 +749,7 @@ export default function Pay() {
             <form onSubmit={handleCardSubmit} className="space-y-5">
               <div className="space-y-1.5">
                 <Label>Pays</Label>
-                <CountryPicker countries={availableCountries} value={country} onChange={setCountry} />
+                <CountryPicker countries={cardCountries} value={country} onChange={setCountry} />
               </div>
 
               <div className="space-y-1.5">

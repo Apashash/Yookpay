@@ -1,4 +1,6 @@
-export type Country = "CM" | "SN" | "CD" | "BJ" | "BF" | "CG" | "CI" | "GA" | "GM" | "GN" | "ML" | "TG";
+export type Country =
+  | "CM" | "SN" | "CD" | "BJ" | "BF" | "CG" | "CI" | "GA" | "GM" | "GN" | "ML" | "TG"
+  | "NG" | "US" | "FR" | "GB" | "CA";
 export type Operator =
   | "MTN" | "ORANGE" | "MOOV" | "WAVE"
   | "AIRTEL" | "VODACOM" | "AFRICELL" | "QMONEY"
@@ -75,12 +77,18 @@ export const FEE_TABLE: Record<Country, FeeTable> = {
     ORANGE:   { DEPOSIT: { rate: 0.030, minFee: 1, maxFee: null }, WITHDRAWAL: { rate: 0.035, minFee: 1, maxFee: null }, TRANSFER: { rate: 0.019, minFee: 1, maxFee: null } },
     AFRICELL: { DEPOSIT: { rate: 0.030, minFee: 1, maxFee: null }, WITHDRAWAL: { rate: 0.035, minFee: 1, maxFee: null }, TRANSFER: { rate: 0.019, minFee: 1, maxFee: null } },
   },
+  NG: {},
+  US: {},
+  FR: {},
+  GB: {},
+  CA: {},
 };
 
 export const CURRENCY_MAP: Record<Country, string> = {
   CM: "XAF", CG: "XAF", GA: "XAF",
   SN: "XOF", BJ: "XOF", BF: "XOF", CI: "XOF", GM: "GMD", GN: "GNF", ML: "XOF", TG: "XOF",
   CD: "CDF",
+  NG: "NGN", US: "USD", FR: "EUR", GB: "GBP", CA: "CAD",
 };
 
 export function calculateFee(

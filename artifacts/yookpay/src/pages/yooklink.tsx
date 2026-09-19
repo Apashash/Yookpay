@@ -20,7 +20,7 @@ import {
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
 import { useToast } from "@/hooks/use-toast";
-import { COUNTRIES } from "@/lib/countries";
+import { PAYMENT_LINK_COUNTRIES } from "@/lib/countries";
 import {
   Link2, Copy, Check, Trash2, Plus, Image, X, ExternalLink,
   Loader2, MousePointerClick, Pencil, TrendingUp,
@@ -48,6 +48,11 @@ const CURRENCIES = [
   { code: "XOF", label: "XOF — Franc CFA (UEMOA)" },
   { code: "XAF", label: "XAF — Franc CFA (CEMAC)" },
   { code: "CDF", label: "CDF — Franc Congolais" },
+  { code: "NGN", label: "NGN — Naira nigérian" },
+  { code: "USD", label: "USD — Dollar américain" },
+  { code: "EUR", label: "EUR — Euro" },
+  { code: "GBP", label: "GBP — Livre sterling" },
+  { code: "CAD", label: "CAD — Dollar canadien" },
   { code: "USDT", label: "USDT — Tether" },
 ];
 
@@ -514,7 +519,7 @@ export function LinkFormDialog({
               Sélectionnez les pays depuis lesquels vos clients peuvent payer.
             </p>
             <div className="grid grid-cols-2 gap-2">
-              {COUNTRIES.map((c) => (
+              {PAYMENT_LINK_COUNTRIES.map((c) => (
                 <button
                   key={c.code}
                   onClick={() => toggleCountry(c.code)}

@@ -15,7 +15,7 @@ import {
   TrendingUp, XCircle, Wallet, Link2, Loader2, Globe,
 } from "lucide-react";
 import { type PaymentLink, getPublicUrl, CopyButton, LinkFormDialog } from "./yooklink";
-import { COUNTRIES } from "@/lib/countries";
+import { PAYMENT_LINK_COUNTRIES } from "@/lib/countries";
 
 type LinkStats = {
   clickCount: number;
@@ -221,7 +221,7 @@ export default function YookLinkDetail() {
         <CardContent className="pt-0">
           <div className="flex flex-wrap gap-2">
             {link.countries.map((code) => {
-              const country = COUNTRIES.find((c) => c.code === code);
+              const country = PAYMENT_LINK_COUNTRIES.find((c) => c.code === code);
               return (
                 <Badge key={code} variant="outline" className="gap-1.5">
                   {country?.flag} {country?.name ?? code}

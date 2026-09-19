@@ -13,7 +13,18 @@ export const COUNTRIES = [
   { code: "TG", name: "Togo",              flag: "🇹🇬", dialCode: "+228", currency: "XOF", operators: ["TOGOCEL", "MOOV"],                        minAmount: 50 },
 ] as const;
 
+export const CARD_ONLY_COUNTRIES = [
+  { code: "NG", name: "Nigeria",      flag: "🇳🇬", dialCode: "+234", currency: "NGN", operators: [], minAmount: 100 },
+  { code: "US", name: "États-Unis",   flag: "🇺🇸", dialCode: "+1",   currency: "USD", operators: [], minAmount: 100 },
+  { code: "FR", name: "France",       flag: "🇫🇷", dialCode: "+33",  currency: "EUR", operators: [], minAmount: 100 },
+  { code: "GB", name: "Royaume-Uni",  flag: "🇬🇧", dialCode: "+44",  currency: "GBP", operators: [], minAmount: 100 },
+  { code: "CA", name: "Canada",       flag: "🇨🇦", dialCode: "+1",   currency: "CAD", operators: [], minAmount: 100 },
+] as const;
+
+export const PAYMENT_LINK_COUNTRIES = [...COUNTRIES, ...CARD_ONLY_COUNTRIES] as const;
+
 export type CountryCode = typeof COUNTRIES[number]["code"];
+export type PaymentLinkCountryOption = typeof PAYMENT_LINK_COUNTRIES[number];
 
 export const OPERATOR_LABELS: Record<string, string> = {
   MTN:      "MTN Mobile Money",
