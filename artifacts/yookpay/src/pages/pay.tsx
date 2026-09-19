@@ -504,6 +504,8 @@ export default function Pay() {
 
     return (
       <div className="min-h-screen bg-background flex flex-col items-center justify-center gap-5 p-6 text-center max-w-sm mx-auto">
+        <h2 className="text-xl font-bold">Confirmation en attente</h2>
+
         <svg width="140" height="140" viewBox="0 0 140 140">
           <circle cx="70" cy="70" r={CIRCLE_R} fill="none" stroke="hsl(var(--border))" strokeWidth="8" />
           <circle cx="70" cy="70" r={CIRCLE_R} fill="none"
@@ -519,8 +521,6 @@ export default function Pay() {
           </text>
           <text x="70" y="84" textAnchor="middle" fontSize="10" fill="#9ca3af">restantes</text>
         </svg>
-
-        <h2 className="text-xl font-bold">Confirmation en attente</h2>
 
         {mobileResult.smsLink && (
           <Alert className="border-blue-200 bg-blue-50 dark:bg-blue-900/20 text-left w-full">
