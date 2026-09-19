@@ -33,8 +33,8 @@ description: S3P flow, correct service IDs per endpoint, HMAC auth, merchant→o
 - GA AIRTEL: 202412
 
 # Key env variables
-- `MAVIANCE_ENV` = "staging" — MUST be staging with these creds; production URL with staging creds returns HTML
-- `MAVIANCE_PUBLIC_KEY`, `MAVIANCE_SECRET` — set as Replit secrets
+- `MAVIANCE_ENV` = "production" — production was explicitly enabled for both S3P and e-nkap on 2026-09-19
+- `MAVIANCE_PUBLIC_KEY`, `MAVIANCE_SECRET` — production S3P credentials are stored as Replit secrets
 - `MAVIANCE_IPN_BASE_URL` = https://b.o.p.ashtechpay.top (production callback base)
 
 # e-nkap (card payments)
@@ -43,7 +43,11 @@ description: S3P flow, correct service IDs per endpoint, HMAC auth, merchant→o
 - POST /purchase/v1.2/api/order → {orderTransactionId, merchantReferenceId, redirectUrl}
 - Status field is `status` (not `paymentStatus`). CONFIRMED = success, FAILED/CANCELED = failure.
 - ITN: PUT <notificationUrl>/<merchantRef> — unsigned, must be re-verified server-side
-- Credentials `ENKAP_CONSUMER_KEY`/`ENKAP_CONSUMER_SECRET` not yet provided by user
+- Production credentials `ENKAP_CONSUMER_KEY`/`ENKAP_CONSUMER_SECRET` are stored as Replit secrets
+
+**Why:** Staging credentials and production credentials are not interchangeable; using the wrong environment returns authentication or HTML endpoint errors.
+
+**How to apply:** Keep both APIs on production unless the user explicitly requests a staging test. Never copy credentials between staging and production.
 
 # Testing note
 - Replit DB (172.24.0.3:3306) not reachable from Replit env — production DB on Plesk
