@@ -551,7 +551,7 @@ export default function Pay() {
             <Info className="h-4 w-4 text-amber-600" />
             <AlertTitle className="text-amber-700 dark:text-amber-300">Transaction Orange Money en attente</AlertTitle>
             <AlertDescription className="text-amber-600 dark:text-amber-400 text-xs">
-              Vous recevrez une notification sur votre téléphone — entrez votre PIN pour confirmer.
+              Vous recevrez une notification sur votre téléphone, entrez votre PIN pour confirmer.
             </AlertDescription>
           </Alert>
         )}
