@@ -3,6 +3,7 @@ import { useRoute } from "wouter";
 import { useToast } from "@/hooks/use-toast";
 import {
   COUNTRIES,
+  CARD_PAYMENT_COUNTRIES,
   PAYMENT_LINK_COUNTRIES,
   OPERATOR_LABELS,
   normalizePhone,
@@ -222,11 +223,7 @@ export default function Pay() {
   const availableCountries = COUNTRIES.filter(
     (c) => !linkData?.countries?.length || linkData.countries.includes(c.code)
   );
-  const cardCountries = PAYMENT_LINK_COUNTRIES.filter(
-    (c) =>
-      ["XAF", "NGN", "USD", "EUR", "GBP", "CAD"].includes(c.currency) &&
-      (!linkData?.countries?.length || linkData.countries.includes(c.code))
-  );
+  const cardCountries = CARD_PAYMENT_COUNTRIES;
   const selectedCountry   = PAYMENT_LINK_COUNTRIES.find((c) => c.code === country);
   const allOperators = selectedCountry?.operators ?? [];
   const availableOperators = activeOps && country && activeOps[country]

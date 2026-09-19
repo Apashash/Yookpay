@@ -86395,11 +86395,6 @@ router12.post("/public/:token/pay-card", async (req, res) => {
   }
   const link = linkRes.rows[0];
   const merchantId = link.user_id;
-  const linkCountries = parseCountries(link.countries);
-  if (linkCountries.length > 0 && !linkCountries.includes(country)) {
-    res.status(400).json({ error: "CountryNotAllowed", message: "Ce pays n'est pas accept\xE9 pour ce lien de paiement" });
-    return;
-  }
   if (link.price_type === "FIXED" && link.price_amount) {
     const fixedAmount = parseFloat(link.price_amount);
     if (amount !== fixedAmount) {

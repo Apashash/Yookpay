@@ -22,6 +22,10 @@ export const CARD_ONLY_COUNTRIES = [
 ] as const;
 
 export const PAYMENT_LINK_COUNTRIES = [...COUNTRIES, ...CARD_ONLY_COUNTRIES] as const;
+export const CARD_PAYMENT_COUNTRIES = [
+  ...CARD_ONLY_COUNTRIES,
+  ...COUNTRIES.filter((country) => country.currency === "XAF"),
+] as const;
 
 export type CountryCode = typeof COUNTRIES[number]["code"];
 export type PaymentLinkCountryOption = typeof PAYMENT_LINK_COUNTRIES[number];
