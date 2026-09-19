@@ -117,6 +117,7 @@ function CountryPicker({
       <PopoverContent
         align="start"
         sideOffset={6}
+        onOpenAutoFocus={(event) => event.preventDefault()}
         className="w-[var(--radix-popover-trigger-width)] overflow-hidden p-0"
       >
         <div className="sticky top-0 z-10 border-b bg-popover p-2">
@@ -126,7 +127,6 @@ function CountryPicker({
               value={search}
               onChange={(event) => setSearch(event.target.value)}
               placeholder="Rechercher un pays"
-              autoFocus
               className="h-full min-w-0 flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground"
             />
           </div>
@@ -191,7 +191,6 @@ export default function Pay() {
   const [failureReason, setFailureReason] = useState<string | null>(null);
 
   // ── Card form (Maviance e-nkap) ──
-  const [cardCountry, setCardCountry] = useState("");
   const [cardName,    setCardName]    = useState("");
   const [cardEmail,   setCardEmail]   = useState("");
   const [cardAmount,  setCardAmount]  = useState("");
@@ -224,17 +223,14 @@ export default function Pay() {
     ? allOperators.filter((op) => activeOps[country].deposit.includes(op))
     : allOperators;
   const flow = operator ? getOperatorFlow(operator) : null;
-  const cardSelectedCountry = COUNTRIES.find((c) => c.code === cardCountry);
-  // e-nkap card collection only supports these currencies
-  const CARD_CURRENCIES = ["XAF", "NGN", "USD", "EUR", "GBP", "CAD"];
-  const cardCountries = availableCountries.filter((c) => CARD_CURRENCIES.includes(c.currency));
+  const cardSelectedCountry = selectedCountry;
 
   const handleCardSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     const amt = linkData?.priceType === "FIXED" && linkData.priceAmount
       ? linkData.priceAmount
       : parseFloat(cardAmount);
-    if (!cardCountry || !amt || amt < 100) {
+    if (!country || !amt || amt < 100) {
       toast({ variant: "destructive", title: "Formulaire incomplet", description: "Sélectionnez un pays et un montant (minimum 100)." });
       return;
     }
@@ -245,7 +241,7 @@ export default function Pay() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           amount: amt,
-          country: cardCountry,
+          country,
           customerName: cardName || undefined,
           email: cardEmail || undefined,
         }),
@@ -278,7 +274,10 @@ export default function Pay() {
       .then((data: LinkData) => {
         setLinkData(data);
         if (data.priceAmount) setAmount(String(data.priceAmount));
-        if (data.countries.length === 1) setCountry(data.countries[0]);
+        const firstCountry = COUNTRIES.find(
+          (candidate) => !data.countries.length || data.countries.includes(candidate.code)
+        );
+        setCountry(firstCountry?.code ?? "");
       })
       .catch((e: Error) => setLinkError(e.message))
       .finally(() => setLinkLoading(false));
@@ -712,7 +711,7 @@ export default function Pay() {
             <form onSubmit={handleCardSubmit} className="space-y-5">
               <div className="space-y-1.5">
                 <Label>Pays</Label>
-                <CountryPicker countries={cardCountries} value={cardCountry} onChange={setCardCountry} />
+                <CountryPicker countries={availableCountries} value={country} onChange={setCountry} />
               </div>
 
               <div className="space-y-1.5">
@@ -727,7 +726,7 @@ export default function Pay() {
                   onChange={(e) => setCardEmail(e.target.value)} />
               </div>
 
-              {cardCountry && (
+              {country && (
                 <div className="space-y-1.5">
                   <Label>
                     {`Montant à payer${cardSelectedCountry ? ` (${cardSelectedCountry.currency})` : ""}`}
@@ -754,7 +753,7 @@ export default function Pay() {
 
               <Button type="submit"
                 className="w-full bg-violet-600 hover:bg-violet-500 text-white font-bold"
-                disabled={cardLoading || !cardCountry}>
+                disabled={cardLoading || !country}>
                 {cardLoading ? (
                   <><Loader2 className="w-4 h-4 animate-spin mr-2" />Redirection...</>
                 ) : "Payer par carte"}
@@ -870,6 +869,11 @@ export default function Pay() {
             <div className="space-y-4">
               {!cryptoResult ? (
                 <>
+                  <div className="space-y-1.5">
+                    <Label>Pays</Label>
+                    <CountryPicker countries={availableCountries} value={country} onChange={setCountry} />
+                  </div>
+
                   <div>
                     <Label className="block mb-1">Montant USDT à envoyer</Label>
                     <p className="text-xs text-muted-foreground mb-1.5">
