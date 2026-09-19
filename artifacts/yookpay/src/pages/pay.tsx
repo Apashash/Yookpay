@@ -178,6 +178,7 @@ export default function Pay() {
 
   // ── Mobile form ──
   const [country,    setCountry]    = useState("");
+  const [customerName, setCustomerName] = useState("");
   const [email,      setEmail]      = useState("");
   const [operator,   setOperator]   = useState("");
   const [phone,      setPhone]      = useState("");
@@ -192,7 +193,6 @@ export default function Pay() {
   const [failureReason, setFailureReason] = useState<string | null>(null);
 
   // ── Card form (Maviance e-nkap) ──
-  const [cardName,    setCardName]    = useState("");
   const [cardAmount,  setCardAmount]  = useState("");
   const [cardLoading, setCardLoading] = useState(false);
 
@@ -230,8 +230,8 @@ export default function Pay() {
     const amt = linkData?.priceType === "FIXED" && linkData.priceAmount
       ? linkData.priceAmount
       : parseFloat(cardAmount);
-    if (!country || !amt || amt < 100) {
-      toast({ variant: "destructive", title: "Formulaire incomplet", description: "Sélectionnez un pays et un montant (minimum 100)." });
+    if (!country || !customerName.trim() || !email.trim() || !amt || amt < 100) {
+      toast({ variant: "destructive", title: "Formulaire incomplet", description: "Le nom, l’e-mail, le pays et le montant sont obligatoires." });
       return;
     }
     setCardLoading(true);
@@ -242,8 +242,8 @@ export default function Pay() {
         body: JSON.stringify({
           amount: amt,
           country,
-          customerName: cardName || undefined,
-          email: email || undefined,
+          customerName: customerName.trim(),
+          email: email.trim(),
         }),
       });
       const data = await res.json();
@@ -352,7 +352,7 @@ export default function Pay() {
   // ── Submit mobile ──
   const handleMobileSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!country || !operator || !phone || !amount) {
+    if (!country || !customerName.trim() || !email.trim() || !operator || !phone || !amount) {
       toast({ variant: "destructive", title: "Tous les champs sont requis" });
       return;
     }
@@ -372,7 +372,8 @@ export default function Pay() {
           country,
           operator,
           phone:     normalizePhone(phone, country),
-          email:     email || undefined,
+          customerName: customerName.trim(),
+          email:     email.trim(),
           feeBearer: "RECIPIENT",
           omOtp:     otpToSend,
         }),
@@ -395,6 +396,10 @@ export default function Pay() {
   // ── Submit crypto ──
   const handleCryptoSubmit = async () => {
     const amt = parseFloat(cryptoAmount);
+    if (!customerName.trim() || !email.trim()) {
+      toast({ variant: "destructive", title: "Formulaire incomplet", description: "Le nom et l’e-mail sont obligatoires." });
+      return;
+    }
     if (!amt || amt < cryptoMinUsdt) {
       toast({ variant: "destructive", title: "Montant invalide", description: `Minimum ${cryptoMinUsdt} USDT` });
       return;
@@ -404,7 +409,11 @@ export default function Pay() {
       const r = await fetch(`/api/payment-links/public/${token}/pay-crypto`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ amountUsdt: amt, email: email || undefined }),
+        body: JSON.stringify({
+          amountUsdt: amt,
+          customerName: customerName.trim(),
+          email: email.trim(),
+        }),
       });
       const data = await r.json();
       if (!r.ok) {
@@ -716,15 +725,15 @@ export default function Pay() {
               </div>
 
               <div className="space-y-1.5">
-                <Label>Nom (optionnel)</Label>
-                <Input type="text" placeholder="Votre nom" value={cardName}
-                  onChange={(e) => setCardName(e.target.value)} maxLength={50} />
+                <Label>Nom</Label>
+                <Input type="text" placeholder="Votre nom" value={customerName}
+                  onChange={(e) => setCustomerName(e.target.value)} maxLength={50} required />
               </div>
 
               <div className="space-y-1.5">
-                <Label>Email (optionnel — pour le reçu)</Label>
+                <Label>Email</Label>
                 <Input type="email" placeholder="vous@exemple.com" value={email}
-                  onChange={(e) => setEmail(e.target.value)} />
+                  onChange={(e) => setEmail(e.target.value)} required />
               </div>
 
               {country && (
@@ -765,9 +774,15 @@ export default function Pay() {
               </div>
 
               <div className="space-y-1.5">
-                <Label>Email (optionnel — pour le reçu)</Label>
+                <Label>Nom</Label>
+                <Input type="text" placeholder="Votre nom" value={customerName}
+                  onChange={(e) => setCustomerName(e.target.value)} maxLength={50} required />
+              </div>
+
+              <div className="space-y-1.5">
+                <Label>Email</Label>
                 <Input type="email" placeholder="vous@exemple.com" value={email}
-                  onChange={(e) => setEmail(e.target.value)} />
+                  onChange={(e) => setEmail(e.target.value)} required />
               </div>
 
               {/* Operator */}
@@ -863,9 +878,15 @@ export default function Pay() {
                   </div>
 
                   <div className="space-y-1.5">
-                    <Label>Email (optionnel — pour le reçu)</Label>
+                    <Label>Nom</Label>
+                    <Input type="text" placeholder="Votre nom" value={customerName}
+                      onChange={(e) => setCustomerName(e.target.value)} maxLength={50} required />
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <Label>Email</Label>
                     <Input type="email" placeholder="vous@exemple.com" value={email}
-                      onChange={(e) => setEmail(e.target.value)} />
+                      onChange={(e) => setEmail(e.target.value)} required />
                   </div>
 
                   <div>
@@ -887,7 +908,8 @@ export default function Pay() {
                   </Alert>
 
                   <Button className="w-full bg-cyan-600 hover:bg-cyan-700 font-bold"
-                    onClick={handleCryptoSubmit} disabled={cryptoLoading}>
+                    onClick={handleCryptoSubmit}
+                    disabled={cryptoLoading || !customerName.trim() || !email.trim()}>
                     {cryptoLoading ? (
                       <><Loader2 className="w-4 h-4 animate-spin mr-2" />Génération en cours...</>
                     ) : "Générer une adresse de dépôt"}

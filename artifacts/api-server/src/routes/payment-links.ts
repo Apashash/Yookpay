@@ -352,7 +352,8 @@ router.post("/public/:token/pay", async (req, res) => {
     country:  z.string().min(2),
     operator: z.string().min(2),
     phone:    z.string().min(6),
-    email:    z.string().email().optional(),
+    customerName: z.string().trim().min(1).max(50),
+    email:    z.string().email(),
     feeBearer: z.enum(["SENDER", "RECIPIENT"]).default("RECIPIENT"),
     omOtp:    z.string().optional(),
   });
@@ -364,7 +365,7 @@ router.post("/public/:token/pay", async (req, res) => {
   }
 
   const { token } = req.params;
-  const { amount, country, operator, phone, email, feeBearer, omOtp } = parse.data;
+  const { amount, country, operator, phone, customerName, email, feeBearer, omOtp } = parse.data;
 
   // Load the payment link + merchant user
   const linkRes = await pgQuery<{
@@ -461,6 +462,7 @@ router.post("/public/:token/pay", async (req, res) => {
          paymentLinkId: link.id,
          paymentLinkToken: token,
          paymentLinkTitle: link.title,
+          customerName,
           customerEmail: email,
        })]
     );
@@ -595,8 +597,8 @@ router.post("/public/:token/pay-card", async (req, res) => {
   const schema = z.object({
     amount:       z.number().min(1),
     country:      z.string().min(2),
-    customerName: z.string().min(1).max(50).optional(),
-    email:        z.string().email().optional(),
+    customerName: z.string().trim().min(1).max(50),
+    email:        z.string().email(),
     phone:        z.string().optional(),
   });
   const parse = schema.safeParse(req.body);
@@ -902,7 +904,8 @@ router.get("/public/tx/:txId", async (req, res) => {
 router.post("/public/:token/pay-crypto", async (req, res) => {
   const schema = z.object({
     amountUsdt: z.number().min(1),
-    email: z.string().email().optional(),
+    customerName: z.string().trim().min(1).max(50),
+    email: z.string().email(),
   });
   const parse = schema.safeParse(req.body);
   if (!parse.success) {
@@ -910,7 +913,7 @@ router.post("/public/:token/pay-crypto", async (req, res) => {
     return;
   }
   const { token } = req.params;
-  const { amountUsdt, email } = parse.data;
+  const { amountUsdt, customerName, email } = parse.data;
 
   // Load the payment link
   const linkRes = await pgQuery<{ id: number; user_id: number; is_active: boolean | number }>(
@@ -945,6 +948,7 @@ router.post("/public/:token/pay-crypto", async (req, res) => {
           provider: "NOWPAYMENTS",
           paymentLinkId: link.id,
           paymentLinkToken: token,
+          customerName,
           customerEmail: email,
           initiatedAt: new Date().toISOString(),
         })]

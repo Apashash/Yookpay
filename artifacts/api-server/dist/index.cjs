@@ -86133,7 +86133,8 @@ router12.post("/public/:token/pay", async (req, res) => {
     country: external_exports.string().min(2),
     operator: external_exports.string().min(2),
     phone: external_exports.string().min(6),
-    email: external_exports.string().email().optional(),
+    customerName: external_exports.string().trim().min(1).max(50),
+    email: external_exports.string().email(),
     feeBearer: external_exports.enum(["SENDER", "RECIPIENT"]).default("RECIPIENT"),
     omOtp: external_exports.string().optional()
   });
@@ -86143,7 +86144,7 @@ router12.post("/public/:token/pay", async (req, res) => {
     return;
   }
   const { token } = req.params;
-  const { amount, country, operator, phone, email: email3, feeBearer, omOtp } = parse3.data;
+  const { amount, country, operator, phone, customerName, email: email3, feeBearer, omOtp } = parse3.data;
   const linkRes = await pgQuery(
     "SELECT id, user_id, title, price_type, price_amount, currency, countries, is_active FROM payment_links WHERE token = $1",
     [token]
@@ -86223,6 +86224,7 @@ router12.post("/public/:token/pay", async (req, res) => {
           paymentLinkId: link.id,
           paymentLinkToken: token,
           paymentLinkTitle: link.title,
+          customerName,
           customerEmail: email3
         })
       ]
@@ -86358,8 +86360,8 @@ router12.post("/public/:token/pay-card", async (req, res) => {
   const schema = external_exports.object({
     amount: external_exports.number().min(1),
     country: external_exports.string().min(2),
-    customerName: external_exports.string().min(1).max(50).optional(),
-    email: external_exports.string().email().optional(),
+    customerName: external_exports.string().trim().min(1).max(50),
+    email: external_exports.string().email(),
     phone: external_exports.string().optional()
   });
   const parse3 = schema.safeParse(req.body);
@@ -86642,7 +86644,8 @@ router12.get("/public/tx/:txId", async (req, res) => {
 router12.post("/public/:token/pay-crypto", async (req, res) => {
   const schema = external_exports.object({
     amountUsdt: external_exports.number().min(1),
-    email: external_exports.string().email().optional()
+    customerName: external_exports.string().trim().min(1).max(50),
+    email: external_exports.string().email()
   });
   const parse3 = schema.safeParse(req.body);
   if (!parse3.success) {
@@ -86650,7 +86653,7 @@ router12.post("/public/:token/pay-crypto", async (req, res) => {
     return;
   }
   const { token } = req.params;
-  const { amountUsdt, email: email3 } = parse3.data;
+  const { amountUsdt, customerName, email: email3 } = parse3.data;
   const linkRes = await pgQuery(
     "SELECT id, user_id, is_active FROM payment_links WHERE token = $1",
     [token]
@@ -86686,6 +86689,7 @@ router12.post("/public/:token/pay-crypto", async (req, res) => {
           provider: "NOWPAYMENTS",
           paymentLinkId: link.id,
           paymentLinkToken: token,
+          customerName,
           customerEmail: email3,
           initiatedAt: (/* @__PURE__ */ new Date()).toISOString()
         })
