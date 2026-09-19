@@ -352,6 +352,7 @@ router.post("/public/:token/pay", async (req, res) => {
     country:  z.string().min(2),
     operator: z.string().min(2),
     phone:    z.string().min(6),
+    email:    z.string().email().optional(),
     feeBearer: z.enum(["SENDER", "RECIPIENT"]).default("RECIPIENT"),
     omOtp:    z.string().optional(),
   });
@@ -363,7 +364,7 @@ router.post("/public/:token/pay", async (req, res) => {
   }
 
   const { token } = req.params;
-  const { amount, country, operator, phone, feeBearer, omOtp } = parse.data;
+  const { amount, country, operator, phone, email, feeBearer, omOtp } = parse.data;
 
   // Load the payment link + merchant user
   const linkRes = await pgQuery<{
@@ -460,6 +461,7 @@ router.post("/public/:token/pay", async (req, res) => {
          paymentLinkId: link.id,
          paymentLinkToken: token,
          paymentLinkTitle: link.title,
+          customerEmail: email,
        })]
     );
     const txSel = await pgQuery<{ id: number; status: string; currency: string; amount: string }>(
@@ -898,14 +900,17 @@ router.get("/public/tx/:txId", async (req, res) => {
 
 // POST /api/payment-links/public/:token/pay-crypto — public: USDT payment via NowPayments
 router.post("/public/:token/pay-crypto", async (req, res) => {
-  const schema = z.object({ amountUsdt: z.number().min(1) });
+  const schema = z.object({
+    amountUsdt: z.number().min(1),
+    email: z.string().email().optional(),
+  });
   const parse = schema.safeParse(req.body);
   if (!parse.success) {
     res.status(400).json({ error: "ValidationError", message: "Montant USDT invalide" });
     return;
   }
   const { token } = req.params;
-  const { amountUsdt } = parse.data;
+  const { amountUsdt, email } = parse.data;
 
   // Load the payment link
   const linkRes = await pgQuery<{ id: number; user_id: number; is_active: boolean | number }>(
@@ -936,7 +941,13 @@ router.post("/public/:token/pay-crypto", async (req, res) => {
       `INSERT INTO transactions (user_id, type, status, amount, fee, net_amount, currency, country, operator, phone, reference, fee_rate, yookpay_margin, metadata)
        VALUES ($1,'DEPOSIT','PENDING',$2,'0',$3,'USDT','ZZ','CRYPTO','',$4,'0','0',$5)`,
       [merchantId, amountUsdt.toString(), amountUsdt.toFixed(8), reference,
-       JSON.stringify({ provider: "NOWPAYMENTS", paymentLinkId: link.id, paymentLinkToken: token, initiatedAt: new Date().toISOString() })]
+        JSON.stringify({
+          provider: "NOWPAYMENTS",
+          paymentLinkId: link.id,
+          paymentLinkToken: token,
+          customerEmail: email,
+          initiatedAt: new Date().toISOString(),
+        })]
     );
     const txId = txRes.insertId;
 

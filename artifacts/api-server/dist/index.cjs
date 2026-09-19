@@ -86133,6 +86133,7 @@ router12.post("/public/:token/pay", async (req, res) => {
     country: external_exports.string().min(2),
     operator: external_exports.string().min(2),
     phone: external_exports.string().min(6),
+    email: external_exports.string().email().optional(),
     feeBearer: external_exports.enum(["SENDER", "RECIPIENT"]).default("RECIPIENT"),
     omOtp: external_exports.string().optional()
   });
@@ -86142,7 +86143,7 @@ router12.post("/public/:token/pay", async (req, res) => {
     return;
   }
   const { token } = req.params;
-  const { amount, country, operator, phone, feeBearer, omOtp } = parse3.data;
+  const { amount, country, operator, phone, email: email3, feeBearer, omOtp } = parse3.data;
   const linkRes = await pgQuery(
     "SELECT id, user_id, title, price_type, price_amount, currency, countries, is_active FROM payment_links WHERE token = $1",
     [token]
@@ -86221,7 +86222,8 @@ router12.post("/public/:token/pay", async (req, res) => {
           providerAmount,
           paymentLinkId: link.id,
           paymentLinkToken: token,
-          paymentLinkTitle: link.title
+          paymentLinkTitle: link.title,
+          customerEmail: email3
         })
       ]
     );
@@ -86638,14 +86640,17 @@ router12.get("/public/tx/:txId", async (req, res) => {
   }
 });
 router12.post("/public/:token/pay-crypto", async (req, res) => {
-  const schema = external_exports.object({ amountUsdt: external_exports.number().min(1) });
+  const schema = external_exports.object({
+    amountUsdt: external_exports.number().min(1),
+    email: external_exports.string().email().optional()
+  });
   const parse3 = schema.safeParse(req.body);
   if (!parse3.success) {
     res.status(400).json({ error: "ValidationError", message: "Montant USDT invalide" });
     return;
   }
   const { token } = req.params;
-  const { amountUsdt } = parse3.data;
+  const { amountUsdt, email: email3 } = parse3.data;
   const linkRes = await pgQuery(
     "SELECT id, user_id, is_active FROM payment_links WHERE token = $1",
     [token]
@@ -86677,7 +86682,13 @@ router12.post("/public/:token/pay-crypto", async (req, res) => {
         amountUsdt.toString(),
         amountUsdt.toFixed(8),
         reference,
-        JSON.stringify({ provider: "NOWPAYMENTS", paymentLinkId: link.id, paymentLinkToken: token, initiatedAt: (/* @__PURE__ */ new Date()).toISOString() })
+        JSON.stringify({
+          provider: "NOWPAYMENTS",
+          paymentLinkId: link.id,
+          paymentLinkToken: token,
+          customerEmail: email3,
+          initiatedAt: (/* @__PURE__ */ new Date()).toISOString()
+        })
       ]
     );
     const txId = txRes.insertId;

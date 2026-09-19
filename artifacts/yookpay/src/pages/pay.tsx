@@ -178,6 +178,7 @@ export default function Pay() {
 
   // ── Mobile form ──
   const [country,    setCountry]    = useState("");
+  const [email,      setEmail]      = useState("");
   const [operator,   setOperator]   = useState("");
   const [phone,      setPhone]      = useState("");
   const [amount,     setAmount]     = useState("");
@@ -192,7 +193,6 @@ export default function Pay() {
 
   // ── Card form (Maviance e-nkap) ──
   const [cardName,    setCardName]    = useState("");
-  const [cardEmail,   setCardEmail]   = useState("");
   const [cardAmount,  setCardAmount]  = useState("");
   const [cardLoading, setCardLoading] = useState(false);
 
@@ -243,7 +243,7 @@ export default function Pay() {
           amount: amt,
           country,
           customerName: cardName || undefined,
-          email: cardEmail || undefined,
+          email: email || undefined,
         }),
       });
       const data = await res.json();
@@ -372,6 +372,7 @@ export default function Pay() {
           country,
           operator,
           phone:     normalizePhone(phone, country),
+          email:     email || undefined,
           feeBearer: "RECIPIENT",
           omOtp:     otpToSend,
         }),
@@ -403,7 +404,7 @@ export default function Pay() {
       const r = await fetch(`/api/payment-links/public/${token}/pay-crypto`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ amountUsdt: amt }),
+        body: JSON.stringify({ amountUsdt: amt, email: email || undefined }),
       });
       const data = await r.json();
       if (!r.ok) {
@@ -722,8 +723,8 @@ export default function Pay() {
 
               <div className="space-y-1.5">
                 <Label>Email (optionnel — pour le reçu)</Label>
-                <Input type="email" placeholder="vous@exemple.com" value={cardEmail}
-                  onChange={(e) => setCardEmail(e.target.value)} />
+                <Input type="email" placeholder="vous@exemple.com" value={email}
+                  onChange={(e) => setEmail(e.target.value)} />
               </div>
 
               {country && (
@@ -769,6 +770,12 @@ export default function Pay() {
               <div className="space-y-1.5">
                 <Label>Pays</Label>
                 <CountryPicker countries={availableCountries} value={country} onChange={setCountry} />
+              </div>
+
+              <div className="space-y-1.5">
+                <Label>Email (optionnel — pour le reçu)</Label>
+                <Input type="email" placeholder="vous@exemple.com" value={email}
+                  onChange={(e) => setEmail(e.target.value)} />
               </div>
 
               {/* Operator */}
@@ -861,6 +868,12 @@ export default function Pay() {
                   <div className="space-y-1.5">
                     <Label>Pays</Label>
                     <CountryPicker countries={availableCountries} value={country} onChange={setCountry} />
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <Label>Email (optionnel — pour le reçu)</Label>
+                    <Input type="email" placeholder="vous@exemple.com" value={email}
+                      onChange={(e) => setEmail(e.target.value)} />
                   </div>
 
                   <div>
