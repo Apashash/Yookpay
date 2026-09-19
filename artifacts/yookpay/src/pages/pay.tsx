@@ -28,6 +28,7 @@ type LinkData = {
   priceAmount: number | null;
   currency: string | null;
   countries: string[];
+  merchantFirstName: string | null;
 };
 
 type PayMode = "mobile" | "card" | "crypto";
@@ -608,6 +609,11 @@ export default function Pay() {
         <div className="max-w-5xl mx-auto px-4 h-14 flex items-center gap-3">
           <Link2 className="w-4 h-4 text-cyan-400" />
           <YookPayLogo size="sm" />
+          {linkData.merchantFirstName && (
+            <span className="ml-auto max-w-[40%] truncate text-sm font-semibold text-foreground">
+              {linkData.merchantFirstName}
+            </span>
+          )}
         </div>
       </header>
 

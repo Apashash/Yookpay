@@ -321,8 +321,11 @@ router.get("/public/:token", async (req, res) => {
     pgQuery("UPDATE payment_links SET click_count = click_count + 1 WHERE token = $1", [token]).catch(() => {});
 
     const r = await pgQuery(
-      `SELECT id, token, title, description, photo_data, price_type, price_amount, currency, countries
-       FROM payment_links WHERE token = $1 AND is_active = true`,
+      `SELECT pl.id, pl.token, pl.title, pl.description, pl.photo_data, pl.price_type,
+              pl.price_amount, pl.currency, pl.countries, u.name AS merchant_name
+       FROM payment_links pl
+       INNER JOIN users u ON u.id = pl.user_id
+       WHERE pl.token = $1 AND pl.is_active = true`,
       [token]
     );
     if (!r.rows.length) {
@@ -339,6 +342,7 @@ router.get("/public/:token", async (req, res) => {
       priceAmount: row.price_amount ? parseFloat(row.price_amount) : null,
       currency: row.currency,
       countries: parseCountries(row.countries),
+      merchantFirstName: String(row.merchant_name ?? "").trim().split(/\s+/)[0] || null,
     });
   } catch (err) {
     res.status(500).json({ error: "InternalError", message: "Erreur serveur" });
